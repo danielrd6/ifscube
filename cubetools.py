@@ -32,6 +32,19 @@ haniisii_model = lambda x,v,a1,a2,a3,a4,a5,s : \
     + a4*exp(-(x-lc[3]*(1.+v/2.998e+5))**2/2./s**2) \
     + a5*exp(-(x-lc[4]*(1.+v/2.998e+5))**2/2./s**2)
 
+#def haniisii_model(x,v,a1,a2,a3,a4,a5,s):
+#    if s > 3:
+#       return 1e+9
+#    if any(array([a1, a2, a3, a4, a5]) < 0):
+#       return 1e+9
+#    else:
+#       return a1*exp(-(x-lc[0]*(1.+v/2.998e+5))**2/2./s**2) \
+#           + a2*exp(-(x-lc[1]*(1.+v/2.998e+5))**2/2./s**2) \
+#           + a3*exp(-(x-lc[2]*(1.+v/2.998e+5))**2/2./s**2) \
+#           + a4*exp(-(x-lc[3]*(1.+v/2.998e+5))**2/2./s**2) \
+#           + a5*exp(-(x-lc[4]*(1.+v/2.998e+5))**2/2./s**2)
+
+
 class gmosdc:
     """
     A class for dealing with data cubes, originally written to
@@ -98,26 +111,27 @@ class gmosdc:
             ])
     
     def continuum(self, niterate=3, degr=5, upper_threshold=1,
-        lower_threshold=1, writefits=False, outimage=None):
+        lower_threshold=1, writefits=False, outimage=None,
+        fitting_window=None):
         """
         Evaluates a polynomial continuum for the whole cube
         and stores it in self.continuum.
         """
-
-        c = zeros(shape(self.data))
 
         if self.binned:
             v = loadtxt(self.voronoi_tab)
             xy = v[unique(v[:,2],return_index=True)[1],:2]
         else:
             xy = self.spec_indices
-    
+
+
+        c = zeros(shape(data))
         for k,h in enumerate(xy):
             i,j = h
-            s = self.data[:,i,j]
+            s = data[:,i,j]
             if any(s[:20]):
                 try:
-                    cont = st.continuum(self.restwl, s, niterate=niterate,
+                    cont = st.continuum(wl, s, niterate=niterate,
                         degr=degr, upper_threshold=upper_threshold,
                         lower_threshold=lower_threshold, returns='function')[1]
                     if self.binned:
@@ -128,10 +142,10 @@ class gmosdc:
                 except TypeError:
                     print 'Could not find a solution for {:d},{:d}.'\
                         .format(i,j)
-                    return self.restwl, s
+                    return wl, s
 
             else:
-                c[:,i,j] = zeros(len(self.restwl))
+                c[:,i,j] = zeros(len(wl))
     
         self.cont = c
     
@@ -151,7 +165,7 @@ class gmosdc:
             hdr.append(('CONTLTR',lower_threshold,'Continuum lower threshold'))
             hdr.append(('CONTHTR',upper_threshold,'Continuum upper threshold'))
     
-            pf.writeto(outimage, data=array([c, self.data-c]), header=hdr)
+            pf.writeto(outimage, data=array([c, data-c]), header=hdr)
     
     def snr_eval(self,wl_range=[6050,6200]):
       """
@@ -276,9 +290,6 @@ class gmosdc:
         Lower and upper wavelength limits for the fitting algorithm.
       """
   
-      ### Wise up and use nditer!
-      ### Maybe another time...
-  
       h = zeros((4,shape(self.data)[1],shape(self.data)[2]))
       fw = (self.restwl > fitting_window[0])&(self.restwl > fitting_window[0])
       wl = self.restwl[fw] 
@@ -397,8 +408,10 @@ class gmosdc:
   
     def haniisiifit(self, function='gaussian',
             p0=[50, 1e-16, 1e-16, 1e-16, 1e-16, 1e-16, 2],
-            fit_window=[6400,7000], writefits=False, outimage=None,
-            trysmooth=False):
+            fitting_window=None, writefits=False, outimage=None,
+            trysmooth=False, c_niterate=3, c_degr=7,
+            c_upper_threshold=3, c_lower_threshold=5,
+            cf_sigma=None):
         """
         Fits the three emission lines centred in H alpha (6564 A) a given 
         function and returns a map of measured properties.
@@ -411,19 +424,20 @@ class gmosdc:
           Lower and upper wavelength limits for the fitting algorithm. The
           wavelength coordinates refer to the rest frame.
         """
-    
-        fw = (self.restwl > fit_window[0])&(self.restwl < fit_window[1])
-        wl = self.restwl[fw]
-      
-        try:
-            x = shape(self.cont)
-        except AttributeError:
-            print 'This function requires prior execution of the continuum'\
-                + ' method.'
-            return
-    
-        d = self.data - self.cont
+ 
+        if fitting_window != None:
+            fw = (self.restwl > fitting_window[0]) &\
+                 (self.restwl > fitting_window[0])
+            wl = deepcopy(self.restwl[fw])
+            data = deepcopy(self.data[fw,:,:])
+        else:
+            wl = deepcopy(self.restwl)
+            data = deepcopy(self.data)
+
         sol = zeros((7,shape(self.data)[1], shape(self.data)[2]))
+        self.fitcont = zeros(shape(data))
+        self.fitwl = wl
+        self.fitspec = zeros(shape(data))
 
         if self.binned:
             v = loadtxt(self.voronoi_tab)
@@ -435,15 +449,20 @@ class gmosdc:
     
         for k,h in enumerate(xy):
             i,j = h
-            s = d[fw,i,j]
-            s[s < 0] = 0.0        # temporary
-    
+            s = data[:,i,j]
+            cont = st.continuum(wl, s, niterate=c_niterate,
+                   degr=c_degr, upper_threshold=c_upper_threshold,
+                   lower_threshold=c_lower_threshold, returns='function')[1]
+            s = data[:,i,j] - cont
+
+            #s[s < 0] = 0
+
             if ~any(s[:20]):
                 sol[:,i,j] = zeros(7)
                 continue
     
             try:
-                p = curve_fit(haniisii_model, wl, s, p0=p0)[0]
+                p = curve_fit(haniisii_model, wl, s, p0=p0, sigma=cf_sigma)[0]
             except RuntimeError:
                 print 'Optimal parameters not found for spectrum {:d},{:d}'\
                     .format(int(i),int(j))
@@ -453,11 +472,16 @@ class gmosdc:
             if self.binned:
                 for l,m in v[v[:,2] == k,:2]:
                     sol[:,l,m] = p
+                    self.fitcont[:,l,m] = cont
+                    self.fitspec[:,l,m] = s
             else:
                 sol[:,i,j] = p
-   
+                self.fitcont[:,i,j] = cont
+                self.fitspec[:,i,j] = s  
+
         sol[-1] = abs(sol[-1])
         self.em_model = sol
+
     
         if writefits:
           if outimage == None:
