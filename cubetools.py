@@ -125,10 +125,15 @@ class gmosdc:
             xy = self.spec_indices
 
 
-        c = zeros(shape(data))
+        c = zeros(shape(self.data))
+        wl = self.restwl        
+        nspec = len(xy)
+
         for k,h in enumerate(xy):
+            if k%(nspec/100) == 0:
+                print '{:02d}%\r'.format(k/(nspec/100))
             i,j = h
-            s = data[:,i,j]
+            s = deepcopy(self.data[:,i,j])
             if any(s[:20]):
                 try:
                     cont = st.continuum(wl, s, niterate=niterate,
@@ -165,7 +170,7 @@ class gmosdc:
             hdr.append(('CONTLTR',lower_threshold,'Continuum lower threshold'))
             hdr.append(('CONTHTR',upper_threshold,'Continuum upper threshold'))
     
-            pf.writeto(outimage, data=array([c, data-c]), header=hdr)
+            pf.writeto(outimage, data=array([c, self.data-c]), header=hdr)
     
     def snr_eval(self,wl_range=[6050,6200]):
       """
@@ -278,40 +283,40 @@ class gmosdc:
       return outim
   
     def linefit(self,p0,function='gaussian',fitting_window=[6300,6700]):
-      """
-      Fits emission lines with a given function and returns a map
-      of measured properties.
+        """
+        Fits emission lines with a given function and returns a map
+        of measured properties.
   
-      Parameters:
-      -----------
-      function : string
-        The function to be fitted to the spectral features.
-      fittingwindow : iterable
-        Lower and upper wavelength limits for the fitting algorithm.
-      """
+        Parameters:
+        -----------
+        function : string
+          The function to be fitted to the spectral features.
+        fittingwindow : iterable
+          Lower and upper wavelength limits for the fitting algorithm.
+        """
   
-      h = zeros((4,shape(self.data)[1],shape(self.data)[2]))
-      fw = (self.restwl > fitting_window[0])&(self.restwl > fitting_window[0])
-      wl = self.restwl[fw] 
+        h = zeros((4,shape(self.data)[1],shape(self.data)[2]))
+        fw = (self.restwl > fitting_window[0])&(self.restwl > fitting_window[0])
+        wl = self.restwl[fw] 
     
-      d = self.data - self.cont
+        d = self.data - self.cont
   
-      for i,j in self.spec_indices:
-        s = d[fw,i,j]
-        if ~any(s[:20]):
-          h[:,i,j] = zeros(4)
-          continue
+        for i,j in self.spec_indices:
+          s = d[fw,i,j]
+          if ~any(s[:20]):
+            h[:,i,j] = zeros(4)
+            continue
   
-        try:
-          f,p = st.fitgauss(wl,s,p0,fitcenter=True,fitbg=True)
-        except RuntimeError:
-          print 'Optimal parameters not found for spectrum {:d},{:d}'\
-              .format(i,j)
-          p = zeros(4)
+          try:
+            f,p = st.fitgauss(wl,s,p0,fitcenter=True,fitbg=True)
+          except RuntimeError:
+            print 'Optimal parameters not found for spectrum {:d},{:d}'\
+                .format(i,j)
+            p = zeros(4)
   
-        h[:,i,j] = p
+          h[:,i,j] = p
   
-      return h
+        return h
     
     def plotspec(self,x,y):
       """
@@ -360,9 +365,11 @@ class gmosdc:
       sol = zeros((5,shape(self.data)[1], shape(self.data)[2]))
   
       lc = array([6549.85, 6564.61, 6585.28])
+      nspec = len(self.spec_indices)
   
       for i,j in self.spec_indices:
-  
+        if i%(nspec/100) == 0:
+          print '{:02d}%\r'.format(i/(nspec/100)) 
         s = d[fw,i,j]
  
         if ~any(s[:20]):
@@ -406,35 +413,71 @@ class gmosdc:
   
       return sol
   
-    def haniisiifit(self, function='gaussian',
-            p0=[50, 1e-16, 1e-16, 1e-16, 1e-16, 1e-16, 2],
+    def linefit(self, function='gaussian', p0=[6563.0, 1e-16, 1.5],
             fitting_window=None, writefits=False, outimage=None,
             trysmooth=False, c_niterate=3, c_degr=7,
             c_upper_threshold=3, c_lower_threshold=5,
             cf_sigma=None):
         """
-        Fits the three emission lines centred in H alpha (6564 A) a given 
-        function and returns a map of measured properties.
+        Fits a spectral feature with a gaussian function and returns a
+        map of measured properties.
     
         Parameters:
         -----------
         function : string
-          The function to be fitted to the spectral features.
-        fit_window : iterable
-          Lower and upper wavelength limits for the fitting algorithm. The
-          wavelength coordinates refer to the rest frame.
+            The function to be fitted to the spectral features.
+            Available options are:
+                'gaussian' : amplitude, central wavelength in angstroms,
+                    sigma in angstroms
+        p0 : iterable
+            Initial guess for the fitting funcion.
+        fitting_window : iterable
+            Lower and upper wavelength limits for the fitting
+            algorithm. The wavelength coordinates refer to the rest
+            frame.
+        writefits : boolean
+            Writes the results in a FITS file.
+        outimage : string
+            Name of the FITS file in which to write the results.
+        trysmooth : boolean
+            Attempts to smooth the spectrum if the first fit fails.
+        c_niterate : integer
+            Number of continuum rejection iterations.
+        c_degr : integer
+            Order of the polynomial for continuum fitting.
+        c_upper_threshold : integer
+            Upper threshold for continuum fitting rejection in units of
+            standard deviations.
+        c_lower_threshold : integer
+            Lower threshold for continuum fitting rejection in units of
+            standard deviations.
+        cf_sigma : 1D array
+            Weights to be used in the function fitting. See the
+            documentation for scipy.optimize.curve_fit for more
+            information.
+           
+        Returns
+        -------
+        sol : numpy.ndarray
+            A data cube with the solution for each spectrum occupying
+            the respective position in the image, and each position in
+            the first axis giving the different parameters of the fit.
         """
+
+        if function == 'gaussian':
+            fit_func = lambda x,a,b,c: a*exp(-(x-b)**2/2./c**2)
  
         if fitting_window != None:
             fw = (self.restwl > fitting_window[0]) &\
-                 (self.restwl > fitting_window[0])
+                 (self.restwl < fitting_window[1])
             wl = deepcopy(self.restwl[fw])
             data = deepcopy(self.data[fw,:,:])
         else:
             wl = deepcopy(self.restwl)
             data = deepcopy(self.data)
-
-        sol = zeros((7,shape(self.data)[1], shape(self.data)[2]))
+        npars = len(p0)
+        nan_solution = array([nan for i in range(npars)])
+        sol = zeros((npars,shape(self.data)[1], shape(self.data)[2]))
         self.fitcont = zeros(shape(data))
         self.fitwl = wl
         self.fitspec = zeros(shape(data))
@@ -445,8 +488,6 @@ class gmosdc:
         else:
             xy = self.spec_indices
 
-        lc = array([6549.85, 6564.61, 6585.28, 6718.29, 6732.67])
-    
         for k,h in enumerate(xy):
             i,j = h
             s = data[:,i,j]
@@ -454,21 +495,15 @@ class gmosdc:
                    degr=c_degr, upper_threshold=c_upper_threshold,
                    lower_threshold=c_lower_threshold, returns='function')[1]
             s = data[:,i,j] - cont
-
-            #s[s < 0] = 0
-
             if ~any(s[:20]):
-                sol[:,i,j] = zeros(7)
+                sol[:,i,j] = nan_solution
                 continue
-    
             try:
-                p = curve_fit(haniisii_model, wl, s, p0=p0, sigma=cf_sigma)[0]
+                p = curve_fit(fit_func, wl, s, p0=p0, sigma=cf_sigma)[0]
             except RuntimeError:
                 print 'Optimal parameters not found for spectrum {:d},{:d}'\
                     .format(int(i),int(j))
-
-                p = zeros(7)
-
+                p = nan_solution
             if self.binned:
                 for l,m in v[v[:,2] == k,:2]:
                     sol[:,l,m] = p
@@ -481,29 +516,21 @@ class gmosdc:
 
         sol[-1] = abs(sol[-1])
         self.em_model = sol
-
     
         if writefits:
-          if outimage == None:
-            outimage = self.fitsfile.replace('.fits','_haniisiifit.fits')
-    
-          hdr = deepcopy(self.header_data)
-    
-          try:
-            hdr['REDSHIFT'] = self.redshift
-          except KeyError:
-            hdr.append(('REDSHIFT',self.redshift,'Redshift used in GMOSDC'))
-    
-          hdr.append(('SLICE0','km/s','Radial velocity'))
-          hdr.append(('SLICE1','erg/cm2/s/A/arcsec2','[N II] {:.2f}'.format(lc[0])))
-          hdr.append(('SLICE2','erg/cm2/s/A/arcsec2','H alpha {:.2f}'.format(lc[1])))
-          hdr.append(('SLICE3','erg/cm2/s/A/arcsec2','[N II] {:.2f}'.format(lc[2])))
-          hdr.append(('SLICE4','erg/cm2/s/A/arcsec2','[S II] {:.2f}'.format(lc[3])))
-          hdr.append(('SLICE5','erg/cm2/s/A/arcsec2','[S II] {:.2f}'.format(lc[4])))
-          hdr.append(('SLICE6','Angstroms','Sigma'))
-    
-          pf.writeto(outimage,data=sol,header=self.header_data)
-    
+            if outimage == None:
+                outimage = self.fitsfile.replace('.fits',
+                    '_linefit.fits')
+            hdr = deepcopy(self.header_data)
+            try:
+                hdr['REDSHIFT'] = self.redshift
+            except KeyError:
+                hdr.append(('REDSHIFT', self.redshift, 
+                    'Redshift used in GMOSDC'))
+            hdr.append(('SLICE0','Angstroms','Central wavelength'))
+            hdr.append(('SLICE1','erg/cm2/s/A/arcsec2','Amplitude'))
+            hdr.append(('SLICE2','Angstroms','Sigma'))
+            pf.writeto(outimage,data=sol,header=self.header_data)
         return sol
   
     def specmodel(self,x,y,wllim=[6520,6620]):
