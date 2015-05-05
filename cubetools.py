@@ -270,14 +270,14 @@ class gmosdc:
         hdr = deepcopy(self.header)
   
         try:
-          hdr['REDSHIFT'] = self.redshift
+            hdr['REDSHIFT'] = self.redshift
         except KeyError:
-          hdr.append(('REDSHIFT',self.redshift,'Redshift used in GMOSDC'))
-  
-        hdr.append(('WLPROJ',True,'Processed by WLPROJECTION?'))
-        hdr.append(('WLPRTYPE',filtertype,'Type of filter used in projection.'))
-        hdr.append(('WLPRWL0',wl0,'Central wavelength of the filter.'))
-        hdr.append(('WLPRFWHM',fwhm,'FWHM of the projection filter.'))
+            hdr.append(('REDSHIFT', self.redshift, 'Redshift used in GMOSDC'))
+        hdr.append(('WLPROJ', True, 'Processed by WLPROJECTION?'))
+        hdr.append(('WLPRTYPE', filtertype,
+            'Type of filter used in projection.'))
+        hdr.append(('WLPRWL0', wl0, 'Central wavelength of the filter.'))
+        hdr.append(('WLPRFWHM', fwhm, 'FWHM of the projection filter.'))
   
         pf.writeto(outimage,data=outim,header=hdr)      
   
@@ -301,25 +301,28 @@ class gmosdc:
   
       plt.show()
   
-    def linefit(self, function='gaussian', p0=[6563.0, 1e-16, 1.5],
+    def linefit(self, p0=[6563.0, 1e-16, 1.5], function='gaussian',
             fitting_window=None, writefits=False, outimage=None,
             trysmooth=False, c_niterate=3, c_degr=7,
             c_upper_threshold=3, c_lower_threshold=5,
-            cf_sigma=None, feat_type='emission', lsq_xtol=None,
-            lsq_factor=None, lsq_diag=None, diag_tolerance=1e+3):
+            cf_sigma=None, inst_disp=1.0, lsq_xtol=1.49012e-08,
+            lsq_gtol=1.49012e-08, lsq_factor=100, lsq_diag=None):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties.
     
-        Parameters:
-        -----------
-        function : string
-            The function to be fitted to the spectral features.
-            Available options are:
-                'gaussian' : amplitude, central wavelength in angstroms,
-                    sigma in angstroms
+        Parameters
+        ----------
         p0 : iterable
             Initial guess for the fitting funcion.
+        function : string
+            The function to be fitted to the spectral features.
+            Available options and respective parameters are:
+                'gaussian' : amplitude, central wavelength in angstroms,
+                    sigma in angstroms
+                '2gaussian' : first amplitude, first central wavelength
+                    in angstroms, second amplitude, second central
+                    wavelength, sigma in angstroms
         fitting_window : iterable
             Lower and upper wavelength limits for the fitting
             algorithm. The wavelength coordinates refer to the rest
@@ -344,8 +347,16 @@ class gmosdc:
             Weights to be used in the function fitting. See the
             documentation for scipy.optimize.curve_fit for more
             information.
-        feat_type : string
-            'emssion' or 'absorption'
+        inst_disp : number
+            Instrumental dispersion in pixel units. This argument is
+            used to evaluate the reduced chi squared. If let to default
+            it is assumed that each wavelength coordinate is a degree
+            of freedom. The physically sound way to do it is to use the
+            number of dispersion elements in a spectrum as the degrees
+            of freedom.
+        The remaining keyword arguments, named lsq_*, are passed 
+        directly to the scipy.optimize.leastsq function. See its
+        docstring for more information on these parameters.
            
         Returns
         -------
@@ -353,6 +364,10 @@ class gmosdc:
             A data cube with the solution for each spectrum occupying
             the respective position in the image, and each position in
             the first axis giving the different parameters of the fit.
+
+        See also
+        --------
+        scipy.optimize.curve_fit, scipy.optimize.leastsq
         """
 
         if function == 'gaussian':
@@ -391,10 +406,7 @@ class gmosdc:
                    degr=c_degr, upper_threshold=c_upper_threshold,
                    lower_threshold=c_lower_threshold, returns='function')[1]
             s = data[:,i,j] - cont
-#            if feat_type == 'emission':
-#                s[s < 0] = 0.0
-#            if feat_type == 'absorption':
-#                s[s > 0] = 0.0
+            # Avoids fitting if the spectrum is null.
             if ~any(s[:20]):
                 sol[:,i,j] = nan_solution
                 continue
@@ -402,7 +414,8 @@ class gmosdc:
                 p, cov, infodict, mesg, ier = curve_fit(fit_func, wl, s, p0=p0,
                     sigma=cf_sigma, xtol=lsq_xtol, factor=lsq_factor,
                     diag=lsq_diag, full_output=True)
-                red_chi2 = sum((infodict['fvec']**2)/var(s))/(len(s))
+                # Reduced chi squared of the fit.
+                red_chi2 = sum((infodict['fvec']**2)/var(s))/(len(s)*inst_disp)
                 p = append(p,red_chi2)
                 if any(diag(cov) > diag_tolerance):
                     p = nan_solution
