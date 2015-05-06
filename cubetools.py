@@ -166,53 +166,54 @@ class gmosdc:
             pf.writeto(outimage, data=array([c, self.data-c]), header=hdr)
     
     def snr_eval(self,wl_range=[6050,6200]):
-      """
-      Measures the signal to noise ratio (SNR) for each spectrum in a data cube,
-      returning an image of the SNR.
+        """
+        Measures the signal to noise ratio (SNR) for each spectrum in a
+        data cube, returning an image of the SNR.
   
-      Parameters:
-      -----------
-      self : gmosdc instance
-        gmosdc object
-      wl_range : array like
-        An array like object containing two wavelength coordinates that
-        define the SNR window at the rest frame.
+        Parameters:
+        -----------
+        self : gmosdc instance
+          gmosdc object
+        wl_range : array like
+          An array like object containing two wavelength coordinates
+          that define the SNR window at the rest frame.
   
-      Returns:
-      --------
-      snr : numpy.ndarray
-        Image of the SNR for each spectrum.
+        Returns:
+        --------
+        snr : numpy.ndarray
+          Image of the SNR for each spectrum.
   
-      Description:
-      ------------
-        This method evaluates the SNR for each spectrum in a data cube by
-        measuring the residuals of a polynomial continuum fit. The function
-        CONTINUUM of the SPECTOOLS package is used to provide the continuum,
-        with zero rejection iterations and a 3 order polynomial.
-      """
+        Description:
+        ------------
+          This method evaluates the SNR for each spectrum in a data
+          cube by measuring the residuals of a polynomial continuum
+          fit. The function CONTINUUM of the SPECTOOLS package is used
+          to provide the continuum, with zero rejection iterations and
+          a 3 order polynomial.
+        """
   
-      noise = zeros(shape(self.data)[1:])
-      signal = zeros(shape(self.data)[1:])
+        noise = zeros(shape(self.data)[1:])
+        signal = zeros(shape(self.data)[1:])
+        snrwindow = (self.restwl >= wl_range[0]) & (self.restwl <= wl_range[1])
+        data = deepcopy(self.data)
+
+        wl = self.restwl[snrwindow]
+
+        for i,j in self.spec_indices:
+            if any(data[snrwindow,i,j]):
+                s = data[snrwindow,i,j]
+                cont = st.continuum(wl, s, niterate=0,
+                    degr=3, upper_threshold=3, lower_threshold=3,
+                    returns='function')[1]
+                noise[i,j] = std(s - cont)
+                signal[i,j] = average(cont)
+            else:
+                noise[i,j],signal[i,j] = nan, nan
+        
+        self.noise = noise
+        self.signal = signal
   
-      snrwindow = (self.restwl >= wl_range[0]) & (self.restwl <= wl_range[1])
-  
-      try:
-        d = self.data - self.cont
-      except AttributeError:
-        self.continuum()
-        d = self.data - self.cont
-  
-      for i,j in self.spec_indices:
-        if any(d[snrwindow,i,j]):
-          noise[i,j] = std(d[snrwindow,i,j])
-          signal[i,j] = average(self.cont[snrwindow,i,j])
-        else:
-          noise[i,j],signal[i,j] = nan,nan
-      
-      self.noise = noise
-      self.signal = signal
-  
-      return array([signal,noise])
+        return array([signal,noise])
   
     def wlprojection(self, wl0, fwhm=10, filtertype='box', writefits=False,
         outimage='wlprojection.fits'):
@@ -294,7 +295,7 @@ class gmosdc:
       plt.show()
   
     def linefit(self, p0=[1e-16, 6563, 1.5], function='gaussian',
-            fitting_window=None, writefits=False, outimage=None, snr=10,
+            fitting_window=None, writefits=False, outimage=None, variance=1,
             c_niterate=3, c_degr=7, c_upper_threshold=3,
             c_lower_threshold=5, cf_sigma=None, inst_disp=1.0, bounds=None):
         """
@@ -324,9 +325,14 @@ class gmosdc:
             Writes the results in a FITS file.
         outimage : string
             Name of the FITS file in which to write the results.
-        snr : float
-            Estimate of signal to noise ratio. This is only used to
-            evaluate the reduced chi squared of the fits.
+        variance : float, 1D, 2D or 3D array
+            The variance of the flux measurments. It can be given
+            in one of four format. If variance is a float it is applied
+            as a contant to the whole spectrum. If given as 1D array
+            it assumed to be a spectrum that will be applied to the
+            whole cube. As 2D array, each spaxel will be applied
+            equally to all wavelenths. Finally the 3D array must
+            represent the variance for each elemente of the data cube.
         c_niterate : integer
             Number of continuum rejection iterations.
         c_degr : integer
@@ -372,6 +378,7 @@ class gmosdc:
                 a1*exp(-(x-b1)**2/2./c1**2) + a2*exp(-(x-b2)**2/2./c2**2)\
                 + a3*exp(-(x-b3)**2/2./c3**2)
             self.fit_func = fit_func
+
         if fitting_window != None:
             fw = (self.restwl > fitting_window[0]) &\
                  (self.restwl < fitting_window[1])
@@ -380,6 +387,19 @@ class gmosdc:
         wl = deepcopy(self.restwl[fw])
         scale_factor = median(self.data[fw,:,:])
         data = deepcopy(self.data[fw,:,:])/scale_factor
+        variance /= scale_factor**2
+
+        vcube = ones(shape(data))
+        if len(shape(variance)) == 0:
+            vcube *= variance
+        elif len(shape(variance)) == 1:
+            for i,j in self.spec_indices:
+                vcube[:,i,j] = variance
+        elif len(shape(variance)) == 2:
+            for i,j in enumerate(vcube):
+                vcube[i] = variance
+        elif len(shape(variance)) == 3:
+            vcube = variance
 
         npars = len(p0)
         nan_solution = array([nan for i in range(npars+1)])
@@ -406,9 +426,10 @@ class gmosdc:
 
         nspec = len(xy)
         for k,h in enumerate(xy):
-            progress(k,nspec,10)
+            progress(k,nspec,100)
             i,j = h
             s = data[:,i,j]
+            v = vcube[:,i,j]
             cont = st.continuum(wl, s, niterate=c_niterate,
                    degr=c_degr, upper_threshold=c_upper_threshold,
                    lower_threshold=c_lower_threshold, returns='function')[1]
@@ -418,10 +439,10 @@ class gmosdc:
                 sol[:,i,j] = nan_solution
                 continue
             try:
-                res = lambda x : sum(abs(fit_func(self.fitwl,*x) - s))
+                res = lambda x : sum( (s-fit_func(self.fitwl,*x))**2/v )
                 r = minimize(res, x0=p0, method='SLSQP', bounds=bounds)
                 # Reduced chi squared of the fit.
-                chi2 = sum(((fit_func(self.fitwl,*r['x'])-s)/s/snr)**2)
+                chi2 = sum( (s-fit_func(self.fitwl,*r['x']))**2/v )
                 nu = len(s)/inst_disp - npars - 1
                 red_chi2 = chi2 / nu
                 p = append(r['x']*flux_sf,red_chi2)
@@ -462,7 +483,8 @@ class gmosdc:
         Evaluates the equivalent width of a previous linefit.
         """
         xy = self.spec_indices
-        eqw = zeros(shape(self.em_model)[1:])
+        eqw_model = zeros(shape(self.em_model)[1:])
+        eqw_direct = zeros(shape(self.em_model)[1:])
         fit_func = lambda x, a ,b, c: a*exp(-(x-b)**2/2./c**2)
 
         for i,j in xy:
@@ -473,9 +495,11 @@ class gmosdc:
             fit = fit_func(self.fitwl[cond],
                 *self.em_model[[amp_index, center_index, sigma_index], i, j])
             cont = self.fitcont[cond,i,j]
-            eqw[i,j] = trapz(1. - (fit+cont)/cont, x=self.fitwl[cond])
+            eqw_model[i,j] = trapz(1. - (fit+cont)/cont, x=self.fitwl[cond])
+            eqw_direct[i,j] = trapz(1. - self.data[cond,i,j]/cont,
+                x=self.restwl[cond])
 
-        return eqw
+        return array([eqw_model,eqw_direct])
 
     def plotfit(self, x, y):
         """
