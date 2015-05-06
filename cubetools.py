@@ -9,6 +9,7 @@ from scipy.integrate import trapz
 from copy import deepcopy
 from voronoi_2d_binning import voronoi_2d_binning
 from scipy.optimize import curve_fit
+from scipy.optimize import minimize
 from scipy.ndimage import gaussian_filter as gf
 from scipy.integrate import trapz
 
@@ -16,7 +17,7 @@ from scipy.integrate import trapz
 # Defining a few function that will be needed later
 
 linename = array(['[N II]', 'Ha', '[N II]', '[S II]', '[S II]'])
-lc = array([6549.85, 6564.61, 6585.28, 6718.29, 6732.67])
+lc = array([6548.04, 6562.80, 6583.46, 6716.44, 6730.82])
 #hanii_model = lambda x,z,a1,a2,a3,s : a1*exp(-(x-lc[0]*(1.+z))**2/2./s**2) \
 #                                    + a2*exp(-(x-lc[1]*(1.+z))**2/2./s**2) \
 #                                    + a3*exp(-(x-lc[2]*(1.+z))**2/2./s**2)
@@ -33,18 +34,9 @@ haniisii_model = lambda x,v,a1,a2,a3,a4,a5,s : \
     + a4*exp(-(x-lc[3]*(1.+v/2.998e+5))**2/2./s**2) \
     + a5*exp(-(x-lc[4]*(1.+v/2.998e+5))**2/2./s**2)
 
-#def haniisii_model(x,v,a1,a2,a3,a4,a5,s):
-#    if s > 3:
-#       return 1e+9
-#    if any(array([a1, a2, a3, a4, a5]) < 0):
-#       return 1e+9
-#    else:
-#       return a1*exp(-(x-lc[0]*(1.+v/2.998e+5))**2/2./s**2) \
-#           + a2*exp(-(x-lc[1]*(1.+v/2.998e+5))**2/2./s**2) \
-#           + a3*exp(-(x-lc[2]*(1.+v/2.998e+5))**2/2./s**2) \
-#           + a4*exp(-(x-lc[3]*(1.+v/2.998e+5))**2/2./s**2) \
-#           + a5*exp(-(x-lc[4]*(1.+v/2.998e+5))**2/2./s**2)
-
+def progress(x,xmax,steps=10):
+    if x%(xmax/steps) == 0:
+        print '{:2.0f}%\r'.format(float(x)/float(xmax)*100)
 
 class gmosdc:
     """
@@ -301,12 +293,10 @@ class gmosdc:
   
       plt.show()
   
-    def linefit(self, p0=[6563.0, 1e-16, 1.5], function='gaussian',
-            fitting_window=None, writefits=False, outimage=None,
-            trysmooth=False, c_niterate=3, c_degr=7,
-            c_upper_threshold=3, c_lower_threshold=5,
-            cf_sigma=None, inst_disp=1.0, lsq_xtol=1.49012e-08,
-            lsq_gtol=1.49012e-08, lsq_factor=100, lsq_diag=None):
+    def linefit(self, p0=[1e-16, 6563, 1.5], function='gaussian',
+            fitting_window=None, writefits=False, outimage=None, snr=10,
+            scale_factor=1, c_niterate=3, c_degr=7, c_upper_threshold=3,
+            c_lower_threshold=5, cf_sigma=None, inst_disp=1.0, bounds=None):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties.
@@ -314,15 +304,18 @@ class gmosdc:
         Parameters
         ----------
         p0 : iterable
-            Initial guess for the fitting funcion.
+            Initial guess for the fitting funcion. If scale_factor is
+            set to something different than 1, the initial guess must
+            be changed accordingly.
         function : string
             The function to be fitted to the spectral features.
             Available options and respective parameters are:
                 'gaussian' : amplitude, central wavelength in angstroms,
                     sigma in angstroms
-                '2gaussian' : first amplitude, first central wavelength
-                    in angstroms, second amplitude, second central
-                    wavelength, sigma in angstroms
+                '2gaussian' : the same as the above, only repeated two
+                    times
+                '3gaussian' : the same as the above, only repeated 
+                    three times
         fitting_window : iterable
             Lower and upper wavelength limits for the fitting
             algorithm. The wavelength coordinates refer to the rest
@@ -331,8 +324,14 @@ class gmosdc:
             Writes the results in a FITS file.
         outimage : string
             Name of the FITS file in which to write the results.
-        trysmooth : boolean
-            Attempts to smooth the spectrum if the first fit fails.
+        snr : float
+            Estimate of signal to noise ratio. This is only used to
+            evaluate the reduced chi squared of the fits.
+        scale_factor : float
+            A scale factor to be applied to the flux of the spectra.
+            If the flux values are too small the minimizing algorithm
+            has difficulties with the convergence criteria. Choose a
+            scale factor that approximates the flux to one.
         c_niterate : integer
             Number of continuum rejection iterations.
         c_degr : integer
@@ -343,10 +342,6 @@ class gmosdc:
         c_lower_threshold : integer
             Lower threshold for continuum fitting rejection in units of
             standard deviations.
-        cf_sigma : 1D array
-            Weights to be used in the function fitting. See the
-            documentation for scipy.optimize.curve_fit for more
-            information.
         inst_disp : number
             Instrumental dispersion in pixel units. This argument is
             used to evaluate the reduced chi squared. If let to default
@@ -354,9 +349,9 @@ class gmosdc:
             of freedom. The physically sound way to do it is to use the
             number of dispersion elements in a spectrum as the degrees
             of freedom.
-        The remaining keyword arguments, named lsq_*, are passed 
-        directly to the scipy.optimize.leastsq function. See its
-        docstring for more information on these parameters.
+        bounds : sequence
+            Bounds for the fitting algorithm, given as a sequence of
+            (xmin, xmax) pairs for each parameter.
            
         Returns
         -------
@@ -371,21 +366,26 @@ class gmosdc:
         """
 
         if function == 'gaussian':
-            fit_func = lambda x,a,b,c: a*exp(-(x-b)**2/2./c**2)
+            fit_func = lambda x, a ,b, c: a*exp(-(x-b)**2/2./c**2)
             self.fit_func = fit_func
         if function == '2gaussian':
-            fit_func = lambda x,a1,b1,a2,b2,c: a1*exp(-(x-b1)**2/2./c**2)\
-                + a2*exp(-(x-b2)**2/2./c**2)
+            fit_func = lambda x, a1, b1, c1, a2, b2, c2:\
+                a1*exp(-(x-b1)**2/2./c1**2) + a2*exp(-(x-b2)**2/2./c2**2)
             self.fit_func = fit_func
-
+        if function == '3gaussian':            
+            fit_func = lambda x, a1, b1, c1, a2, b2, c2, a3, b3, c3:\
+                a1*exp(-(x-b1)**2/2./c1**2) + a2*exp(-(x-b2)**2/2./c2**2)\
+                + a3*exp(-(x-b3)**2/2./c3**2)
+            self.fit_func = fit_func
+        
         if fitting_window != None:
             fw = (self.restwl > fitting_window[0]) &\
                  (self.restwl < fitting_window[1])
             wl = deepcopy(self.restwl[fw])
-            data = deepcopy(self.data[fw,:,:])
+            data = deepcopy(self.data[fw,:,:])*scale_factor
         else:
             wl = deepcopy(self.restwl)
-            data = deepcopy(self.data)
+            data = deepcopy(self.data)*scale_factor
         npars = len(p0)
         nan_solution = array([nan for i in range(npars+1)])
         sol = zeros((npars+1,shape(self.data)[1], shape(self.data)[2]))
@@ -398,8 +398,14 @@ class gmosdc:
             xy = v[unique(v[:,2],return_index=True)[1],:2]
         else:
             xy = self.spec_indices
-
+        
+        # Scale factor for the flux. Needed to avoid problems with
+        # the minimization algorithm.
+        flux_sf = ones(npars)
+        flux_sf[arange(0,npars,3)] *= scale_factor
+        nspec = len(xy)
         for k,h in enumerate(xy):
+            progress(k,nspec,10)
             i,j = h
             s = data[:,i,j]
             cont = st.continuum(wl, s, niterate=c_niterate,
@@ -411,14 +417,13 @@ class gmosdc:
                 sol[:,i,j] = nan_solution
                 continue
             try:
-                p, cov, infodict, mesg, ier = curve_fit(fit_func, wl, s, p0=p0,
-                    sigma=cf_sigma, xtol=lsq_xtol, factor=lsq_factor,
-                    diag=lsq_diag, full_output=True)
+                res = lambda x : sum(abs(fit_func(self.fitwl,*x) - s))
+                r = minimize(res, x0=p0, method='SLSQP', bounds=bounds)
                 # Reduced chi squared of the fit.
-                red_chi2 = sum((infodict['fvec']**2)/var(s))/(len(s)*inst_disp)
-                p = append(p,red_chi2)
-                if any(diag(cov) > diag_tolerance):
-                    p = nan_solution
+                chi2 = sum(((fit_func(self.fitwl,*r['x'])-s)/s/snr)**2)
+                nu = len(s)/inst_disp - npars - 1
+                red_chi2 = chi2 / nu
+                p = append(r['x']/flux_sf,red_chi2)
             except RuntimeError:
                 print 'Optimal parameters not found for spectrum {:d},{:d}'\
                     .format(int(i),int(j))
@@ -426,14 +431,13 @@ class gmosdc:
             if self.binned:
                 for l,m in v[v[:,2] == k,:2]:
                     sol[:,l,m] = p
-                    self.fitcont[:,l,m] = cont
-                    self.fitspec[:,l,m] = s
+                    self.fitcont[:,l,m] = cont/scale_factor
+                    self.fitspec[:,l,m] = s/scale_factor
             else:
                 sol[:,i,j] = p
-                self.fitcont[:,i,j] = cont
-                self.fitspec[:,i,j] = s  
+                self.fitcont[:,i,j] = cont/scale_factor
+                self.fitspec[:,i,j] = s/scale_factor
 
-        sol[-2] = abs(sol[-2])
         self.em_model = sol
     
         if writefits:
@@ -543,85 +547,78 @@ class gmosdc:
   
     def voronoi_binning(self, targetsnr=10.0, writefits=False,
                         outfile=None, clobber=True, writevortab=True):
-      """
-      Applies Voronoi binning to the data cube, using Cappellari's
-      Python implamentation.
-  
-      Parameters:
-      -----------
-      targetsnr : float
-        Desired signal to noise ratio of the binned pixels
-      writefits : boolean
-        Writes a FITS image with the output of the binning.
-      outfile : string
-        Name of the output FITS file. If 'None' then the name of
-        the original FITS file containing the data cube will be used
-        as a root name, with '.bin' appended to it.
-  
-      Returns:
-      --------
-      Nothing.
-      """
-  
-      try:
-        x = shape(self.noise)
-      except AttributeError:
-        print 'This function requires prior execution of the snr_eval method.'
-        return
-  
-      x, y = ravel(indices(shape(self.signal))[0]),ravel(indices(shape(self.signal))[1])
-  
-      s,n = deepcopy(self.signal),deepcopy(self.noise)
-  
-      s[isnan(s)] = average(self.signal[~isnan(self.signal)])
-      s[s <= 0] = average(self.signal[self.signal > 0])
-  
-      n[isnan(n)] = average(self.signal[~isnan(self.signal)])*.5
-      n[n <= 0] = average(self.signal[self.signal > 0])*.5
-  
-      signal, noise = ravel(s),ravel(n)
-  
-      binNum, xNode, yNode, xBar, yBar, sn, nPixels, scale = voronoi_2d_binning(
-          x, y, signal, noise, targetsnr, plot=1, quiet=0)
-      
-      v = column_stack([x,y,binNum])
-  
-      if writevortab:
-        savetxt('voronoi_binning.dat',v,fmt='%.2f\t%.2f\t%d')
-  
-      binned = zeros(shape(self.data))
-  
-      for i,j in enumerate(v):
-        selected = array(v[v[:,2] == v[i,2]][:,:2],dtype='int')
-        for l,k in enumerate(selected):
-          if l == 0:
-            spec = self.data[:,k[0],k[1]]
-          else:
-            spec = row_stack([spec,self.data[:,k[0],k[1]]])
-  
-        if len(shape(spec)) == 2:
-          binned[:,j[0],j[1]] = average(spec,0)
-        elif len(shape(spec)) == 1:
-          binned[:,j[0],j[1]] = spec
-        else:
-          print 'The end of time is upon us! shape(spec) = {:s}'.format(shape(spec))
-  
-      if writefits:
-        hdr = deepcopy(self.header_data)
-  
+        """
+        Applies Voronoi binning to the data cube, using Cappellari's
+        Python implamentation.
+    
+        Parameters:
+        -----------
+        targetsnr : float
+          Desired signal to noise ratio of the binned pixels
+        writefits : boolean
+          Writes a FITS image with the output of the binning.
+        outfile : string
+          Name of the output FITS file. If 'None' then the name of
+          the original FITS file containing the data cube will be used
+          as a root name, with '.bin' appended to it.
+    
+        Returns:
+        --------
+        Nothing.
+        """
+    
         try:
-          hdr['REDSHIFT'] = self.redshift
-        except KeyError:
-          hdr.append(('REDSHIFT',self.redshift,'Redshift used in GMOSDC'))
-  
-  
-        hdr.append(('VORBIN',True,'Processed by Voronoi binning?'))
-        hdr.append(('VORTSNR',targetsnr,'Target SNR for Voronoi binning.'))
-  
-        if outfile == None:
-          outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])
-  
-        pf.writeto(outfile,data=binned,header=hdr,clobber=clobber)
+            x = shape(self.noise)
+        except AttributeError:
+            print 'This function requires prior execution of the snr_eval'\
+                + 'method.'
+            return
+    
+        x = ravel(indices(shape(self.signal))[0])
+        y = ravel(indices(shape(self.signal))[1])
+        s, n = deepcopy(self.signal), deepcopy(self.noise)
+        s[isnan(s)] = average(self.signal[~isnan(self.signal)])
+        s[s <= 0] = average(self.signal[self.signal > 0])
+        n[isnan(n)] = average(self.signal[~isnan(self.signal)])*.5
+        n[n <= 0] = average(self.signal[self.signal > 0])*.5
+        signal, noise = ravel(s),ravel(n)
+    
+        binNum, xNode, yNode, xBar, yBar, sn, nPixels, scale = \
+            voronoi_2d_binning(x, y, signal, noise, targetsnr, plot=1, quiet=0)
+        v = column_stack([x,y,binNum])
+    
+        if writevortab:
+            savetxt('voronoi_binning.dat',v,fmt='%.2f\t%.2f\t%d')
+        
+        binned = zeros(shape(self.data))
+        for i,j in enumerate(v):
+            selected = array(v[v[:,2] == v[i,2]][:,:2], dtype='int')
+            for l,k in enumerate(selected):
+                if l == 0:
+                    spec = self.data[:,k[0],k[1]]
+                else:
+                    spec = row_stack([spec, self.data[:,k[0],k[1]]])
+      
+            if len(shape(spec)) == 2:
+                binned[:,j[0],j[1]] = average(spec,0)
+            elif len(shape(spec)) == 1:
+                binned[:,j[0],j[1]] = spec
+            else:
+                print 'ERROR! shape(spec) = {:s}, expecting 1 or 2'\
+                    .format(shape(spec))
+    
+        if writefits:
+            hdr = deepcopy(self.header_data)  
+            try:
+                hdr['REDSHIFT'] = self.redshift
+            except KeyError:
+                hdr.append(('REDSHIFT', self.redshift,
+                    'Redshift used in GMOSDC'))
+            hdr.append(('VORBIN',True,'Processed by Voronoi binning?'))
+            hdr.append(('VORTSNR',targetsnr,'Target SNR for Voronoi binning.'))
+            if outfile == None:
+                outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])  
+            pf.writeto(outfile,data=binned,header=hdr,clobber=clobber)
   
     def write_binnedspec(self, dopcor=False, writefits=False):
         """
