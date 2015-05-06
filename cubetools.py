@@ -295,7 +295,7 @@ class gmosdc:
   
     def linefit(self, p0=[1e-16, 6563, 1.5], function='gaussian',
             fitting_window=None, writefits=False, outimage=None, snr=10,
-            scale_factor=1, c_niterate=3, c_degr=7, c_upper_threshold=3,
+            c_niterate=3, c_degr=7, c_upper_threshold=3,
             c_lower_threshold=5, cf_sigma=None, inst_disp=1.0, bounds=None):
         """
         Fits a spectral feature with a gaussian function and returns a
@@ -327,11 +327,6 @@ class gmosdc:
         snr : float
             Estimate of signal to noise ratio. This is only used to
             evaluate the reduced chi squared of the fits.
-        scale_factor : float
-            A scale factor to be applied to the flux of the spectra.
-            If the flux values are too small the minimizing algorithm
-            has difficulties with the convergence criteria. Choose a
-            scale factor that approximates the flux to one.
         c_niterate : integer
             Number of continuum rejection iterations.
         c_degr : integer
@@ -377,15 +372,15 @@ class gmosdc:
                 a1*exp(-(x-b1)**2/2./c1**2) + a2*exp(-(x-b2)**2/2./c2**2)\
                 + a3*exp(-(x-b3)**2/2./c3**2)
             self.fit_func = fit_func
-        
         if fitting_window != None:
             fw = (self.restwl > fitting_window[0]) &\
                  (self.restwl < fitting_window[1])
-            wl = deepcopy(self.restwl[fw])
-            data = deepcopy(self.data[fw,:,:])*scale_factor
         else:
-            wl = deepcopy(self.restwl)
-            data = deepcopy(self.data)*scale_factor
+            fw = Ellipsis
+        wl = deepcopy(self.restwl[fw])
+        scale_factor = median(self.data[fw,:,:])
+        data = deepcopy(self.data[fw,:,:])/scale_factor
+
         npars = len(p0)
         nan_solution = array([nan for i in range(npars+1)])
         sol = zeros((npars+1,shape(self.data)[1], shape(self.data)[2]))
@@ -403,6 +398,12 @@ class gmosdc:
         # the minimization algorithm.
         flux_sf = ones(npars)
         flux_sf[arange(0,npars,3)] *= scale_factor
+        p0 /= flux_sf
+        if bounds != None:
+            bounds = array(bounds)
+            for i,j in enumerate(bounds):
+                j /= flux_sf[i]
+
         nspec = len(xy)
         for k,h in enumerate(xy):
             progress(k,nspec,10)
@@ -423,7 +424,7 @@ class gmosdc:
                 chi2 = sum(((fit_func(self.fitwl,*r['x'])-s)/s/snr)**2)
                 nu = len(s)/inst_disp - npars - 1
                 red_chi2 = chi2 / nu
-                p = append(r['x']/flux_sf,red_chi2)
+                p = append(r['x']*flux_sf,red_chi2)
             except RuntimeError:
                 print 'Optimal parameters not found for spectrum {:d},{:d}'\
                     .format(int(i),int(j))
@@ -431,12 +432,12 @@ class gmosdc:
             if self.binned:
                 for l,m in v[v[:,2] == k,:2]:
                     sol[:,l,m] = p
-                    self.fitcont[:,l,m] = cont/scale_factor
-                    self.fitspec[:,l,m] = s/scale_factor
+                    self.fitcont[:,l,m] = cont*scale_factor
+                    self.fitspec[:,l,m] = s*scale_factor
             else:
                 sol[:,i,j] = p
-                self.fitcont[:,i,j] = cont/scale_factor
-                self.fitspec[:,i,j] = s/scale_factor
+                self.fitcont[:,i,j] = cont*scale_factor
+                self.fitspec[:,i,j] = s*scale_factor
 
         self.em_model = sol
     
@@ -456,25 +457,26 @@ class gmosdc:
             pf.writeto(outimage,data=sol,header=self.header_data)
         return sol
 
-    def eqw(self, amp_index=1, sigma_index=2, sigma_limit=3):
+    def eqw(self, amp_index=0, center_index=1, sigma_index=2, sigma_limit=3):
         """
         Evaluates the equivalent width of a previous linefit.
         """
         xy = self.spec_indices
         eqw = zeros(shape(self.em_model)[1:])
-        
+        fit_func = lambda x, a ,b, c: a*exp(-(x-b)**2/2./c**2)
+
         for i,j in xy:
-            cond = (self.fitwl > self.em_model[amp_index,i,j]\
+            cond = (self.fitwl > self.em_model[center_index,i,j]\
                 - sigma_limit*self.em_model[sigma_index,i,j])\
-                & (self.fitwl < self.em_model[amp_index,i,j]\
+                & (self.fitwl < self.em_model[center_index,i,j]\
                 + sigma_limit*self.em_model[sigma_index,i,j])
-            fit = self.fit_func(self.fitwl[cond], *self.em_model[:-1,i,j])
+            fit = fit_func(self.fitwl[cond],
+                *self.em_model[[amp_index, center_index, sigma_index], i, j])
             cont = self.fitcont[cond,i,j]
             eqw[i,j] = trapz(1. - (fit+cont)/cont, x=self.fitwl[cond])
 
         return eqw
 
-        
     def plotfit(self, x, y):
         """
         Plots the spectrum and features just fitted.
