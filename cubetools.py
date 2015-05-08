@@ -35,8 +35,11 @@ haniisii_model = lambda x,v,a1,a2,a3,a4,a5,s : \
     + a5*exp(-(x-lc[4]*(1.+v/2.998e+5))**2/2./s**2)
 
 def progress(x,xmax,steps=10):
-    if x%(xmax/steps) == 0:
-        print '{:2.0f}%\r'.format(float(x)/float(xmax)*100)
+    try:
+        if x%(xmax/steps) == 0:
+            print '{:2.0f}%\r'.format(float(x)/float(xmax)*100)
+    except ZeroDivisionError:
+        pass
 
 class gmosdc:
     """
@@ -295,9 +298,10 @@ class gmosdc:
       plt.show()
   
     def linefit(self, p0=[1e-16, 6563, 1.5], function='gaussian',
-            fitting_window=None, writefits=False, outimage=None, variance=1,
-            c_niterate=3, c_degr=7, c_upper_threshold=3,
-            c_lower_threshold=5, cf_sigma=None, inst_disp=1.0, bounds=None):
+            fitting_window=None, writefits=False, outimage=None, variance=None,
+            constraints=(), bounds=None, c_niterate=3, c_degr=7,
+            c_upper_threshold=3, c_lower_threshold=5, cf_sigma=None,
+            inst_disp=1.0, individual_spec=False):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties.
@@ -327,12 +331,15 @@ class gmosdc:
             Name of the FITS file in which to write the results.
         variance : float, 1D, 2D or 3D array
             The variance of the flux measurments. It can be given
-            in one of four format. If variance is a float it is applied
-            as a contant to the whole spectrum. If given as 1D array
-            it assumed to be a spectrum that will be applied to the
-            whole cube. As 2D array, each spaxel will be applied
+            in one of four formats. If variance is a float it is
+            applied as a contant to the whole spectrum. If given as 1D
+            array it assumed to be a spectrum that will be applied to
+            the whole cube. As 2D array, each spaxel will be applied
             equally to all wavelenths. Finally the 3D array must
             represent the variance for each elemente of the data cube.
+            It defaults to None, in which case it does not affect the
+            minimization algorithm, and the returned Chi2 will be in
+            fact just the fit residuals.
         c_niterate : integer
             Number of continuum rejection iterations.
         c_degr : integer
@@ -387,7 +394,11 @@ class gmosdc:
         wl = deepcopy(self.restwl[fw])
         scale_factor = median(self.data[fw,:,:])
         data = deepcopy(self.data[fw,:,:])/scale_factor
-        variance /= scale_factor**2
+
+        if variance == None:
+           variance = 1.0
+        else:
+           variance /= scale_factor**2
 
         vcube = ones(shape(data))
         if len(shape(variance)) == 0:
@@ -424,6 +435,9 @@ class gmosdc:
             for i,j in enumerate(bounds):
                 j /= flux_sf[i]
 
+
+        if individual_spec:
+            xy = [individual_spec[::-1]]
         nspec = len(xy)
         for k,h in enumerate(xy):
             progress(k,nspec,100)
@@ -440,7 +454,8 @@ class gmosdc:
                 continue
             try:
                 res = lambda x : sum( (s-fit_func(self.fitwl,*x))**2/v )
-                r = minimize(res, x0=p0, method='SLSQP', bounds=bounds)
+                r = minimize(res, x0=p0, method='SLSQP', bounds=bounds,
+                    constraints=constraints)
                 # Reduced chi squared of the fit.
                 chi2 = sum( (s-fit_func(self.fitwl,*r['x']))**2/v )
                 nu = len(s)/inst_disp - npars - 1
@@ -476,7 +491,10 @@ class gmosdc:
             hdr.append(('SLICE1','erg/cm2/s/A/arcsec2','Amplitude'))
             hdr.append(('SLICE2','Angstroms','Sigma'))
             pf.writeto(outimage,data=sol,header=self.header_data)
-        return sol
+        if individual_spec:
+           return self.fitwl, s*scale_factor, fit_func(self.fitwl, *p[:-1])
+        else:
+           return sol
 
     def eqw(self, amp_index=0, center_index=1, sigma_index=2, sigma_limit=3):
         """
