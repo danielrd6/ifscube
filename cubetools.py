@@ -409,8 +409,8 @@ class gmosdc:
         self.fitspec = zeros(shape(data))
 
         if self.binned:
-            v = loadtxt(self.voronoi_tab)
-            xy = v[unique(v[:,2],return_index=True)[1],:2]
+            vor = loadtxt(self.voronoi_tab)
+            xy = vor[unique(vor[:,2],return_index=True)[1],:2]
         else:
             xy = self.spec_indices
         
@@ -451,7 +451,7 @@ class gmosdc:
                     .format(int(i),int(j))
                 p = nan_solution
             if self.binned:
-                for l,m in v[v[:,2] == k,:2]:
+                for l,m in vor[vor[:,2] == k,:2]:
                     sol[:,l,m] = p
                     self.fitcont[:,l,m] = cont*scale_factor
                     self.fitspec[:,l,m] = s*scale_factor
@@ -575,18 +575,22 @@ class gmosdc:
                         outfile=None, clobber=True, writevortab=True):
         """
         Applies Voronoi binning to the data cube, using Cappellari's
-        Python implamentation.
+        Python implementation.
     
         Parameters:
         -----------
         targetsnr : float
-          Desired signal to noise ratio of the binned pixels
+            Desired signal to noise ratio of the binned pixels
         writefits : boolean
-          Writes a FITS image with the output of the binning.
+            Writes a FITS image with the output of the binning.
         outfile : string
-          Name of the output FITS file. If 'None' then the name of
-          the original FITS file containing the data cube will be used
-          as a root name, with '.bin' appended to it.
+            Name of the output FITS file. If 'None' then the name of
+            the original FITS file containing the data cube will be used
+            as a root name, with '.bin' appended to it.
+        clobber : boolean
+            Overwrites files with the same name given in 'outfile'.
+        writevortab : boolean
+            Saves an ASCII table with the binning recipe.
     
         Returns:
         --------
