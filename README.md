@@ -3,6 +3,7 @@ A set of python scripts and functions to analyse and process integral field spec
 
 
  -- Voronoi binning method --
+
 Many of the functions in 'ifscube' have provisions for working with data
 binned via the Voronoi method. If you are not interested in binning your
 data cubes, than you can simply comment the import line that says:
