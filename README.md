@@ -13,8 +13,8 @@ from voronoi_2d_binning import voronoi_2d_binning
 ```
 
 After that everything should work in a pixel by pixel basis.
-However, if you want to process your data with Voronoi binnig you
-should download Michele Cappellari's python implamentation from the
+However, if you want to process your data with Voronoi binning you
+should download Michele Cappellari's python implementation from the
 following address:
 
 http://www-astro.physics.ox.ac.uk/~mxc/software/
