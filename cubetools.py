@@ -13,27 +13,6 @@ from scipy.optimize import minimize
 from scipy.ndimage import gaussian_filter as gf
 from scipy.integrate import trapz
 
-
-# Defining a few function that will be needed later
-
-linename = array(['[N II]', 'Ha', '[N II]', '[S II]', '[S II]'])
-lc = array([6548.04, 6562.80, 6583.46, 6716.44, 6730.82])
-#hanii_model = lambda x,z,a1,a2,a3,s : a1*exp(-(x-lc[0]*(1.+z))**2/2./s**2) \
-#                                    + a2*exp(-(x-lc[1]*(1.+z))**2/2./s**2) \
-#                                    + a3*exp(-(x-lc[2]*(1.+z))**2/2./s**2)
-
-hanii_model = lambda x,v,a1,a2,a3,s : \
-      a1*exp(-(x-lc[0]*(1.+v/2.998e+5))**2/2./s**2) \
-    + a2*exp(-(x-lc[1]*(1.+v/2.998e+5))**2/2./s**2) \
-    + a3*exp(-(x-lc[2]*(1.+v/2.998e+5))**2/2./s**2)
-
-haniisii_model = lambda x,v,a1,a2,a3,a4,a5,s : \
-    + a1*exp(-(x-lc[0]*(1.+v/2.998e+5))**2/2./s**2) \
-    + a2*exp(-(x-lc[1]*(1.+v/2.998e+5))**2/2./s**2) \
-    + a3*exp(-(x-lc[2]*(1.+v/2.998e+5))**2/2./s**2) \
-    + a4*exp(-(x-lc[3]*(1.+v/2.998e+5))**2/2./s**2) \
-    + a5*exp(-(x-lc[4]*(1.+v/2.998e+5))**2/2./s**2)
-
 def progress(x,xmax,steps=10):
     try:
         if x%(xmax/steps) == 0:
@@ -299,12 +278,15 @@ class gmosdc:
   
     def linefit(self, p0=[1e-16, 6563, 1.5], function='gaussian',
             fitting_window=None, writefits=False, outimage=None, variance=None,
-            constraints=(), bounds=None, c_niterate=3, c_degr=7,
-            c_upper_threshold=3, c_lower_threshold=5, cf_sigma=None,
-            inst_disp=1.0, individual_spec=False):
+            constraints=(), bounds=None, inst_disp=1.0, individual_spec=False,
+            min_method='SLSQP', opts=None, c_niterate=3, c_degr=7,
+            c_upper_threshold=3, c_lower_threshold=5):
         """
         Fits a spectral feature with a gaussian function and returns a
-        map of measured properties.
+        map of measured properties. This is a wrapper for the scipy
+        minimize function that basically iterates over the cube,
+        has a formula for the reduced chi squared, and applies
+        an internal scale factor to the flux.
     
         Parameters
         ----------
@@ -340,16 +322,6 @@ class gmosdc:
             It defaults to None, in which case it does not affect the
             minimization algorithm, and the returned Chi2 will be in
             fact just the fit residuals.
-        c_niterate : integer
-            Number of continuum rejection iterations.
-        c_degr : integer
-            Order of the polynomial for continuum fitting.
-        c_upper_threshold : integer
-            Upper threshold for continuum fitting rejection in units of
-            standard deviations.
-        c_lower_threshold : integer
-            Lower threshold for continuum fitting rejection in units of
-            standard deviations.
         inst_disp : number
             Instrumental dispersion in pixel units. This argument is
             used to evaluate the reduced chi squared. If let to default
@@ -360,6 +332,27 @@ class gmosdc:
         bounds : sequence
             Bounds for the fitting algorithm, given as a sequence of
             (xmin, xmax) pairs for each parameter.
+        constraints : dict or sequence of dicts
+            See scipy.optimize.minimize
+        min_method : string
+            Minimization method. See scipy.optimize.minimize.
+        opts : dict
+            Dictionary of options to be passed to the minimization
+            routine. See scipy.optimize.minimize.
+        individual_spec : False or x,y pair
+            Pixel coordinates for the spectrum you wish to fit
+            individually.
+        c_niterate : integer
+            Number of continuum rejection iterations.
+        c_degr : integer
+            Order of the polynomial for continuum fitting.
+        c_upper_threshold : integer
+            Upper threshold for continuum fitting rejection in units of
+            standard deviations.
+        c_lower_threshold : integer
+            Lower threshold for continuum fitting rejection in units of
+            standard deviations.
+
            
         Returns
         -------
@@ -435,18 +428,17 @@ class gmosdc:
             for i,j in enumerate(bounds):
                 j /= flux_sf[i]
 
-
         if individual_spec:
             xy = [individual_spec[::-1]]
         nspec = len(xy)
         for k,h in enumerate(xy):
-            progress(k,nspec,100)
+            progress(k,nspec,10)
             i,j = h
             s = data[:,i,j]
             v = vcube[:,i,j]
             cont = st.continuum(wl, s, niterate=c_niterate,
-                   degr=c_degr, upper_threshold=c_upper_threshold,
-                   lower_threshold=c_lower_threshold, returns='function')[1]
+                degr=c_degr, upper_threshold=c_upper_threshold,
+                lower_threshold=c_lower_threshold, returns='function')[1]
             s = data[:,i,j] - cont
             # Avoids fitting if the spectrum is null.
             if ~any(s[:20]):
@@ -454,13 +446,13 @@ class gmosdc:
                 continue
             try:
                 res = lambda x : sum( (s-fit_func(self.fitwl,*x))**2/v )
-                r = minimize(res, x0=p0, method='SLSQP', bounds=bounds,
-                    constraints=constraints)
+                r = minimize(res, x0=p0, method=min_method, bounds=bounds,
+                    constraints=constraints, options=opts)
                 # Reduced chi squared of the fit.
-                chi2 = sum( (s-fit_func(self.fitwl,*r['x']))**2/v )
+                chi2 = res( r['x'] ) 
                 nu = len(s)/inst_disp - npars - 1
                 red_chi2 = chi2 / nu
-                p = append(r['x']*flux_sf,red_chi2)
+                p = append(r['x']*flux_sf, red_chi2)
             except RuntimeError:
                 print 'Optimal parameters not found for spectrum {:d},{:d}'\
                     .format(int(i),int(j))
@@ -492,7 +484,7 @@ class gmosdc:
             hdr.append(('SLICE2','Angstroms','Sigma'))
             pf.writeto(outimage,data=sol,header=self.header_data)
         if individual_spec:
-           return self.fitwl, s*scale_factor, fit_func(self.fitwl, *p[:-1])
+           return column_stack([wl, s*scale_factor, fit_func(wl, *p[:-1])]), r
         else:
            return sol
 
