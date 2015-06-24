@@ -12,6 +12,7 @@ from scipy.optimize import curve_fit
 from scipy.optimize import minimize
 from scipy.ndimage import gaussian_filter as gf
 from scipy.integrate import trapz
+from scipy.interpolate import interp1d
 
 def progress(x,xmax,steps=10):
     try:
@@ -39,7 +40,6 @@ class gmosdc:
         redshift : float
             Value of redshift (z) of the source, if no Doppler correction has
             been applied to the spectra yet.
-    
     
         Returns:
         --------
@@ -99,19 +99,22 @@ class gmosdc:
         else:
             xy = self.spec_indices
 
-
-        c = zeros(shape(self.data))
         wl = self.restwl        
+        fw = fitting_window
+        fwidx = (wl > fw[0]) & (wl < fw[1])
+
+        c = zeros(shape(self.data[fwidx,:,:]))
+
         nspec = len(xy)
 
         for k,h in enumerate(xy):
-            if k%(nspec/100) == 0:
-                print '{:02d}%\r'.format(k/(nspec/100))
+#            if k%(nspec/100) == 0:
+#                print '{:02d}%\r'.format(k/(nspec/100))
             i,j = h
             s = deepcopy(self.data[:,i,j])
             if any(s[:20]):
                 try:
-                    cont = st.continuum(wl, s, niterate=niterate,
+                    cont = st.continuum(wl[fwidx], s[fwidx], niterate=niterate,
                         degr=degr, upper_threshold=upper_threshold,
                         lower_threshold=lower_threshold, returns='function')[1]
                     if self.binned:
@@ -123,7 +126,6 @@ class gmosdc:
                     print 'Could not find a solution for {:d},{:d}.'\
                         .format(i,j)
                     return wl, s
-
             else:
                 c[:,i,j] = zeros(len(wl))
     
@@ -146,6 +148,8 @@ class gmosdc:
             hdr.append(('CONTHTR',upper_threshold,'Continuum upper threshold'))
     
             pf.writeto(outimage, data=array([c, self.data-c]), header=hdr)
+
+        return c
     
     def snr_eval(self,wl_range=[6050,6200]):
         """
@@ -238,7 +242,7 @@ class gmosdc:
       outim = zeros(shape(self.data)[1:])
   
       for i,j in self.spec_indices:
-        outim[i,j] = trapz(self.data[:,i,j]*arrfilt,self.restwl)
+        outim[i,j] = trapz(self.data[:,i,j]*arrfilt, self.restwl)
   
       if writefits:
   
@@ -259,23 +263,31 @@ class gmosdc:
       return outim
     
     def plotspec(self,x,y):
-      """
-      Plots the spectrum at coordinates x,y.
-      """
-  
-      fig = plt.figure(1)
-      ax = plt.axes()
-  
-      try:
-        if len(x) == 2 and len(y) == 2:
-          s = average(average(self.data[:,y[0]:y[1],x[0]:x[1]],1),1)
-      except TypeError:
-          s = self.data[:,y,x]
-  
-      ax.plot(self.restwl,s)
-  
-      plt.show()
-  
+        """
+        Plots the spectrum at coordinates x,y.
+
+        Parameters
+        ----------
+        x,y : numbers or tuple
+            If x and y are numbers plots the spectrum at the specific
+            spaxel. If x and y are two element tuples plots the average
+            between x[0],y[0] and x[1],y[1]
+
+        Returns
+        -------
+        Nothing.
+        """
+    
+        fig = plt.figure(1)
+        ax = plt.axes()    
+        try:
+            if len(x) == 2 and len(y) == 2:
+                s = average(average(self.data[:,y[0]:y[1],x[0]:x[1]],1),1)
+        except TypeError:
+            s = self.data[:,y,x]    
+        ax.plot(self.restwl,s)    
+        plt.show()
+    
     def linefit(self, p0=[1e-16, 6563, 1.5], function='gaussian',
             fitting_window=None, writefits=False, outimage=None, variance=None,
             constraints=(), bounds=None, inst_disp=1.0, individual_spec=False,
@@ -352,7 +364,6 @@ class gmosdc:
         c_lower_threshold : integer
             Lower threshold for continuum fitting rejection in units of
             standard deviations.
-
            
         Returns
         -------
@@ -484,7 +495,8 @@ class gmosdc:
             hdr.append(('SLICE2','Angstroms','Sigma'))
             pf.writeto(outimage,data=sol,header=self.header_data)
         if individual_spec:
-           return column_stack([wl, s*scale_factor, fit_func(wl, *p[:-1])]), r
+            return column_stack([wl, s*scale_factor, cont*scale_factor,
+                fit_func(wl, *p[:-1])]), r
         else:
            return sol
 
@@ -580,6 +592,78 @@ class gmosdc:
                     .format(int(log10(sf))))
   
       plt.show()
+
+    def channelmaps(self, channels=6, lambda0=None, velmin=None, velmax=None,
+        continuum_width=300, continuum_opts=None, sigma=1e-16):
+        """
+        Creates velocity channel maps from a data cube.
+
+        Parameters
+        ----------
+            channels : integer
+                Number of channel maps to build
+            lambda0 : number
+                Central wavelength of the desired spectral feature
+            vmin : number
+                Mininum velocity in kilometers per second
+            vmax : number
+                Maximum velocity in kilometers per second
+            continuum_width : number
+                Width in wavelength for the continuum evaluation window
+            continuum_opts : dictionary
+                Dicitionary of options to be passed to the
+                spectools.continuum function
+        
+        Returns
+        -------
+        """
+        # Converting from velocities to wavelength
+        wlmin, wlmax = lambda0*(array([velmin, velmax])/2.99792e+5 + 1.)
+        wlstep = (wlmax - wlmin)/channels
+        wl_limits = arange(wlmin, wlmax + wlstep, wlstep)
+
+
+        side = int(ceil(sqrt(channels)))  # columns
+        otherside = int(ceil(channels/side))  # lines
+        fig = plt.figure()
+        plt.clf()
+
+        if continuum_opts == None:
+            continuum_opts = {'niterate' : 3, 'degr' : 5,
+                'upper_threshold' : 3, 'lower_threshold' : 3}
+        cp = continuum_opts
+        cw = continuum_width
+        fw = lambda0 + array([-cw/2., cw/2.])
+
+        cont = self.continuum(niterate=cp['niterate'],
+            degr=cp['degr'], upper_threshold=cp['upper_threshold'],
+            lower_threshold=cp['lower_threshold'],
+            fitting_window=fw)
+        contwl = self.wl[ (self.wl > fw[0]) & (self.wl < fw[1]) ]
+        cont_wl2pix = interp1d(contwl, arange(len(contwl)))
+
+        for i in arange(channels):
+            ax = fig.add_subplot(otherside, side, i+1)
+            wl = self.restwl
+            wl0, wl1 = wl_limits[i], wl_limits[i+1]
+            print wl[(wl > wl0) & (wl < wl1)]            
+            wlc, wlwidth = average([wl0, wl1]), (wl1-wl0)
+
+            f = self.wlprojection(wlc, fwhm=wlwidth, writefits=False,
+                filtertype='box') - cont[int(round(cont_wl2pix(wlc)))]
+            f[f < sigma] = nan
+            cp = continuum_opts
+
+            ax.imshow(f, interpolation='none', aspect=1)
+            ax.annotate('{:.0f}'.format((wlc - lambda0)/lambda0*2.99792e+5),
+                xy=(0.1, 0.8), xycoords='axes fraction', color='k')
+            if i%side != 0:
+                ax.set_yticklabels([])
+            if i/float( (otherside-1)*side ) < 1:
+                ax.set_xticklabels([])
+
+        fig.subplots_adjust(wspace=0, hspace=0)
+        plt.show()
   
     def voronoi_binning(self, targetsnr=10.0, writefits=False,
                         outfile=None, clobber=True, writevortab=True):
