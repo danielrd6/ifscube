@@ -23,130 +23,132 @@ from scipy.optimize import minimize
 import re
 
 def rmbg(x,y,samp,order=1):
-  """
-  Removes a background function from one dimensional data.
-
-  Parameters:
-  -----------
-  x : numpy.array
-  y : numpy.array
-  samp : iterable
-    A list of the background sampling limits
-  order : integer
-    Polyfit order
-
-  Returns:
-  xnew : numpy.array
-  ynew : numpy.array
-  """
-  xs = array([])
-  ys = array([])
-
-  for i in range(0,len(samp),2):
-    xs = append(xs,x[(x >= samp[i]) & (x < samp[i+1])])
-    ys = append(ys,y[(x >= samp[i]) & (x < samp[i+1])])
-
-  p = polyfit(xs,ys,deg=order)
-
-  ynew = y-polyval(p,x)
-
-  return x,ynew
-
-def fitgauss(x,y,p0=None,fitcenter=True,fitbg=True):
-  """
-  Returns a gaussian function that fits
-  the data. This function requires a background
-  subtraction, meaning that the data should
-  fall to zero within the fitting limits.
-          
-                (  -(mu-x)^2  )
-  f(x) = m * exp| ----------- | + bg
-                (  2*sigma^2  )
+    """
+    Removes a background function from one dimensional data.
   
-  Parameters:
-  -----------
-  p0 : iterable
-    Initial guesses for m,mu,sigma and bg respectively
-    m = maximum value
-    mu = center
-    sigma = FWHM/(2*sqrt(2*log(2)))
-    bg = background level
-  fitcenter : boolean
-    Chooses whether to fit center or accept
-    the value given by p0[1].
-  fitbg : boolean
-    Chooses wether to fit a horizontal background level
-    or accept the value given in p0[3].
-
-  Returns:
-  --------
-  ans : tuple
-    ans[0] = Lambda function with the fitted parameters
-    ans[1] = Fit parameters
-   
-  """
-
-  if p0 == None:
-    p0 = zeros(4)
-    p0[0] = y.max()
-    p0[1] = where(y == y.max())[0][0]
-    p0[2] = 3
-    p0[3] = 1
-
-  p0 = array(p0)
-  p = deepcopy(p0)
-  gauss = lambda t,m,mu,sigma,bg : m*exp(-(t-mu)**2/(2*sigma**2))+bg
-
-  fitpars = array([True, fitcenter, True, fitbg])
-
-  if not fitcenter and fitbg:
-    p[fitpars] = curve_fit(lambda a,b,c,d : gauss(a,b,p0[1],c,d), x,y,p0[fitpars])[0]
-  elif fitcenter and not fitbg:
-    p[fitpars] = curve_fit(lambda a,b,c,d : gauss(a,b,c,d,p0[3]), x,y, p0[fitpars])[0]
-  elif not fitcenter and not fitbg:
-    p[fitpars] = curve_fit(lambda a,b,c : gauss(a,b,p0[1],c,p0[3]), x,y, p0[fitpars])[0]
-  else:
-    p = curve_fit(gauss,x,y,p0)[0]
-
-  fit = lambda t: p[0]*exp(-(t-p[1])**2/(2*p[2]**2))+p[3]
+    Parameters
+    ----------
+    x : numpy.array
+    y : numpy.array
+    samp : iterable
+      A list of the background sampling limits
+    order : integer
+      Polyfit order
   
-  p[2] = abs(p[2])
-  return fit,p
-
-def fwhm(x,y,bg=[0,100,150,240]):
-  """
-  Evaluates the full width half maximum of y
-  in units of x.
-
-  Parameters:
-  -----------
-  x : numpy.array
-  y : numpy.array
-  bg : list
-    Background sampling limits
-
-  Returns:
-  --------
-  fwhm : number
-    Full width half maximum
-  """
+    Returns
+    -------
+    xnew : numpy.array
+    ynew : numpy.array
+    """
+    xs = array([])
+    ys = array([])
   
-#  xnew = copy(x)
-#  ynew = copy(y)
-
-#  xc = x[(x>bg[0])&(x<bg[1]) | (x>bg[2])&(x<bg[3])]
-#  yc = y[(x>bg[0])&(x<bg[1]) | (x>bg[2])&(x<bg[3])]
-
-#  bgfit = polyfit(xc,yc,1)
-
-#  ynew = ynew-polyval(bgfit,xnew)
-
-  xnew,ynew = rmbg(x,y,bg)
-
-  f = UnivariateSpline(xnew,ynew/max(ynew)-.5,s=0)
-  fwhm = f.roots()[1]-f.roots()[0]
-
-  return fwhm
+    for i in range(0,len(samp),2):
+        xs = append(xs,x[(x >= samp[i]) & (x < samp[i+1])])
+        ys = append(ys,y[(x >= samp[i]) & (x < samp[i+1])])
+  
+    p = polyfit(xs,ys,deg=order)
+  
+    ynew = y-polyval(p,x)
+  
+    return x,ynew
+  
+def fitgauss(x, y, p0=None, fitcenter=True, fitbg=True):
+    """
+    Returns a gaussian function that fits the data. This function
+    requires a background subtraction, meaning that the data should
+    fall to zero within the fitting limits.
+            
+                  (  -(mu-x)^2  )
+    f(x) = m * exp| ----------- | + bg
+                  (  2*sigma^2  )
+    
+    Parameters
+    ----------
+    p0 : iterable
+        Initial guesses for m,mu,sigma and bg respectively
+        m = maximum value
+        mu = center
+        sigma = FWHM/(2*sqrt(2*log(2)))
+        bg = background level
+    fitcenter : boolean
+        Chooses whether to fit center or accept the value given
+        in p0[1].
+    fitbg : boolean
+        Chooses wether to fit a horizontal background level or accept
+        the value given in p0[3].
+  
+    Returns
+    -------
+    ans : tuple
+        ans[0] = Lambda function with the fitted parameters
+        ans[1] = Fit parameters
+     
+    """
+  
+    if p0 == None:
+      p0 = zeros(4)
+      p0[0] = y.max()
+      p0[1] = where(y == y.max())[0][0]
+      p0[2] = 3
+      p0[3] = 1
+  
+    p0 = array(p0)
+    p = deepcopy(p0)
+    gauss = lambda t,m,mu,sigma,bg : m*exp(-(t-mu)**2/(2*sigma**2))+bg
+  
+    fitpars = array([True, fitcenter, True, fitbg])
+  
+    if not fitcenter and fitbg:
+        p[fitpars] = curve_fit(lambda a, b, c, d :\
+            gauss(a,b,p0[1],c,d), x,y,p0[fitpars])[0]
+    elif fitcenter and not fitbg:
+        p[fitpars] = curve_fit(lambda a, b, c, d :\
+            gauss(a,b,c,d,p0[3]), x,y, p0[fitpars])[0]
+    elif not fitcenter and not fitbg:
+        p[fitpars] = curve_fit(lambda a, b, c :\
+            gauss(a,b,p0[1],c,p0[3]), x,y, p0[fitpars])[0]
+    else:
+        p = curve_fit(gauss,x,y,p0)[0]
+  
+    fit = lambda t: p[0]*exp(-(t-p[1])**2/(2*p[2]**2))+p[3]
+    
+    p[2] = abs(p[2])
+    return fit,p
+  
+def fwhm(x, y, bg=[0, 100, 150, 240]):
+    """
+    Evaluates the full width half maximum of y in units of x.
+  
+    Parameters
+    ----------
+    x : numpy.array
+    y : numpy.array
+    bg : list
+      Background sampling limits
+  
+    Returns
+    -------
+    fwhm : number
+      Full width half maximum
+    """
+    
+  #  xnew = copy(x)
+  #  ynew = copy(y)
+  
+  #  xc = x[(x>bg[0])&(x<bg[1]) | (x>bg[2])&(x<bg[3])]
+  #  yc = y[(x>bg[0])&(x<bg[1]) | (x>bg[2])&(x<bg[3])]
+  
+  #  bgfit = polyfit(xc,yc,1)
+  
+  #  ynew = ynew-polyval(bgfit,xnew)
+  
+    xnew,ynew = rmbg(x, y, bg)
+  
+    f = UnivariateSpline(xnew, ynew/max(ynew)-.5, s=0)
+    fwhm = f.roots()[1]-f.roots()[0]
+  
+    return fwhm
 
 def blackbody(x,T,coordinate='wavelength'):
   """
