@@ -21,25 +21,37 @@ def progress(x,xmax,steps=10):
     except ZeroDivisionError:
         pass
 
+def ngauss(x, n, coeffs):
+    g = 0
+    if len(coeffs) != 3*n:
+        raise ValueError('coeffs must have length equal to 3n')
+    for i in arange(0, 3*n, 3):     
+        g += coeffs[i]*exp(-(x-coeffs[i+1])**2/2./coeffs[i+2]**2)
+    return g
+
 class gmosdc:
     """
-    A class for dealing with data cubes, originally written to
-    work with GMOS IFU.
+    A class for dealing with data cubes, originally written to work
+    with GMOS IFU.
     """
   
     def __init__(self, fitsfile, redshift=None, vortab=None):
         """
-        Initializes the class and loads basic information onto the object.
+        Initializes the class and loads basic information onto the
+        object.
     
         Parameters:
         -----------
         fitstile : string
-            Name of the FITS file containing the GMOS datacube. This should
-            be the standard output from the GFCUBE task of the GEMINI-GMOS
-            IRAF package.
+            Name of the FITS file containing the GMOS datacube. This
+            should be the standard output from the GFCUBE task of the
+            GEMINI-GMOS IRAF package.
         redshift : float
-            Value of redshift (z) of the source, if no Doppler correction has
+            Value of redshift (z) of the source, if no Doppler
+            correction has
             been applied to the spectra yet.
+        vortab : string
+            Name of the file containing the Voronoi binning table
     
         Returns:
         --------
@@ -89,8 +101,8 @@ class gmosdc:
         lower_threshold=1, writefits=False, outimage=None,
         fitting_window=None):
         """
-        Evaluates a polynomial continuum for the whole cube
-        and stores it in self.continuum.
+        Evaluates a polynomial continuum for the whole cube and stores
+        it in self.continuum.
         """
 
         if self.binned:
@@ -159,23 +171,23 @@ class gmosdc:
         Parameters:
         -----------
         self : gmosdc instance
-          gmosdc object
+            gmosdc object
         wl_range : array like
-          An array like object containing two wavelength coordinates
-          that define the SNR window at the rest frame.
+            An array like object containing two wavelength coordinates
+            that define the SNR window at the rest frame.
   
         Returns:
         --------
         snr : numpy.ndarray
-          Image of the SNR for each spectrum.
+            Image of the SNR for each spectrum.
   
         Description:
         ------------
-          This method evaluates the SNR for each spectrum in a data
-          cube by measuring the residuals of a polynomial continuum
-          fit. The function CONTINUUM of the SPECTOOLS package is used
-          to provide the continuum, with zero rejection iterations and
-          a 3 order polynomial.
+            This method evaluates the SNR for each spectrum in a data
+            cube by measuring the residuals of a polynomial continuum
+            fit. The function CONTINUUM of the SPECTOOLS package is used
+            to provide the continuum, with zero rejection iterations
+            and a 3 order polynomial.
         """
   
         noise = zeros(shape(self.data)[1:])
@@ -191,8 +203,8 @@ class gmosdc:
                 cont = st.continuum(wl, s, niterate=0,
                     degr=3, upper_threshold=3, lower_threshold=3,
                     returns='function')[1]
-                noise[i,j] = std(s - cont)
-                signal[i,j] = average(cont)
+                noise[i,j] = nanstd(s - cont)
+                signal[i,j] = nanmean(cont)
             else:
                 noise[i,j],signal[i,j] = nan, nan
         
@@ -203,65 +215,65 @@ class gmosdc:
   
     def wlprojection(self, wl0, fwhm=10, filtertype='box', writefits=False,
         outimage='wlprojection.fits'):
-      """
-      Writes a projection of the data cube along the wavelength coordinate,
-      with the flux given by a given type of filter.
-  
-      Parameters:
-      -----------
-      wl0 : float
-        Central wavelength at the rest frame.
-      fwhm : float
-        Full width at half maximum. See 'filtertype'.
-      filtertype : string
-        Type of function to be multiplied by the spectrum to return the
-        argument for the integral.
-        'box'      = Box function that is zero everywhere and 1 between
-                     wl0-fwhm/2 and wl0+fwhm/2.
-        'gaussian' = Normalized gaussian function with center at wl0 and
-                     sigma = fwhm/(2*sqrt(2*log(2)))
-      outimage : string
-        Name of the output image
-  
-      Returns:
-      --------
-      Nothing.
-      """
+        """
+        Writes a projection of the data cube along the wavelength
+        coordinate, with the flux given by a given type of filter.
+   
+        Parameters:
+        -----------
+        wl0 : float
+            Central wavelength at the rest frame.
+        fwhm : float
+            Full width at half maximum. See 'filtertype'.
+        filtertype : string
+            Type of function to be multiplied by the spectrum to return
+            the argument for the integral.
+            'box'      = Box function that is zero everywhere and 1
+                         between wl0-fwhm/2 and wl0+fwhm/2.
+            'gaussian' = Normalized gaussian function with center at
+                         wl0 and sigma = fwhm/(2*sqrt(2*log(2)))
+        outimage : string
+            Name of the output image
+   
+        Returns:
+        --------
+        Nothing.
+        """
+        
+        if filtertype == 'box':
+           arrfilt = array( (self.restwl >= wl0-fwhm/2.) & 
+                            (self.restwl <= wl0+fwhm/2.), dtype='float')
+           arrfilt /= trapz(arrfilt,self.restwl)
+        elif filtertype == 'gaussian':
+           s = fwhm/(2.*sqrt(2.*log(2.)))
+           arrfilt = 1./sqrt(2*pi)*exp(-(self.restwl-wl0)**2/2./s**2)
+        else:
+          print 'ERROR! Parameter filtertype "{:s}" not understood.'\
+              .format(filtertype)
+   
+        outim = zeros(shape(self.data)[1:])
+   
+        for i,j in self.spec_indices:
+          outim[i,j] = trapz(self.data[:,i,j]*arrfilt, self.restwl)
+   
+        if writefits:
+   
+          hdr = deepcopy(self.header)
+   
+          try:
+              hdr['REDSHIFT'] = self.redshift
+          except KeyError:
+              hdr.append(('REDSHIFT', self.redshift, 'Redshift used in GMOSDC'))
+          hdr.append(('WLPROJ', True, 'Processed by WLPROJECTION?'))
+          hdr.append(('WLPRTYPE', filtertype,
+              'Type of filter used in projection.'))
+          hdr.append(('WLPRWL0', wl0, 'Central wavelength of the filter.'))
+          hdr.append(('WLPRFWHM', fwhm, 'FWHM of the projection filter.'))
+   
+          pf.writeto(outimage,data=outim,header=hdr)      
+   
+        return outim
       
-      if filtertype == 'box':
-         arrfilt = array( (self.restwl >= wl0-fwhm/2.) & 
-                          (self.restwl <= wl0+fwhm/2.), dtype='float')
-         arrfilt /= trapz(arrfilt,self.restwl)
-      elif filtertype == 'gaussian':
-         s = fwhm/(2.*sqrt(2.*log(2.)))
-         arrfilt = 1./sqrt(2*pi)*exp(-(self.restwl-wl0)**2/2./s**2)
-      else:
-        print 'ERROR! Parameter filtertype "{:s}" not understood.'\
-            .format(filtertype)
-  
-      outim = zeros(shape(self.data)[1:])
-  
-      for i,j in self.spec_indices:
-        outim[i,j] = trapz(self.data[:,i,j]*arrfilt, self.restwl)
-  
-      if writefits:
-  
-        hdr = deepcopy(self.header)
-  
-        try:
-            hdr['REDSHIFT'] = self.redshift
-        except KeyError:
-            hdr.append(('REDSHIFT', self.redshift, 'Redshift used in GMOSDC'))
-        hdr.append(('WLPROJ', True, 'Processed by WLPROJECTION?'))
-        hdr.append(('WLPRTYPE', filtertype,
-            'Type of filter used in projection.'))
-        hdr.append(('WLPRWL0', wl0, 'Central wavelength of the filter.'))
-        hdr.append(('WLPRFWHM', fwhm, 'FWHM of the projection filter.'))
-  
-        pf.writeto(outimage,data=outim,header=hdr)      
-  
-      return outim
-    
     def plotspec(self,x,y):
         """
         Plots the spectrum at coordinates x,y.
@@ -291,8 +303,7 @@ class gmosdc:
     def linefit(self, p0=[1e-16, 6563, 1.5], function='gaussian',
             fitting_window=None, writefits=False, outimage=None, variance=None,
             constraints=(), bounds=None, inst_disp=1.0, individual_spec=False,
-            min_method='SLSQP', opts=None, c_niterate=3, c_degr=7,
-            c_upper_threshold=3, c_lower_threshold=5):
+            min_method='SLSQP', opts=None, continuum_options=None):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties. This is a wrapper for the scipy
@@ -378,16 +389,19 @@ class gmosdc:
         """
 
         if function == 'gaussian':
-            fit_func = lambda x, a ,b, c: a*exp(-(x-b)**2/2./c**2)
+            fit_func = lambda x, p : ngauss(x, 1, p)
+#            fit_func = lambda x, a ,b, c: a*exp(-(x-b)**2/2./c**2)
             self.fit_func = fit_func
         if function == '2gaussian':
-            fit_func = lambda x, a1, b1, c1, a2, b2, c2:\
-                a1*exp(-(x-b1)**2/2./c1**2) + a2*exp(-(x-b2)**2/2./c2**2)
+            fit_func = lambda x, p : ngauss(x, 2, p)
+#            fit_func = lambda x, a1, b1, c1, a2, b2, c2:\
+#                a1*exp(-(x-b1)**2/2./c1**2) + a2*exp(-(x-b2)**2/2./c2**2)
             self.fit_func = fit_func
-        if function == '3gaussian':            
-            fit_func = lambda x, a1, b1, c1, a2, b2, c2, a3, b3, c3:\
-                a1*exp(-(x-b1)**2/2./c1**2) + a2*exp(-(x-b2)**2/2./c2**2)\
-                + a3*exp(-(x-b3)**2/2./c3**2)
+        if function == '3gaussian':
+            fit_func = lambda x, p : ngauss(x, 3, p)
+#            fit_func = lambda x, a1, b1, c1, a2, b2, c2, a3, b3, c3:\
+#                a1*exp(-(x-b1)**2/2./c1**2) + a2*exp(-(x-b2)**2/2./c2**2)\
+#                + a3*exp(-(x-b3)**2/2./c3**2)
             self.fit_func = fit_func
 
         if fitting_window != None:
@@ -395,6 +409,13 @@ class gmosdc:
                  (self.restwl < fitting_window[1])
         else:
             fw = Ellipsis
+
+        if continuum_options == None:
+            continuum_options = {'niterate':3, 'degr':7, 'upper_threshold':3,
+                'lower_threshold':5}
+        
+        continuum_options['returns'] = 'function'
+
         wl = deepcopy(self.restwl[fw])
         scale_factor = median(self.data[fw,:,:])
         data = deepcopy(self.data[fw,:,:])/scale_factor
@@ -442,21 +463,19 @@ class gmosdc:
         if individual_spec:
             xy = [individual_spec[::-1]]
         nspec = len(xy)
-        for k,h in enumerate(xy):
+        for k, h in enumerate(xy):
             progress(k,nspec,10)
             i,j = h
             s = data[:,i,j]
-            v = vcube[:,i,j]
-            cont = st.continuum(wl, s, niterate=c_niterate,
-                degr=c_degr, upper_threshold=c_upper_threshold,
-                lower_threshold=c_lower_threshold, returns='function')[1]
-            s = data[:,i,j] - cont
-            # Avoids fitting if the spectrum is null.
             if ~any(s[:20]):
                 sol[:,i,j] = nan_solution
                 continue
+            v = vcube[:,i,j]
+            cont = st.continuum(wl, s, **continuum_options)[1]
+            s = data[:,i,j] - cont
+            # Avoids fitting if the spectrum is null.
             try:
-                res = lambda x : sum( (s-fit_func(self.fitwl,*x))**2/v )
+                res = lambda x : sum( (s-fit_func(self.fitwl, x))**2/v )
                 r = minimize(res, x0=p0, method=min_method, bounds=bounds,
                     constraints=constraints, options=opts)
                 # Reduced chi squared of the fit.
@@ -469,7 +488,7 @@ class gmosdc:
                     .format(int(i),int(j))
                 p = nan_solution
             if self.binned:
-                for l,m in vor[vor[:,2] == k,:2]:
+                for l, m in vor[vor[:,2] == k,:2]:
                     sol[:,l,m] = p
                     self.fitcont[:,l,m] = cont*scale_factor
                     self.fitspec[:,l,m] = s*scale_factor
@@ -495,8 +514,8 @@ class gmosdc:
             hdr.append(('SLICE2','Angstroms','Sigma'))
             pf.writeto(outimage,data=sol,header=self.header_data)
         if individual_spec:
-            return column_stack([wl, s*scale_factor, cont*scale_factor,
-                fit_func(wl, *p[:-1])]), r
+            return wl, s*scale_factor, cont*scale_factor,\
+                fit_func(wl, p[:-1]), r
         else:
            return sol
 
@@ -556,7 +575,10 @@ class gmosdc:
       try:
         xyz = shape(self.cont)
       except AttributeError:
-        print 'ERROR! This function requires the presence of a continuum \n given as the self.cont attribute. Please run the gmosdc.continuum method \n or assign a previously computed continuum.'
+        print 'ERROR! This function requires the presence of a continuum \n'\
+            'given as the self.cont attribute. Please run the'\
+            'gmosdc.continuum method \n or assign a previously computed'\
+            'continuum.'
         return 
   
       try:
