@@ -486,6 +486,7 @@ class gmosdc:
                 self.fitspec[:,i,j] = s*scale_factor
 
         self.em_model = sol
+        p0 *= flux_sf
     
         if writefits:
             if outimage == None:
@@ -497,10 +498,10 @@ class gmosdc:
             except KeyError:
                 hdr.append(('REDSHIFT', self.redshift, 
                     'Redshift used in GMOSDC'))
-            hdr.append(('SLICE0','Angstroms','Central wavelength'))
-            hdr.append(('SLICE1','erg/cm2/s/A/arcsec2','Amplitude'))
-            hdr.append(('SLICE2','Angstroms','Sigma'))
-            pf.writeto(outimage,data=sol,header=self.header_data)
+            hdr.append(('SLICE0', 'Angstroms', 'Central wavelength'))
+            hdr.append(('SLICE1', 'erg/cm2/s/A/arcsec2', 'Amplitude'))
+            hdr.append(('SLICE2', 'Angstroms', 'Sigma'))
+            pf.writeto(outimage, data=sol, header=self.header_data)
         if individual_spec:
             return wl, s*scale_factor, cont*scale_factor,\
                 fit_func(wl, p[:-1]), r
@@ -539,7 +540,7 @@ class gmosdc:
         plt.clf()
         ax = plt.axes()
 
-        ax.plot(self.fitwl, self.fit_func(self.fitwl, *self.em_model[:-1,y,x]))
+        ax.plot(self.fitwl, self.fit_func(self.fitwl, self.em_model[:-1,y,x]))
         ax.plot(self.fitwl, self.fitspec[:,y,x])
         print self.em_model[:,y,x]
         plt.show()
