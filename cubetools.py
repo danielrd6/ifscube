@@ -389,19 +389,7 @@ class gmosdc:
         """
 
         if function == 'gaussian':
-            fit_func = lambda x, p : ngauss(x, 1, p)
-#            fit_func = lambda x, a ,b, c: a*exp(-(x-b)**2/2./c**2)
-            self.fit_func = fit_func
-        if function == '2gaussian':
-            fit_func = lambda x, p : ngauss(x, 2, p)
-#            fit_func = lambda x, a1, b1, c1, a2, b2, c2:\
-#                a1*exp(-(x-b1)**2/2./c1**2) + a2*exp(-(x-b2)**2/2./c2**2)
-            self.fit_func = fit_func
-        if function == '3gaussian':
-            fit_func = lambda x, p : ngauss(x, 3, p)
-#            fit_func = lambda x, a1, b1, c1, a2, b2, c2, a3, b3, c3:\
-#                a1*exp(-(x-b1)**2/2./c1**2) + a2*exp(-(x-b2)**2/2./c2**2)\
-#                + a3*exp(-(x-b3)**2/2./c3**2)
+            fit_func = lambda x, p : ngauss(x, len(p)/3, p)
             self.fit_func = fit_func
 
         if fitting_window != None:
