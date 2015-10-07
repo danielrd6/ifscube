@@ -431,6 +431,7 @@ class gmosdc:
         self.fitcont = zeros(shape(data))
         self.fitwl = wl
         self.fitspec = zeros(shape(data))
+        self.resultspec = zeros(shape(data))
 
         if self.binned:
             vor = loadtxt(self.voronoi_tab)
@@ -454,12 +455,11 @@ class gmosdc:
         for k, h in enumerate(xy):
             progress(k,nspec,10)
             i,j = h
-            s = data[:,i,j]
-            if ~any(s[:20]):
+            if ~any(data[:20,i,j]):
                 sol[:,i,j] = nan_solution
                 continue
             v = vcube[:,i,j]
-            cont = st.continuum(wl, s, **continuum_options)[1]
+            cont = st.continuum(wl, data[:,i,j], **continuum_options)[1]
             s = data[:,i,j] - cont
             # Avoids fitting if the spectrum is null.
             try:
@@ -479,16 +479,22 @@ class gmosdc:
                 for l, m in vor[vor[:,2] == k,:2]:
                     sol[:,l,m] = p
                     self.fitcont[:,l,m] = cont*scale_factor
-                    self.fitspec[:,l,m] = s*scale_factor
+                    self.fitspec[:,l,m] = (s+cont)*scale_factor
+                    self.resultspec[:,l,m] = (cont+fit_func(self.fitwl,
+                        r['x']))*scale_factor
             else:
                 sol[:,i,j] = p
                 self.fitcont[:,i,j] = cont*scale_factor
-                self.fitspec[:,i,j] = s*scale_factor
+                self.fitspec[:,i,j] = (s+cont)*scale_factor
+                self.resultspec[:,i,j] = (cont+fit_func(self.fitwl, r['x']))\
+                    *scale_factor
 
         self.em_model = sol
         p0 *= flux_sf
     
         if writefits:
+            
+            # Basic tests and first header
             if outimage == None:
                 outimage = self.fitsfile.replace('.fits',
                     '_linefit.fits')
@@ -498,15 +504,41 @@ class gmosdc:
             except KeyError:
                 hdr.append(('REDSHIFT', self.redshift, 
                     'Redshift used in GMOSDC'))
-            hdr.append(('SLICE0', 'Angstroms', 'Central wavelength'))
-            hdr.append(('SLICE1', 'erg/cm2/s/A/arcsec2', 'Amplitude'))
-            hdr.append(('SLICE2', 'Angstroms', 'Sigma'))
-            pf.writeto(outimage, data=sol, header=self.header_data)
+
+            # Creates MEF output.
+            h = pf.HDUList()
+            h.append(pf.PrimaryHDU(header=hdr))
+
+            # Creates the fitted spectrum extension
+            hdr = pf.Header()
+            hdr.append(('object', 'spectrum', 'Data in this extension'))
+            hdr.append(('CRPIX3', 1, 'Reference pixel for wavelength'))
+            hdr.append(('CRVAL3', wl[0], 'Reference value for wavelength'))
+            hdr.append(('CD3_3', average(diff(wl)),
+                'CD3_3'))           
+            h.append(pf.ImageHDU(data=self.fitspec, header=hdr))
+
+            # Creates the fitted continuum extension.
+            hdr['object'] = 'continuum'
+            h.append(pf.ImageHDU(data=self.fitcont, header=hdr))
+
+            # Creates the fitted function extension.
+            hdr['object'] = 'fit'
+            h.append(pf.ImageHDU(data=self.resultspec, header=hdr))
+
+            # Creates the solution extension.
+            hdr['object'] = 'parameters'
+            hdr.append(('function', 'gaussian', 'Fitted function'))
+            hdr.append(('nfunc', len(p)/3, 'Number of functions'))
+            h.append(pf.ImageHDU(data=sol, header=hdr))      
+            
+            h.writeto(outimage)
+
         if individual_spec:
             return wl, s*scale_factor, cont*scale_factor,\
                 fit_func(wl, p[:-1]), r
         else:
-           return sol
+            return sol
 
     def eqw(self, amp_index=0, center_index=1, sigma_index=2, sigma_limit=3):
         """
