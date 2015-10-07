@@ -300,10 +300,10 @@ class gmosdc:
         ax.plot(self.restwl,s)    
         plt.show()
     
-    def linefit(self, p0=[1e-16, 6563, 1.5], function='gaussian',
-            fitting_window=None, writefits=False, outimage=None, variance=None,
+    def linefit(self, p0, function='gaussian', fitting_window=None,
+            writefits=False, outimage=None, variance=None,
             constraints=(), bounds=None, inst_disp=1.0, individual_spec=False,
-            min_method='SLSQP', opts=None, continuum_options=None):
+            min_method='SLSQP', minopts=None, continuum_options=None):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties. This is a wrapper for the scipy
@@ -314,22 +314,19 @@ class gmosdc:
         Parameters
         ----------
         p0 : iterable
-            Initial guess for the fitting funcion. If scale_factor is
-            set to something different than 1, the initial guess must
-            be changed accordingly.
+            Initial guess for the fitting funcion, consisting of a list
+            of 3N parameters for N components of **function**. In the
+            case of a gaussian fucntion, these parameters must be given
+            as [amplitude0, center0, sigma0, amplitude1, center1, ...].
         function : string
             The function to be fitted to the spectral features.
             Available options and respective parameters are:
                 'gaussian' : amplitude, central wavelength in angstroms,
                     sigma in angstroms
-                '2gaussian' : the same as the above, only repeated two
-                    times
-                '3gaussian' : the same as the above, only repeated 
-                    three times
         fitting_window : iterable
             Lower and upper wavelength limits for the fitting
-            algorithm. The wavelength coordinates refer to the rest
-            frame.
+            algorithm. These limits should allow for a considerable
+            portion of continuum besides the desired spectral features.
         writefits : boolean
             Writes the results in a FITS file.
         outimage : string
@@ -353,28 +350,20 @@ class gmosdc:
             number of dispersion elements in a spectrum as the degrees
             of freedom.
         bounds : sequence
-            Bounds for the fitting algorithm, given as a sequence of
-            (xmin, xmax) pairs for each parameter.
+            Bounds for the fitting algorithm, given as a list of
+            [xmin, xmax] pairs for each x parameter.
         constraints : dict or sequence of dicts
             See scipy.optimize.minimize
         min_method : string
             Minimization method. See scipy.optimize.minimize.
-        opts : dict
+        minopts : dict
             Dictionary of options to be passed to the minimization
             routine. See scipy.optimize.minimize.
         individual_spec : False or x,y pair
             Pixel coordinates for the spectrum you wish to fit
             individually.
-        c_niterate : integer
-            Number of continuum rejection iterations.
-        c_degr : integer
-            Order of the polynomial for continuum fitting.
-        c_upper_threshold : integer
-            Upper threshold for continuum fitting rejection in units of
-            standard deviations.
-        c_lower_threshold : integer
-            Lower threshold for continuum fitting rejection in units of
-            standard deviations.
+        copts : dict
+            Arguments to be passed to the spectools.continuum function.
            
         Returns
         -------
@@ -399,8 +388,8 @@ class gmosdc:
             fw = Ellipsis
 
         if continuum_options == None:
-            continuum_options = {'niterate':3, 'degr':7, 'upper_threshold':3,
-                'lower_threshold':5}
+            continuum_options = {'niterate':5, 'degr':4, 'upper_threshold':2,
+                'lower_threshold':2}
         
         continuum_options['returns'] = 'function'
 
@@ -465,7 +454,7 @@ class gmosdc:
             try:
                 res = lambda x : sum( (s-fit_func(self.fitwl, x))**2/v )
                 r = minimize(res, x0=p0, method=min_method, bounds=bounds,
-                    constraints=constraints, options=opts)
+                    constraints=constraints, options=minopts)
                 # Reduced chi squared of the fit.
                 chi2 = res( r['x'] ) 
                 nu = len(s)/inst_disp - npars - 1
@@ -566,75 +555,39 @@ class gmosdc:
     def plotfit(self, x, y):
         """
         Plots the spectrum and features just fitted.
+
+        Parameters
+        ----------
+        x : number
+            Horizontal coordinate of the desired spaxel.
+        y : number
+            Vertical coordinate of the desired spaxel.
+
+        Returns
+        -------
+        Nothing.
         """
 
         fig = plt.figure(1)
         plt.clf()
         ax = plt.axes()
 
-        ax.plot(self.fitwl, self.fit_func(self.fitwl, self.em_model[:-1,y,x]))
-        ax.plot(self.fitwl, self.fitspec[:,y,x])
+        p = self.em_model[:-1,y,x]
+        c = self.fitcont[:,y,x]
+        wl = self.fitwl
+        f = self.fit_func
+        s = self.fitspec[:,y,x]
+
+        ax.plot(wl, c + f(wl, p))
+        ax.plot(wl, c)
+        ax.plot(wl, s)
+
+        if len(p) > 3:
+            for i in arange(0, len(p), 3):
+                ax.plot(wl, c + f(wl, p[i:i+3]), 'k--')
+
         print self.em_model[:,y,x]
         plt.show()
-
-    def specmodel(self,x,y,wllim=[6520,6620]):
-      """
-      Plots the spectrum and model for the emission lines at x,y.
-  
-      Parameters:
-      -----------
-      x : float
-        Column of the IFU image.
-      y : float
-        Line of the IFU image.
-  
-      Returns:
-      --------
-      m : array
-      """
-  
-      try:
-        xyz = shape(self.cont)
-      except AttributeError:
-        print 'ERROR! This function requires the presence of a continuum \n'\
-            'given as the self.cont attribute. Please run the'\
-            'gmosdc.continuum method \n or assign a previously computed'\
-            'continuum.'
-        return 
-  
-      try:
-        xyz = shape(self.em_model)
-      except AttributeError:
-        print 'ERROR! This function requires the presence of a emission\n \
-        model image given as the self.em_model attribute. Please run the\n\
-        gmosdc.hafit method or assign a previously computed continuum.'
-        return
-  
-      fig = plt.figure(1)
-      plt.clf()
-      ax = plt.axes()
-  
-      cond = (self.restwl > wllim[0])&(self.restwl < wllim[1])
-  
-      wl,s,c,m = deepcopy(self.restwl[cond]),\
-                 deepcopy(self.data[cond,y,x]),\
-                 deepcopy(self.cont[cond,y,x]),\
-                 deepcopy(self.em_model[:,y,x])
-  
-      sf = 1e-17         # scale factor for the plots
-  
-      ax.plot(wl, c/sf, label='Continuum')
-      ax.plot(wl, s/sf, label='Observed spectrum')
-      if len(m) == 5:
-        ax.plot(wl, (hanii_model(wl,*m)+c)/sf, label='Emission model')
-      if len(m) == 7:
-        ax.plot(wl, (haniisii_model(wl,*m)+c)/sf, label='Emission model')
-      ax.minorticks_on()
-      ax.set_xlabel(r'Wavelength ($\AA$)')
-      ax.set_ylabel(r'Flux density ($10^{{{:d}}}$ erg/s/cm^2/$\AA$)'\
-                    .format(int(log10(sf))))
-  
-      plt.show()
 
     def channelmaps(self, channels=6, lambda0=None, velmin=None, velmax=None,
         continuum_width=300, continuum_opts=None, sigma=1e-16):
