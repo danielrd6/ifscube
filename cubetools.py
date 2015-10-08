@@ -21,12 +21,23 @@ def progress(x,xmax,steps=10):
     except ZeroDivisionError:
         pass
 
-def ngauss(x, n, coeffs):
+gauss = lambda x, p : p[0] * exp(-((x-p[1])/p[2])**2/2.)
+
+#@profile
+def ngauss(x, coeffs):
     g = 0
-    if len(coeffs) != 3*n:
+#    if len(coeffs)%3 != 0:
+#        raise ValueError('coeffs must have length equal to 3n')
+    for i in arange(0, len(coeffs), 3):     
+#        g += coeffs[i]*exp(-(x-coeffs[i+1])**2/2./coeffs[i+2]**2)
+        g += gauss(x, coeffs[i:i+3])
+    return g
+
+def ngauss_vec(x, coeffs):
+    if len(coeffs)%3 != 0 :
         raise ValueError('coeffs must have length equal to 3n')
-    for i in arange(0, 3*n, 3):     
-        g += coeffs[i]*exp(-(x-coeffs[i+1])**2/2./coeffs[i+2]**2)
+    mg = array([gauss(x, coeffs[i:i+3]) for i in arange(0, len(coeffs), 3)])
+    g = sum(mg, 0)
     return g
 
 class gmosdc:
@@ -300,7 +311,7 @@ class gmosdc:
         ax.plot(self.restwl,s)    
         plt.show()
     
-    def linefit(self, p0, function='gaussian', fitting_window=None,
+    def linefit(self, p0, function='ngauss', fitting_window=None,
             writefits=False, outimage=None, variance=None,
             constraints=(), bounds=None, inst_disp=1.0, individual_spec=False,
             min_method='SLSQP', minopts=None, continuum_options=None):
@@ -377,8 +388,11 @@ class gmosdc:
         scipy.optimize.curve_fit, scipy.optimize.leastsq
         """
 
-        if function == 'gaussian':
-            fit_func = lambda x, p : ngauss(x, len(p)/3, p)
+        if function == 'ngauss':
+            fit_func = lambda x, p : ngauss(x, p)
+            self.fit_func = fit_func
+        elif function == 'ngauss_vec':
+            fit_func = lambda x, p : ngauss_vec(x, p)
             self.fit_func = fit_func
 
         if fitting_window != None:
@@ -586,7 +600,11 @@ class gmosdc:
             for i in arange(0, len(p), 3):
                 ax.plot(wl, c + f(wl, p[i:i+3]), 'k--')
 
-        print self.em_model[:,y,x]
+        pars = (3*'{:10s}'+'\n').format('A', 'wl', 's')
+        for i in arange(0, len(p), 3):
+            pars += ('{:10.2e}{:10.2f}{:10.2f}\n'.format(*p[i:i+3]))
+
+        print pars
         plt.show()
 
     def channelmaps(self, channels=6, lambda0=None, velmin=None, velmax=None,
