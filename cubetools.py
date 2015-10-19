@@ -329,7 +329,7 @@ class gmosdc:
         ax.plot(self.restwl,s)    
         plt.show()
     
-    def linefit(self, p0, function='ngauss', fitting_window=None,
+    def linefit(self, p0, function='gaussian', fitting_window=None,
             writefits=False, outimage=None, variance=None,
             constraints=(), bounds=None, inst_disp=1.0, individual_spec=False,
             min_method='SLSQP', minopts=None, continuum_options=None):
@@ -406,12 +406,11 @@ class gmosdc:
         scipy.optimize.curve_fit, scipy.optimize.leastsq
         """
 
-        if function == 'ngauss':
+        if function == 'gaussian':
             fit_func = lambda x, p : ngauss(x, p)
             self.fit_func = fit_func
-        elif function == 'ngauss_vec':
-            fit_func = lambda x, p : ngauss_vec(x, p)
-            self.fit_func = fit_func
+        else:
+            raise NameError('Unknown function "{:s}".'.format(function))
 
         if fitting_window != None:
             fw = (self.restwl > fitting_window[0]) &\
