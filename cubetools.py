@@ -14,6 +14,12 @@ from scipy.ndimage import gaussian_filter as gf
 from scipy.integrate import trapz
 from scipy.interpolate import interp1d
 
+sq2 = sqrt(2)
+sq6 = sqrt(6)
+sq24 = sqrt(24)
+sq2pi = sqrt(2*pi)
+
+
 def progress(x,xmax,steps=10):
     try:
         if x%(xmax/steps) == 0:
@@ -22,14 +28,20 @@ def progress(x,xmax,steps=10):
         pass
 
 gauss = lambda x, p : p[0] * exp(-((x-p[1])/p[2])**2/2.)
+alphag = lambda w : 1./sq2pi*exp(-w**2/2.)
+H3 = lambda w : 1./sq6*(2*sq2*w**3-3*sq2)
+H4 = lambda w : 1./sq24*(w**4-12*w**2+3)
+
+def gauss_hermite(x, p):
+    a, l0, s, h3, h4 = p
+    w = (x-l0)/s
+    gh = a*alphag(w)/s*(1+h3*H3(w)+h4*H4(w))
+    return gh
 
 #@profile
 def ngauss(x, coeffs):
     g = 0
-#    if len(coeffs)%3 != 0:
-#        raise ValueError('coeffs must have length equal to 3n')
     for i in arange(0, len(coeffs), 3):     
-#        g += coeffs[i]*exp(-(x-coeffs[i+1])**2/2./coeffs[i+2]**2)
         g += gauss(x, coeffs[i:i+3])
     return g
 
@@ -39,6 +51,12 @@ def ngauss_vec(x, coeffs):
     mg = array([gauss(x, coeffs[i:i+3]) for i in arange(0, len(coeffs), 3)])
     g = sum(mg, 0)
     return g
+
+def ngauss_hermite(x, coeffs):
+    gh = 0
+    for i in arange(0, len(coeffs), 5):
+        gh += gauss_hermite(x, coeffs[i:i+5])
+    return gh
 
 class gmosdc:
     """
