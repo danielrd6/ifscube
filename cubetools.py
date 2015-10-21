@@ -29,8 +29,8 @@ def progress(x,xmax,steps=10):
 
 gauss = lambda x, p : p[0] * exp(-((x-p[1])/p[2])**2/2.)
 alphag = lambda w : 1./sq2pi*exp(-w**2/2.)
-H3 = lambda w : 1./sq6*(2*sq2*w**3-3*sq2)
-H4 = lambda w : 1./sq24*(w**4-12*w**2+3)
+H3 = lambda w : 1./sq6*(2*sq2*w**3-3*sq2*w)
+H4 = lambda w : 1./sq24*(4*w**4-12*w**2+3)
 
 def gauss_hermite(x, p):
     a, l0, s, h3, h4 = p
