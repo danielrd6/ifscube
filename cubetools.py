@@ -352,6 +352,8 @@ class gmosdc:
             Available options and respective parameters are:
                 'gaussian' : amplitude, central wavelength in angstroms,
                     sigma in angstroms
+                'gauss_hermite' : amplitude, central wavelength in
+                    angstroms, sigma in angstroms, h3 and h4
         fitting_window : iterable
             Lower and upper wavelength limits for the fitting
             algorithm. These limits should allow for a considerable
@@ -407,8 +409,13 @@ class gmosdc:
         """
 
         if function == 'gaussian':
-            fit_func = lambda x, p : ngauss(x, p)
+            fit_func = ngauss
             self.fit_func = fit_func
+            npars_pc = 3
+        elif function == 'gauss_hermite':
+            fit_func = ngauss_hermite
+            self.fit_func = fit_func
+            npars_pc = 5
         else:
             raise NameError('Unknown function "{:s}".'.format(function))
 
@@ -462,7 +469,7 @@ class gmosdc:
         # Scale factor for the flux. Needed to avoid problems with
         # the minimization algorithm.
         flux_sf = ones(npars)
-        flux_sf[arange(0,npars,3)] *= scale_factor
+        flux_sf[arange(0, npars, npars_pc)] *= scale_factor
         p0 /= flux_sf
         if bounds != None:
             bounds = array(bounds)
@@ -584,6 +591,8 @@ class gmosdc:
         func_name = pf.getheader(fname, ext=4)['function']
         if func_name == 'gaussian':
             self.fit_func = ngauss
+        if func_name == 'gauss_hermite':
+            self.fit_func = ngauss_hermite
         self.em_model = pf.getdata(fname, ext=4)
 
     def eqw(self, amp_index=0, center_index=1, sigma_index=2, sigma_limit=3):
@@ -639,13 +648,23 @@ class gmosdc:
         ax.plot(wl, c)
         ax.plot(wl, s)
 
-        if len(p) > 3:
-            for i in arange(0, len(p), 3):
-                ax.plot(wl, c + f(wl, p[i:i+3]), 'k--')
+        if self.fit_func == ngauss:
+            npars = 3
+            parnames = ('A', 'wl', 's')
+        elif self.fit_func == ngauss_hermite:
+            npars = 5
+            parnames = ('A', 'wl', 's', 'h3', 'h4')
+        else:
+            raise NameError('Unkown fit function.')
 
-        pars = (3*'{:10s}'+'\n').format('A', 'wl', 's')
-        for i in arange(0, len(p), 3):
-            pars += ('{:10.2e}{:10.2f}{:10.2f}\n'.format(*p[i:i+3]))
+        if len(p) > npars:
+            for i in arange(0, len(p), npars):
+                ax.plot(wl, c + f(wl, p[i:i+npars]), 'k--')
+
+        pars = (npars*'{:10s}'+'\n').format(*parnames)
+        for i in arange(0, len(p), npars):
+            pars += (('{:10.2e}'+(npars-1)*'{:10.2f}'+'\n')\
+                .format(*p[i:i+npars]))
 
         print pars
         plt.show()
