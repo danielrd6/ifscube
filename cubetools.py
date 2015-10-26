@@ -332,7 +332,8 @@ class gmosdc:
     def linefit(self, p0, function='gaussian', fitting_window=None,
             writefits=False, outimage=None, variance=None,
             constraints=(), bounds=None, inst_disp=1.0, individual_spec=False,
-            min_method='SLSQP', minopts=None, continuum_options=None):
+            min_method='SLSQP', minopts=None, copts=None,
+            refit=False, spiral_loop=False):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties. This is a wrapper for the scipy
@@ -395,6 +396,13 @@ class gmosdc:
             individually.
         copts : dict
             Arguments to be passed to the spectools.continuum function.
+        refit : boolean
+            Use parameters from last fit as initial guess for the next.
+        spiral_loop : boolean
+            Begins the fitting with the central spaxel and continues
+            spiraling outwards. We strongly recommend setting this to
+            True if refit is also True.
+            
            
         Returns
         -------
@@ -425,15 +433,16 @@ class gmosdc:
         else:
             fw = Ellipsis
 
-        if continuum_options == None:
-            continuum_options = {'niterate':5, 'degr':4, 'upper_threshold':2,
+        if copts == None:
+            copts = {'niterate':5, 'degr':4, 'upper_threshold':2,
                 'lower_threshold':2}
         
-        continuum_options['returns'] = 'function'
+        copts['returns'] = 'function'
 
         wl = deepcopy(self.restwl[fw])
         scale_factor = median(self.data[fw,:,:])
         data = deepcopy(self.data[fw,:,:])/scale_factor
+        fit_status = zeros(shape(data)[1:])
 
         if variance == None:
            variance = 1.0
@@ -478,26 +487,54 @@ class gmosdc:
 
         if individual_spec:
             xy = [individual_spec[::-1]]
+
+        Y, X = indices(shape(data)[1:])       
+        if spiral_loop:
+            y, x = self.spec_indices[:,0], self.spec_indices[:,1]
+            r = sqrt((x - y.max()/2.)**2 + (y - y.max()/2.)**2)
+            t = arctan2(y - y.max()/2., x - x.max()/2.)
+            t[t < 0] += 2*pi
+            
+            b = array([(ravel(r)[i], ravel(t)[i]) for i in\
+                range(len(ravel(r)))], dtype=[('radius', 'f8'),\
+                ('angle', 'f8')])
+
+            s = argsort(b, axis=0, order=['radius', 'angle'])
+            xy = column_stack([ravel(y)[s], ravel(x)[s]])
+
         nspec = len(xy)
         for k, h in enumerate(xy):
-            progress(k,nspec,10)
+            progress(k, nspec, 10)
             i,j = h
             if ~any(data[:20,i,j]):
                 sol[:,i,j] = nan_solution
                 continue
             v = vcube[:,i,j]
-            cont = st.continuum(wl, data[:,i,j], **continuum_options)[1]
+            cont = st.continuum(wl, data[:,i,j], **copts)[1]
             s = data[:,i,j] - cont
+
             # Avoids fitting if the spectrum is null.
             try:
                 res = lambda x : sum( (s-fit_func(self.fitwl, x))**2/v )
+
+                if refit and k != 0:
+                    radsol = sqrt((Y - i)**2 + (X - j)**2)
+                    nearsol = sol[:-1, (radsol < 2) & (sol[0] != 0)]
+                    if shape(nearsol) == (5, 1):
+                        p0 = nearsol
+                    else:
+                        p0 = average(nearsol, 1)
+
                 r = minimize(res, x0=p0, method=min_method, bounds=bounds,
                     constraints=constraints, options=minopts)
+                if r.status != 0:
+                    print h, r.message
                 # Reduced chi squared of the fit.
-                chi2 = res( r['x'] ) 
+                chi2 = res(r['x'])
                 nu = len(s)/inst_disp - npars - 1
                 red_chi2 = chi2 / nu
                 p = append(r['x']*flux_sf, red_chi2)
+                fit_status[i,j] = r.status
             except RuntimeError:
                 print 'Optimal parameters not found for spectrum {:d},{:d}'\
                     .format(int(i),int(j))
@@ -517,6 +554,7 @@ class gmosdc:
                     *scale_factor
 
         self.em_model = sol
+        self.fit_status = fit_status
         p0 *= flux_sf
     
         if writefits:
@@ -555,9 +593,13 @@ class gmosdc:
 
             # Creates the solution extension.
             hdr['object'] = 'parameters'
-            hdr.append(('function', 'gaussian', 'Fitted function'))
+            hdr.append(('function', function, 'Fitted function'))
             hdr.append(('nfunc', len(p)/3, 'Number of functions'))
-            h.append(pf.ImageHDU(data=sol, header=hdr))      
+            h.append(pf.ImageHDU(data=sol, header=hdr))
+
+            # Creates the minimize's exit status extension
+            hdr['object'] = 'status'
+            h.append(pf.ImageHDU(data=fit_status, header=hdr))
             
             h.writeto(outimage)
 
