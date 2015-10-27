@@ -397,13 +397,12 @@ class gmosdc:
         copts : dict
             Arguments to be passed to the spectools.continuum function.
         refit : boolean
-            Use parameters from last fit as initial guess for the next.
+            Use parameters from nearby sucessful fits as the initial
+            guess for the next fit.
         spiral_loop : boolean
             Begins the fitting with the central spaxel and continues
-            spiraling outwards. We strongly recommend setting this to
-            True if refit is also True.
-            
-           
+            spiraling outwards.
+
         Returns
         -------
         sol : numpy.ndarray
@@ -442,7 +441,7 @@ class gmosdc:
         wl = deepcopy(self.restwl[fw])
         scale_factor = median(self.data[fw,:,:])
         data = deepcopy(self.data[fw,:,:])/scale_factor
-        fit_status = zeros(shape(data)[1:])
+        fit_status = ones(shape(data)[1:])*-1
 
         if variance == None:
            variance = 1.0
@@ -519,11 +518,11 @@ class gmosdc:
 
                 if refit and k != 0:
                     radsol = sqrt((Y - i)**2 + (X - j)**2)
-                    nearsol = sol[:-1, (radsol < 2) & (sol[0] != 0)]
+                    nearsol = sol[:-1, (radsol < 2) & (fit_status == 0)]
                     if shape(nearsol) == (5, 1):
-                        p0 = nearsol
+                        p0 = nearsol.transpose()/flux_sf
                     else:
-                        p0 = average(nearsol, 1)
+                        p0 = average(nearsol.transpose(), 0)/flux_sf
 
                 r = minimize(res, x0=p0, method=min_method, bounds=bounds,
                     constraints=constraints, options=minopts)
