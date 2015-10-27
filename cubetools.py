@@ -333,7 +333,7 @@ class gmosdc:
             writefits=False, outimage=None, variance=None,
             constraints=(), bounds=None, inst_disp=1.0, individual_spec=False,
             min_method='SLSQP', minopts=None, copts=None,
-            refit=False, spiral_loop=False):
+            refit=False, spiral_loop=False, spiral_center=None):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties. This is a wrapper for the scipy
@@ -402,6 +402,9 @@ class gmosdc:
         spiral_loop : boolean
             Begins the fitting with the central spaxel and continues
             spiraling outwards.
+        spiral_center : iterable
+            Central coordinates for the beginning of the spiral given
+            as a list of two coordinates [x0, y0]
 
         Returns
         -------
@@ -490,7 +493,10 @@ class gmosdc:
         Y, X = indices(shape(data)[1:])       
         if spiral_loop:
             y, x = self.spec_indices[:,0], self.spec_indices[:,1]
-            r = sqrt((x - y.max()/2.)**2 + (y - y.max()/2.)**2)
+            if spiral_center == None:
+                r = sqrt((x - x.max()/2.)**2 + (y - y.max()/2.)**2)
+            else:
+                r = sqrt((x - spiral_center[0])**2 + (y - spiral_center[1])**2)
             t = arctan2(y - y.max()/2., x - x.max()/2.)
             t[t < 0] += 2*pi
             
