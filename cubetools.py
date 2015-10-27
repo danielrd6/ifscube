@@ -13,6 +13,8 @@ from scipy.optimize import minimize
 from scipy.ndimage import gaussian_filter as gf
 from scipy.integrate import trapz
 from scipy.interpolate import interp1d
+import profiles as lprof
+
 
 sq2 = sqrt(2)
 sq6 = sqrt(6)
@@ -38,7 +40,6 @@ def gauss_hermite(x, p):
     gh = a*alphag(w)/s*(1+h3*H3(w)+h4*H4(w))
     return gh
 
-#@profile
 def ngauss(x, coeffs):
     g = 0
     for i in arange(0, len(coeffs), 3):     
@@ -328,7 +329,7 @@ class gmosdc:
             s = self.data[:,y,x]    
         ax.plot(self.restwl,s)    
         plt.show()
-    
+    @profile    
     def linefit(self, p0, function='gaussian', fitting_window=None,
             writefits=False, outimage=None, variance=None,
             constraints=(), bounds=None, inst_disp=1.0, individual_spec=False,
@@ -419,11 +420,11 @@ class gmosdc:
         """
 
         if function == 'gaussian':
-            fit_func = ngauss
+            fit_func = lprof.gauss
             self.fit_func = fit_func
             npars_pc = 3
         elif function == 'gauss_hermite':
-            fit_func = ngauss_hermite
+            fit_func = lprof.gausshermite
             self.fit_func = fit_func
             npars_pc = 5
         else:
