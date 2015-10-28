@@ -21,41 +21,41 @@ def progress(x,xmax,steps=10):
             print '{:2.0f}%\r'.format(float(x)/float(xmax)*100)
     except ZeroDivisionError:
         pass
-#
-#sq2 = sqrt(2)
-#sq6 = sqrt(6)
-#sq24 = sqrt(24)
-#sq2pi = sqrt(2*pi)
-#
-#gauss = lambda x, p : p[0] * exp(-((x-p[1])/p[2])**2/2.)
-#alphag = lambda w : 1./sq2pi*exp(-w**2/2.)
-#H3 = lambda w : 1./sq6*(2*sq2*w**3-3*sq2*w)
-#H4 = lambda w : 1./sq24*(4*w**4-12*w**2+3)
-#
-#def gauss_hermite(x, p):
-#    a, l0, s, h3, h4 = p
-#    w = (x-l0)/s
-#    gh = a*alphag(w)/s*(1+h3*H3(w)+h4*H4(w))
-#    return gh
-#
-#def ngauss(x, coeffs):
-#    g = 0
-#    for i in arange(0, len(coeffs), 3):     
-#        g += gauss(x, coeffs[i:i+3])
-#    return g
-#
-#def ngauss_vec(x, coeffs):
-#    if len(coeffs)%3 != 0 :
-#        raise ValueError('coeffs must have length equal to 3n')
-#    mg = array([gauss(x, coeffs[i:i+3]) for i in arange(0, len(coeffs), 3)])
-#    g = sum(mg, 0)
-#    return g
-#
-#def ngauss_hermite(x, coeffs):
-#    gh = 0
-#    for i in arange(0, len(coeffs), 5):
-#        gh += gauss_hermite(x, coeffs[i:i+5])
-#    return gh
+
+sq2 = sqrt(2)
+sq6 = sqrt(6)
+sq24 = sqrt(24)
+sq2pi = sqrt(2*pi)
+
+gauss = lambda x, p : p[0] * exp(-((x-p[1])/p[2])**2/2.)
+alphag = lambda w : 1./sq2pi*exp(-w**2/2.)
+H3 = lambda w : 1./sq6*(2*sq2*w**3-3*sq2*w)
+H4 = lambda w : 1./sq24*(4*w**4-12*w**2+3)
+
+def gauss_hermite(x, p):
+    a, l0, s, h3, h4 = p
+    w = (x-l0)/s
+    gh = a*alphag(w)/s*(1+h3*H3(w)+h4*H4(w))
+    return gh
+
+def ngauss(x, coeffs):
+    g = 0
+    for i in arange(0, len(coeffs), 3):     
+        g += gauss(x, coeffs[i:i+3])
+    return g
+
+def ngauss_vec(x, coeffs):
+    if len(coeffs)%3 != 0 :
+        raise ValueError('coeffs must have length equal to 3n')
+    mg = array([gauss(x, coeffs[i:i+3]) for i in arange(0, len(coeffs), 3)])
+    g = sum(mg, 0)
+    return g
+
+def ngauss_hermite(x, coeffs):
+    gh = 0
+    for i in arange(0, len(coeffs), 5):
+        gh += gauss_hermite(x, coeffs[i:i+5])
+    return gh
 
 class gmosdc:
     """
@@ -327,7 +327,7 @@ class gmosdc:
             s = self.data[:,y,x]    
         ax.plot(self.restwl,s)    
         plt.show()
-    @profile    
+    
     def linefit(self, p0, function='gaussian', fitting_window=None,
             writefits=False, outimage=None, variance=None,
             constraints=(), bounds=None, inst_disp=1.0, individual_spec=False,
@@ -440,15 +440,21 @@ class gmosdc:
         
         copts['returns'] = 'function'
 
+        try:
+            minopts['eps']
+        except KeyError:
+            minopts['eps'] = 1e-3
+
         wl = deepcopy(self.restwl[fw])
         scale_factor = median(self.data[fw,:,:])
         data = deepcopy(self.data[fw,:,:])/scale_factor
         fit_status = ones(shape(data)[1:])*-1
 
-        if variance == None:
-           variance = 1.0
+        if len(shape(variance)) == 0:
+            if variance == None:
+                variance = 1.0
         else:
-           variance /= scale_factor**2
+            variance /= scale_factor**2
 
         vcube = ones(shape(data))
         if len(shape(variance)) == 0:
@@ -486,11 +492,11 @@ class gmosdc:
             for i,j in enumerate(bounds):
                 j /= flux_sf[i]
 
+        Y, X = indices(shape(data)[1:])
+
         if individual_spec:
             xy = [individual_spec[::-1]]
-
-        Y, X = indices(shape(data)[1:])       
-        if spiral_loop:
+        elif spiral_loop:
             y, x = self.spec_indices[:,0], self.spec_indices[:,1]
             if spiral_center == None:
                 r = sqrt((x - x.max()/2.)**2 + (y - y.max()/2.)**2)
@@ -525,9 +531,9 @@ class gmosdc:
                     radsol = sqrt((Y - i)**2 + (X - j)**2)
                     nearsol = sol[:-1, (radsol < 2) & (fit_status == 0)]
                     if shape(nearsol) == (5, 1):
-                        p0 = nearsol.transpose()/flux_sf
+                        p0 = deepcopy(nearsol.transpose()/flux_sf)
                     else:
-                        p0 = average(nearsol.transpose(), 0)/flux_sf
+                        p0 = deepcopy(average(nearsol.transpose(), 0)/flux_sf)
 
                 r = minimize(res, x0=p0, method=min_method, bounds=bounds,
                     constraints=constraints, options=minopts)
@@ -636,9 +642,9 @@ class gmosdc:
         
         func_name = pf.getheader(fname, ext=4)['function']
         if func_name == 'gaussian':
-            self.fit_func = ngauss
+            self.fit_func = lprof.gauss
         if func_name == 'gauss_hermite':
-            self.fit_func = ngauss_hermite
+            self.fit_func = lprof.gausshermite
         self.em_model = pf.getdata(fname, ext=4)
 
     def eqw(self, amp_index=0, center_index=1, sigma_index=2, sigma_limit=3):
@@ -694,10 +700,10 @@ class gmosdc:
         ax.plot(wl, c)
         ax.plot(wl, s)
 
-        if self.fit_func == ngauss:
+        if self.fit_func == lprof.gauss:
             npars = 3
             parnames = ('A', 'wl', 's')
-        elif self.fit_func == ngauss_hermite:
+        elif self.fit_func == lprof.gausshermite:
             npars = 5
             parnames = ('A', 'wl', 's', 'h3', 'h4')
         else:

@@ -16,20 +16,16 @@ end
 
 subroutine gausshermite(x, p, y, n, np)
 
-    real, parameter :: pi=3.1415927
+    real, parameter :: pi=3.1415927, sq2=sqrt(2.0), sq6=sqrt(6.0)
+    real, parameter :: sq24=sqrt(24.0), sq2pi=sqrt(2.0*pi)
     integer :: n, np
     integer :: i
     real, dimension(0:np-1), intent(in) :: p
     real, dimension(0:n-1), intent(in) :: x
     real, dimension(0:n-1) :: w, hh3, hh4, alphag, gh
     real, dimension(0:n-1), intent(out) :: y
-    real :: sq2, sq6, sq24, sq2pi, h3, h4
+    real :: h3, h4
     real :: a, l0, s
-
-    sq2 = sqrt(2.0)
-    sq6 = sqrt(6.0)
-    sq24 = sqrt(24.0)
-    sq2pi = sqrt(2.0*pi)
 
     y(:) = 0.0
  
