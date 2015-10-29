@@ -341,81 +341,76 @@ def dopcor(wl,z):
   
   return wlnew
 
-def continuum(x,y,returns='ratio',degr=6,niterate=5,lower_threshold=2,upper_threshold=3,verbose=False):
-  """
-  Builds a polynomial continuum from segments of a spectrum,
-  given in the form of wl and flux arrays.
-
-  Parameters:
-  -----------
-  x : array-like
-    Independent variable
-  y : array-like
-    y = f(x)
-  returns : string
-    Specifies what will be returned by the function
-    'ratio' = ratio between fitted continuum and the spectrum
-    'difference' = difference between fitted continuum and the spectrum
-    'function' = continuum function evaluated at x
-  degr : integer
-    Degree of polynomial for the fit
-  niterate : integer
-    Number of rejection iterations
-  lower_threshold : float
-    Lower threshold for point rejection in units of standard deviation
-    of the residuals
-  upper_threshold : float
-    Upper threshold for point rejection in units of standard deviation
-    of the residuals
-  verbose : boolean
-    Prints information about the fitting
-
-  Returns:
-  --------
-  c : tuple
-    c[0] : numpy.ndarray
-      Input x coordinates
-    c[1] : numpy.ndarray
-      See parameter "returns".    
-
-  """
+def continuum(x, y, returns='ratio', degr=6, niterate=5,
+    lower_threshold=2, upper_threshold=3, verbose=False):
+    """
+    Builds a polynomial continuum from segments of a spectrum,
+    given in the form of wl and flux arrays.
   
-#  x,y = get_wl(image),pf.getdata(image)
-#  if len(shape(y)) > 1:
-#    if aperture == None:
-#      while len(shape(y)) > 1:
-#        y = y[shape(y)[1]/2]
-#    else:
-#      y = y[:,aperture]
-
-  xfull = deepcopy(x)
-  s = interp1d(x,y)
- 
-  f = lambda x : polyval(polyfit(x,s(x),deg=degr),x)
+    Parameters
+    ----------
+    x : array-like
+        Independent variable
+    y : array-like
+        y = f(x)
+    returns : string
+        Specifies what will be returned by the function
+        'ratio' = ratio between fitted continuum and the spectrum
+        'difference' = difference between fitted continuum and the
+            spectrum
+        'function' = continuum function evaluated at x
+    degr : integer
+        Degree of polynomial for the fit
+    niterate : integer
+        Number of rejection iterations
+    lower_threshold : float
+        Lower threshold for point rejection in units of standard
+        deviation of the residuals
+    upper_threshold : float
+        Upper threshold for point rejection in units of standard
+        deviation of the residuals
+    verbose : boolean
+        Prints information about the fitting
+  
+    Returns
+    -------
+    c : tuple
+        c[0] : numpy.ndarray
+            Input x coordinates
+        c[1] : numpy.ndarray
+            See parameter "returns".
+    """
     
-  for i in range(niterate):
-    
-    if len(x) == 0:
-      print 'Stopped at iteration: {:d}.'.format(i)
-      break
-    sig = std(s(x)-f(x))
-    res = s(x)-f(x)
-    x = x[(res < upper_threshold*sig)&(res > -lower_threshold*sig)]
- 
-  if verbose:
-    print('Final number of points used in the fit: {:d}'.format(len(x)))
-    print('Rejection ratio: {:.2f}'.format(1.-float(len(x))/float(len(xfull))))
-
-  p = polyfit(x,s(x),deg=degr)
-
-  if returns == 'ratio':
-    return xfull,s(xfull)/polyval(p,xfull)
-
-  if returns == 'difference':
-    return xfull,s(xfull)-polyval(p,xfull)
-
-  if returns == 'function':
-    return xfull,polyval(p,xfull)
+    xfull = deepcopy(x)
+    s = interp1d(x,y)
+   
+    f = lambda x : polyval(polyfit(x,s(x),deg=degr),x)
+      
+    for i in range(niterate):
+      
+        if len(x) == 0:
+            print 'Stopped at iteration: {:d}.'.format(i)
+            break
+        sig = std(s(x)-f(x))
+        res = s(x)-f(x)
+        x = x[(res < upper_threshold*sig)&(res > -lower_threshold*sig)]
+   
+    if verbose:
+        print('Final number of points used in the fit: {:d}'\
+            .format(len(x)))
+        print('Rejection ratio: {:.2f}'\
+            .format(1.-float(len(x))/float(len(xfull))))
+  
+    p = polyfit(x, s(x), deg=degr)
+  
+    if returns == 'ratio':
+        return xfull, s(xfull)/polyval(p,xfull)
+  
+    if returns == 'difference':
+        return xfull,s(xfull)-polyval(p,xfull)
+  
+    if returns == 'function':
+        return xfull,polyval(p,xfull)
 
 def eqw(wl,flux,lims,cniterate=5):
 

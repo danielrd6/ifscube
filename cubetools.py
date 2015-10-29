@@ -125,43 +125,49 @@ class gmosdc:
             ravel(indices(shape(self.data)[1:])[1])
             ])
     
-    def continuum(self, niterate=3, degr=5, upper_threshold=1,
-        lower_threshold=1, writefits=False, outimage=None,
-        fitting_window=None):
+    def continuum(self, writefits=False, outimage=None, fitting_window=None,
+        copts=None):
         """
         Evaluates a polynomial continuum for the whole cube and stores
-        it in self.continuum.
+        it in self.cont.
         """
 
         if self.binned:
             v = loadtxt(self.voronoi_tab)
-            xy = v[unique(v[:,2],return_index=True)[1],:2]
+            xy = v[unique(v[:,2], return_index=True)[1],:2]
         else:
             xy = self.spec_indices
 
-        wl = self.restwl        
         fw = fitting_window
-        fwidx = (wl > fw[0]) & (wl < fw[1])
+        fwidx = (self.restwl > fw[0]) & (self.restwl < fw[1])
+        
+        wl = deepcopy(self.restwl[fwidx])
+        data = deepcopy(self.data[fwidx])
 
-        c = zeros(shape(self.data[fwidx,:,:]))
+        c = zeros(shape(data))
 
         nspec = len(xy)
 
+        if copts == None:
+            copts = {'degr':3, 'upper_threshold':2,
+                'lower_threshold':2, 'niterate':5}
+
+        try:
+            copts['returns']
+        except KeyError:
+            copts['returns'] = 'function'
+
         for k,h in enumerate(xy):
-#            if k%(nspec/100) == 0:
-#                print '{:02d}%\r'.format(k/(nspec/100))
             i,j = h
-            s = deepcopy(self.data[:,i,j])
-            if any(s[:20]):
+            s = deepcopy(data[:,i,j])
+            if any(s[:20]) and any(s[-20:]):
                 try:
-                    cont = st.continuum(wl[fwidx], s[fwidx], niterate=niterate,
-                        degr=degr, upper_threshold=upper_threshold,
-                        lower_threshold=lower_threshold, returns='function')[1]
+                    cont = st.continuum(wl, s, **copts)
                     if self.binned:
                         for l,m in v[v[:,2] == k,:2]:
-                            c[:,l,m] = cont
+                            c[:,l,m] = cont[1]
                     else:
-                        c[:,i,j] = cont
+                        c[:,i,j] = cont[1]
                 except TypeError:
                     print 'Could not find a solution for {:d},{:d}.'\
                         .format(i,j)
@@ -180,14 +186,20 @@ class gmosdc:
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
-                hdr.append(('REDSHIFT',self.redshift,'Redshift used in GMOSDC'))
+                hdr.append(('REDSHIFT', self.redshift,
+                    'Redshift used in GMOSDC'))
+
+            hdr['CRVAL3'] = wl[0]
+            hdr.append(('CONTDEGR', copts['degr'],
+                'Degree of continuum polynomial'))
+            hdr.append(('CONTNITE', copts['niterate'],
+                'Continuum rejection iterations'))
+            hdr.append(('CONTLTR', copts['lower_threshold'],
+                'Continuum lower threshold'))
+            hdr.append(('CONTHTR', copts['upper_threshold'],
+                'Continuum upper threshold'))
     
-            hdr.append(('CONTDEGR',degr,'Degree of continuum polynomial'))
-            hdr.append(('CONTNITE',niterate,'Continuum rejection iterations'))
-            hdr.append(('CONTLTR',lower_threshold,'Continuum lower threshold'))
-            hdr.append(('CONTHTR',upper_threshold,'Continuum upper threshold'))
-    
-            pf.writeto(outimage, data=array([c, self.data-c]), header=hdr)
+            pf.writeto(outimage, data=c, header=hdr)
 
         return c
     
@@ -332,7 +344,8 @@ class gmosdc:
             writefits=False, outimage=None, variance=None,
             constraints=(), bounds=None, inst_disp=1.0, individual_spec=False,
             min_method='SLSQP', minopts=None, copts=None,
-            refit=False, spiral_loop=False, spiral_center=None):
+            refit=False, spiral_loop=False, spiral_center=None,
+            fit_continuum=True):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties. This is a wrapper for the scipy
@@ -404,6 +417,11 @@ class gmosdc:
         spiral_center : iterable
             Central coordinates for the beginning of the spiral given
             as a list of two coordinates [x0, y0]
+        fit_continuum : boolean
+            If True fits the continuum just before attempting to fit
+            the emission lines. Setting this option to False will
+            cause the algorithm to look for self.cont, which should
+            contain a data cube of continua.
 
         Returns
         -------
@@ -516,11 +534,14 @@ class gmosdc:
         for k, h in enumerate(xy):
             progress(k, nspec, 10)
             i,j = h
-            if ~any(data[:20,i,j]):
+            if ~any(data[:20,i,j]) or ~any(data[-20:,i,j]):
                 sol[:,i,j] = nan_solution
                 continue
             v = vcube[:,i,j]
-            cont = st.continuum(wl, data[:,i,j], **copts)[1]
+            if fit_continuum:
+                cont = st.continuum(wl, data[:,i,j], **copts)[1]
+            else:
+                cont = self.cont[:,i,j]/scale_factor
             s = data[:,i,j] - cont
 
             # Avoids fitting if the spectrum is null.
