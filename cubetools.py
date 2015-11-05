@@ -15,6 +15,8 @@ from scipy.integrate import trapz
 from scipy.interpolate import interp1d
 import profiles as lprof
 
+#teste          
+
 def progress(x,xmax,steps=10):
     try:
         if x%(xmax/steps) == 0:
