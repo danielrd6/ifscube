@@ -472,7 +472,7 @@ class gmosdc:
             if variance == None:
                 variance = 1.0
         else:
-            variance /= scale_factor**2
+            variance = deepcopy(variance)/scale_factor**2
 
         vcube = ones(shape(data))
         if len(shape(variance)) == 0:
