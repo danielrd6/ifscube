@@ -4,12 +4,9 @@ A set of python scripts and functions to analyse and process integral
 field spectroscopy data cubes.
 
 Author: Daniel Ruschel Dutra
+
 Website: https://github.com/danielrd6/ifscube
 
-1. Installation instructions
-2. Voronoi binning method
-
--------------------
 1. Installation instructions
 
 To install this software in your computer you must perform two simple
@@ -37,7 +34,6 @@ variable to be set every time you open a bash terminal.
 
 If there were no errors you should be all set now. Enjoy!
 
--------------------
 2. Voronoi binning method
 
 Many of the functions in 'ifscube' have provisions for working with data
