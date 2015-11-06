@@ -16,7 +16,7 @@ To install this software in your computer you must perform two simple
 steps: first you should to clone the git repository from
 https://github.com/danielrd6/ifscube by issuing the command
 
-$> git clone https://github.com/danielrd6/ifscube
+    git clone https://github.com/danielrd6/ifscube
 
 Then you should compile the Fortran subroutines used in the linefit
 function. For that you will need a fortran compiler, like gfortran, for
