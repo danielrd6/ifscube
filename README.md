@@ -23,14 +23,14 @@ function. For that you will need a fortran compiler, like gfortran, for
 instance. If you already have a Fortran compiler installed, all you
 need to do is execute the setup.py script with the build_ext option.
 
-    $ python setup.py build_ext
+    python setup.py build_ext
 
 I also recomend that you add the path to your local copy of the
 repository to the enviroment variable PYTHONPATH, so that you can
 access the functions in ifscube from any directory in your computer.
 In a bash terminal you should issue the command
 
-    $ export PYTHONPATH=$PYTHONPATH:/path/to/ifscube
+    export PYTHONPATH=$PYTHONPATH:/path/to/ifscube
 
 Additionaly, you can add the above to your .bashrc file, causing the
 variable to be set every time you open a bash terminal.
