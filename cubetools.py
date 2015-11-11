@@ -315,7 +315,7 @@ class gmosdc:
             constraints=(), bounds=None, inst_disp=1.0, individual_spec=False,
             min_method='SLSQP', minopts=None, copts=None,
             refit=False, spiral_loop=False, spiral_center=None,
-            fit_continuum=True):
+            fit_continuum=True, refit_radius=3):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties. This is a wrapper for the scipy
@@ -527,10 +527,11 @@ class gmosdc:
 
                 if refit and k != 0:
                     radsol = sqrt((Y - i)**2 + (X - j)**2)
-                    nearsol = sol[:-1, (radsol < 2) & (fit_status == 0)]
+                    nearsol = sol[:-1, (radsol < refit_radius) &\
+                        (fit_status == 0)]
                     if shape(nearsol) == (5, 1):
                         p0 = deepcopy(nearsol.transpose()/flux_sf)
-                    else:
+                    elif any(nearsol):
                         p0 = deepcopy(average(nearsol.transpose(), 0)/flux_sf)
 
                 r = minimize(res, x0=p0, method=min_method, bounds=bounds,
