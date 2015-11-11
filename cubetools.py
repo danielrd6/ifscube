@@ -507,6 +507,7 @@ class gmosdc:
         for k, h in enumerate(xy):
             progress(k, nspec, 10)
             i,j = h
+            binNum = vor[(vor[:,0] == i)&(vor[:,1] == j), 2]
             if ~any(data[:20,i,j]) or ~any(data[-20:,i,j]):
                 sol[:,i,j] = nan_solution
                 continue
@@ -544,7 +545,7 @@ class gmosdc:
                     .format(int(i),int(j))
                 p = nan_solution
             if self.binned:
-                for l, m in vor[vor[:,2] == k,:2]:
+                for l, m in vor[vor[:,2] == binNum,:2]:
                     sol[:,l,m] = p
                     self.fitcont[:,l,m] = cont*scale_factor
                     self.fitspec[:,l,m] = (s+cont)*scale_factor
