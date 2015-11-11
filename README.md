@@ -7,7 +7,7 @@ Author: Daniel Ruschel Dutra
 
 Website: https://github.com/danielrd6/ifscube
 
-### Installation instructions
+## Installation instructions
 
 To install this software in your computer you must perform two simple
 steps: first you should to clone the git repository from
