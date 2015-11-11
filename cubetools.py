@@ -845,13 +845,16 @@ class gmosdc:
         binned = zeros(shape(self.data))
         binned[:, xnan, ynan] = nan
 
-        for i, j in enumerate(v):
-            samebin = v[:,2] == v[i,2]
-            samebin_x, samebin_y = v[samebin, 0], v[samebin, 1]
+        for i in arange(binNum.max()+1):
+            samebin = v[:,2] == i
+            samebin_coords = v[samebin,:2]
 
-            binned[:,j[0],j[1]] = average(self.data[:, samebin_x,
-                samebin_y], axis=1)
-    
+            binspec = average(self.data[:,samebin_coords[:,0],
+               samebin_coords[:,1]], axis=1)
+
+            for k in samebin_coords:
+                binned[:,k[0],k[1]] = binspec
+
         if writefits:
             hdr = deepcopy(self.header_data)  
             try:
