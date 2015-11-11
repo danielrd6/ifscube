@@ -839,39 +839,18 @@ class gmosdc:
             voronoi_2d_binning(x, y, signal, noise, targetsnr, plot=1, quiet=0)
         v = column_stack([x, y, binNum])
 
-        nanv = column_stack([xnan, ynan,
-            ones(len(xnan), dtype='int')*binNum.max()+1])
-
-        v = row_stack([v, nanv])
-    
         if writevortab:
             savetxt('voronoi_binning.dat', v, fmt='%.2f\t%.2f\t%d')
         
-        nanspec = array([nan for i in self.data[:,0,0]])
         binned = zeros(shape(self.data))
+        binned[:, xnan, ynan] = nan
+
         for i, j in enumerate(v):
             samebin = v[:,2] == v[i,2]
-            if any(isnan(self.data[:,j[0],j[1]])):
-                binned[:,j[0],j[1]] = nanspec
-            else:
-                binned[:,j[0],j[1]] = average(self.data[:, v[samebin, 0],
-                    v[samebin, 1]], axis=1)
+            samebin_x, samebin_y = v[samebin, 0], v[samebin, 1]
 
-
-#            selected = array(v[v[:,2] == v[i,2]][:,:2], dtype='int')
-#            for l, k in enumerate(selected):
-#                if l == 0:
-#                    spec = self.data[:,k[0],k[1]]
-#                else:
-#                    spec = row_stack([spec, self.data[:,k[0],k[1]]])
-#
-#            if len(shape(spec)) == 2:
-#                if all(isnan(spec)):
-#                    binned[:,j[0],j[1]] = spec[0,:]
-#                else:
-#                    binned[:,j[0],j[1]] = average(spec, 0)
-#            elif len(shape(spec)) == 1:
-#                binned[:,j[0],j[1]] = spec
+            binned[:,j[0],j[1]] = average(self.data[:, samebin_x,
+                samebin_y], axis=1)
     
         if writefits:
             hdr = deepcopy(self.header_data)  
@@ -885,6 +864,8 @@ class gmosdc:
             if outfile == None:
                 outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])  
             pf.writeto(outfile,data=binned,header=hdr,clobber=clobber)
+
+        self.binned = binned
   
     def write_binnedspec(self, dopcor=False, writefits=False):
         """
