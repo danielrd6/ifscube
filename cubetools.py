@@ -20,7 +20,7 @@ from scipy.integrate import trapz
 from scipy.interpolate import interp1d
 import profiles as lprof
 
-def progress(x,xmax,steps=10):
+def progress(x, xmax, steps=10):
     try:
         if x%(xmax/steps) == 0:
             print '{:2.0f}%\r'.format(float(x)/float(xmax)*100)
@@ -284,7 +284,7 @@ class gmosdc:
    
         return outim
       
-    def plotspec(self,x,y):
+    def plotspec(self, x, y):
         """
         Plots the spectrum at coordinates x,y.
 
@@ -304,10 +304,10 @@ class gmosdc:
         ax = plt.axes()    
         try:
             if len(x) == 2 and len(y) == 2:
-                s = average(average(self.data[:,y[0]:y[1],x[0]:x[1]],1),1)
+                s = average(average(self.data[:,y[0]:y[1],x[0]:x[1]], 1), 1)
         except TypeError:
             s = self.data[:,y,x]    
-        ax.plot(self.restwl,s)    
+        ax.plot(self.restwl, s)    
         plt.show()
     
     def linefit(self, p0, function='gaussian', fitting_window=None,
@@ -407,11 +407,11 @@ class gmosdc:
 
         if function == 'gaussian':
             fit_func = lprof.gauss
-            self.fit_func = fit_func
+            self.fit_func = lprof.gauss
             npars_pc = 3
         elif function == 'gauss_hermite':
             fit_func = lprof.gausshermite
-            self.fit_func = fit_func
+            self.fit_func = lprof.gausshermite
             npars_pc = 5
         else:
             raise NameError('Unknown function "{:s}".'.format(function))
