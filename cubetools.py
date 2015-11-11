@@ -822,11 +822,11 @@ class gmosdc:
    
         valid_spaxels = ravel(~isnan(self.signal))
 
-        y = ravel(indices(shape(self.signal))[0])[valid_spaxels]
-        x = ravel(indices(shape(self.signal))[1])[valid_spaxels]
+        x = ravel(indices(shape(self.signal))[0])[valid_spaxels]
+        y = ravel(indices(shape(self.signal))[1])[valid_spaxels]
 
-        ynan = ravel(indices(shape(self.signal))[0])[~valid_spaxels]
-        xnan = ravel(indices(shape(self.signal))[1])[~valid_spaxels]       
+        xnan = ravel(indices(shape(self.signal))[0])[~valid_spaxels]
+        ynan = ravel(indices(shape(self.signal))[1])[~valid_spaxels]       
 
         s, n = deepcopy(self.signal), deepcopy(self.noise)
         
@@ -839,24 +839,39 @@ class gmosdc:
             voronoi_2d_binning(x, y, signal, noise, targetsnr, plot=1, quiet=0)
         v = column_stack([x, y, binNum])
 
-        v = row_stack([xnan, ynan, binNum.max()+1])
+        nanv = column_stack([xnan, ynan,
+            ones(len(xnan), dtype='int')*binNum.max()+1])
+
+        v = row_stack([v, nanv])
     
         if writevortab:
             savetxt('voronoi_binning.dat', v, fmt='%.2f\t%.2f\t%d')
         
+        nanspec = array([nan for i in self.data[:,0,0]])
         binned = zeros(shape(self.data))
         for i, j in enumerate(v):
-            selected = array(v[v[:,2] == v[i,2]][:,:2], dtype='int')
-            for l, k in enumerate(selected):
-                if l == 0:
-                    spec = self.data[:,k[0],k[1]]
-                else:
-                    spec = row_stack([spec, self.data[:,k[0],k[1]]])
-      
-            if len(shape(spec)) == 2:
-                binned[:,j[0],j[1]] = average(spec, 0)
-            elif len(shape(spec)) == 1:
-                binned[:,j[0],j[1]] = spec
+            samebin = v[:,2] == v[i,2]
+            if any(isnan(self.data[:,j[0],j[1]])):
+                binned[:,j[0],j[1]] = nanspec
+            else:
+                binned[:,j[0],j[1]] = average(self.data[:, v[samebin, 0],
+                    v[samebin, 1]], axis=1)
+
+
+#            selected = array(v[v[:,2] == v[i,2]][:,:2], dtype='int')
+#            for l, k in enumerate(selected):
+#                if l == 0:
+#                    spec = self.data[:,k[0],k[1]]
+#                else:
+#                    spec = row_stack([spec, self.data[:,k[0],k[1]]])
+#
+#            if len(shape(spec)) == 2:
+#                if all(isnan(spec)):
+#                    binned[:,j[0],j[1]] = spec[0,:]
+#                else:
+#                    binned[:,j[0],j[1]] = average(spec, 0)
+#            elif len(shape(spec)) == 1:
+#                binned[:,j[0],j[1]] = spec
     
         if writefits:
             hdr = deepcopy(self.header_data)  
