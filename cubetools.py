@@ -788,7 +788,7 @@ class gmosdc:
         plt.show()
   
     def voronoi_binning(self, targetsnr=10.0, writefits=False,
-                        outfile=None, clobber=True, writevortab=True):
+                        outfile=None, clobber=False, writevortab=True):
         """
         Applies Voronoi binning to the data cube, using Cappellari's
         Python implementation.
@@ -819,40 +819,42 @@ class gmosdc:
             print 'This function requires prior execution of the snr_eval'\
                 + 'method.'
             return
-    
-        x = ravel(indices(shape(self.signal))[0])
-        y = ravel(indices(shape(self.signal))[1])
+   
+        valid_spaxels = ravel(~isnan(self.signal))
+
+        x = ravel(indices(shape(self.signal))[0])[valid_spaxels]
+        y = ravel(indices(shape(self.signal))[1])[valid_spaxels]
+
+        xnan = ravel(indices(shape(self.signal))[0])[~valid_spaxels]
+        ynan = ravel(indices(shape(self.signal))[1])[~valid_spaxels]       
+
         s, n = deepcopy(self.signal), deepcopy(self.noise)
-        s[isnan(s)] = average(self.signal[~isnan(self.signal)])
+        
         s[s <= 0] = average(self.signal[self.signal > 0])
-        n[isnan(n)] = average(self.signal[~isnan(self.signal)])*.5
         n[n <= 0] = average(self.signal[self.signal > 0])*.5
-        signal, noise = ravel(s),ravel(n)
+
+        signal, noise = ravel(s)[valid_spaxels], ravel(n)[valid_spaxels]
     
         binNum, xNode, yNode, xBar, yBar, sn, nPixels, scale = \
             voronoi_2d_binning(x, y, signal, noise, targetsnr, plot=1, quiet=0)
-        v = column_stack([x,y,binNum])
-    
+        v = column_stack([x, y, binNum])
+
         if writevortab:
-            savetxt('voronoi_binning.dat',v,fmt='%.2f\t%.2f\t%d')
+            savetxt('voronoi_binning.dat', v, fmt='%.2f\t%.2f\t%d')
         
         binned = zeros(shape(self.data))
-        for i,j in enumerate(v):
-            selected = array(v[v[:,2] == v[i,2]][:,:2], dtype='int')
-            for l,k in enumerate(selected):
-                if l == 0:
-                    spec = self.data[:,k[0],k[1]]
-                else:
-                    spec = row_stack([spec, self.data[:,k[0],k[1]]])
-      
-            if len(shape(spec)) == 2:
-                binned[:,j[0],j[1]] = average(spec,0)
-            elif len(shape(spec)) == 1:
-                binned[:,j[0],j[1]] = spec
-            else:
-                print 'ERROR! shape(spec) = {:s}, expecting 1 or 2'\
-                    .format(shape(spec))
-    
+        binned[:, xnan, ynan] = nan
+
+        for i in arange(binNum.max()+1):
+            samebin = v[:,2] == i
+            samebin_coords = v[samebin,:2]
+
+            binspec = average(self.data[:,samebin_coords[:,0],
+               samebin_coords[:,1]], axis=1)
+
+            for k in samebin_coords:
+                binned[:,k[0],k[1]] = binspec
+
         if writefits:
             hdr = deepcopy(self.header_data)  
             try:
@@ -865,6 +867,8 @@ class gmosdc:
             if outfile == None:
                 outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])  
             pf.writeto(outfile,data=binned,header=hdr,clobber=clobber)
+
+        self.binned = binned
   
     def write_binnedspec(self, dopcor=False, writefits=False):
         """
