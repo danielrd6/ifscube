@@ -488,7 +488,10 @@ class gmosdc:
         if individual_spec:
             xy = [individual_spec[::-1]]
         elif spiral_loop:
-            y, x = self.spec_indices[:,0], self.spec_indices[:,1]
+            if self.binned:
+                y, x = xy[:,0], xy[:,1]
+            else:
+                y, x = self.spec_indices[:,0], self.spec_indices[:,1]
             if spiral_center == None:
                 r = sqrt((x - x.max()/2.)**2 + (y - y.max()/2.)**2)
             else:
@@ -506,7 +509,7 @@ class gmosdc:
         nspec = len(xy)
         for k, h in enumerate(xy):
             progress(k, nspec, 10)
-            i,j = h
+            i, j = h
             binNum = vor[(vor[:,0] == i)&(vor[:,1] == j), 2]
             if ~any(data[:20,i,j]) or ~any(data[-20:,i,j]):
                 sol[:,i,j] = nan_solution
