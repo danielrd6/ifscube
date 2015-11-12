@@ -114,7 +114,7 @@ class gmosdc:
         wl = deepcopy(self.restwl[fwidx])
         data = deepcopy(self.data[fwidx])
 
-        c = zeros(shape(data))
+        c = zeros(shape(data), dtype='float32')
 
         nspec = len(xy)
 
@@ -143,7 +143,7 @@ class gmosdc:
                         .format(i,j)
                     return wl, s
             else:
-                c[:,i,j] = zeros(len(wl))
+                c[:,i,j] = zeros(len(wl), dtype='float32')
     
         self.cont = c
     
@@ -200,8 +200,8 @@ class gmosdc:
             and a 3 order polynomial.
         """
   
-        noise = zeros(shape(self.data)[1:])
-        signal = zeros(shape(self.data)[1:])
+        noise = zeros(shape(self.data)[1:], dtype='float32')
+        signal = zeros(shape(self.data)[1:], dtype='float32')
         snrwindow = (self.restwl >= wl_range[0]) & (self.restwl <= wl_range[1])
         data = deepcopy(self.data)
 
@@ -261,7 +261,7 @@ class gmosdc:
           print 'ERROR! Parameter filtertype "{:s}" not understood.'\
               .format(filtertype)
    
-        outim = zeros(shape(self.data)[1:])
+        outim = zeros(shape(self.data)[1:], dtype='float32')
    
         for i,j in self.spec_indices:
           outim[i,j] = trapz(self.data[:,i,j]*arrfilt, self.restwl)
@@ -439,7 +439,7 @@ class gmosdc:
         wl = deepcopy(self.restwl[fw])
         scale_factor = median(self.data[fw,:,:])
         data = deepcopy(self.data[fw,:,:])/scale_factor
-        fit_status = ones(shape(data)[1:])*-1
+        fit_status = ones(shape(data)[1:], dtype='float32')*-1
 
         if len(shape(variance)) == 0:
             if variance == None:
@@ -447,7 +447,7 @@ class gmosdc:
         else:
             variance = deepcopy(variance)/scale_factor**2
 
-        vcube = ones(shape(data))
+        vcube = ones(shape(data), dtype='float32')
         if len(shape(variance)) == 0:
             vcube *= variance
         elif len(shape(variance)) == 1:
@@ -461,11 +461,12 @@ class gmosdc:
 
         npars = len(p0)
         nan_solution = array([nan for i in range(npars+1)])
-        sol = zeros((npars+1,shape(self.data)[1], shape(self.data)[2]))
-        self.fitcont = zeros(shape(data))
+        sol = zeros((npars+1,shape(self.data)[1], shape(self.data)[2]),
+            dtype='float32')
+        self.fitcont = zeros(shape(data), dtype='float32')
         self.fitwl = wl
-        self.fitspec = zeros(shape(data))
-        self.resultspec = zeros(shape(data))
+        self.fitspec = zeros(shape(data), dtype='float32')
+        self.resultspec = zeros(shape(data), dtype='float32')
 
         if self.binned:
             vor = loadtxt(self.voronoi_tab)
@@ -475,7 +476,7 @@ class gmosdc:
         
         # Scale factor for the flux. Needed to avoid problems with
         # the minimization algorithm.
-        flux_sf = ones(npars)
+        flux_sf = ones(npars, dtype='float32')
         flux_sf[arange(0, npars, npars_pc)] *= scale_factor
         p0 /= flux_sf
         if bounds != None:
@@ -651,8 +652,8 @@ class gmosdc:
         Evaluates the equivalent width of a previous linefit.
         """
         xy = self.spec_indices
-        eqw_model = zeros(shape(self.em_model)[1:])
-        eqw_direct = zeros(shape(self.em_model)[1:])
+        eqw_model = zeros(shape(self.em_model)[1:], dtype='float32')
+        eqw_direct = zeros(shape(self.em_model)[1:], dtype='float32')
         fit_func = lambda x, a ,b, c: a*exp(-(x-b)**2/2./c**2)
 
         for i,j in xy:
@@ -847,7 +848,7 @@ class gmosdc:
         if writevortab:
             savetxt('voronoi_binning.dat', v, fmt='%.2f\t%.2f\t%d')
         
-        binned = zeros(shape(self.data))
+        binned = zeros(shape(self.data), dtype='float32')
         binned[:, xnan, ynan] = nan
 
         for i in arange(binNum.max()+1):

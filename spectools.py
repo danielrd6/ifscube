@@ -22,7 +22,7 @@ from scipy.optimize import fsolve
 from scipy.optimize import minimize
 import re
 
-def rmbg(x,y,samp,order=1):
+def rmbg(x, y, samp, order=1):
     """
     Removes a background function from one dimensional data.
   
@@ -44,14 +44,14 @@ def rmbg(x,y,samp,order=1):
     ys = array([])
   
     for i in range(0,len(samp),2):
-        xs = append(xs,x[(x >= samp[i]) & (x < samp[i+1])])
-        ys = append(ys,y[(x >= samp[i]) & (x < samp[i+1])])
+        xs = append(xs, x[(x >= samp[i]) & (x < samp[i+1])])
+        ys = append(ys, y[(x >= samp[i]) & (x < samp[i+1])])
   
-    p = polyfit(xs,ys,deg=order)
+    p = polyfit(xs, ys, deg=order)
   
-    ynew = y-polyval(p,x)
+    ynew = y-polyval(p, x)
   
-    return x,ynew
+    return x, ynew
   
 def fitgauss(x, y, p0=None, fitcenter=True, fitbg=True):
     """
@@ -210,45 +210,48 @@ def closest(arr,value):
   idx = abs(arr - value).argmin()
   return idx
 
-def get_wl(image, dimension=0, hdrext=0, dataext=0, dwlkey='CD1_1', wl0key='CRVAL1', pix0key='CRPIX1'):
+def get_wl(image, dimension=0, hdrext=0, dataext=0, dwlkey='CD1_1', 
+    wl0key='CRVAL1', pix0key='CRPIX1'):
   
-  """
-  Obtains the wavelenght coordinates from the header keywords of the
-  FITS file image. The default keywords are CD1_1 for the delta lambda,
-  CRVAL for the value of the first pixel and CRPIX1 for the number of
-  the first pixel. These keywords are the standard for GEMINI images.
-  
-  The function is prepared to work with Multi-Extesion FITS (MEF) files.
-
-  Parameters:
-  -----------
-  image : string
-    Name of the FITS file containing the spectrum
-  dimension : integer
-    Dimension of the dispersion direction
-  hdrext : number
-    Extension that contains the header
-  dataext : number
-    Extension that contains the actual spectral data
-  dwlkey : string
-    Header keyword for the interval between two data points
-  wl0key : string
-    Header keyword for the first pixel value
-  pix0key : string
-    Header keyword for the first pixel coordinate
-  
-  Returns:
-  --------
-  wl : numpy.array
-    Wavelength coordinates for each data point
-  """
- 
-  h = pf.getheader(image,ext=hdrext)
-  dwl,wl1,pix0 = [float(h[i]) for i in [dwlkey,wl0key,pix0key]]
-  npoints = shape(pf.getdata(image,dataext))[dimension]
-  wl = wl1 + (arange(1,npoints+1)-pix0)*dwl 
+    """
+    Obtains the wavelenght coordinates from the header keywords of the
+    FITS file image. The default keywords are CD1_1 for the delta
+    lambda, CRVAL for the value of the first pixel and CRPIX1 for the
+    number of the first pixel. These keywords are the standard for
+    GEMINI images.
     
-  return wl
+    The function is prepared to work with Multi-Extesion FITS (MEF)
+    files.
+  
+    Parameters
+    ----------
+    image : string
+        Name of the FITS file containing the spectrum
+    dimension : integer
+        Dimension of the dispersion direction
+    hdrext : number
+        Extension that contains the header
+    dataext : number
+        Extension that contains the actual spectral data
+    dwlkey : string
+        Header keyword for the interval between two data points
+    wl0key : string
+        Header keyword for the first pixel value
+    pix0key : string
+        Header keyword for the first pixel coordinate
+    
+    Returns
+    -------
+    wl : numpy.array
+        Wavelength coordinates for each data point
+    """
+   
+    h = pf.getheader(image,ext=hdrext)
+    dwl, wl1, pix0 = [float(h[i]) for i in [dwlkey, wl0key, pix0key]]
+    npoints = shape(pf.getdata(image,dataext))[dimension]
+    wl = wl1 + (arange(1, npoints+1, dtype='float32') - pix0)*dwl 
+      
+    return wl
 
 def normspec(x,y,wl,span):
   
