@@ -18,7 +18,10 @@ from scipy.optimize import minimize
 from scipy.ndimage import gaussian_filter as gf
 from scipy.integrate import trapz
 from scipy.interpolate import interp1d
+from scipy import ndimage
 import profiles as lprof
+import ppxf
+import ppxf_util
 
 def progress(x, xmax, steps=10):
     try:
@@ -32,12 +35,12 @@ class gmosdc:
     A class for dealing with data cubes, originally written to work
     with GMOS IFU.
     """
-  
+
     def __init__(self, fitsfile, redshift=None, vortab=None):
         """
         Initializes the class and loads basic information onto the
         object.
-    
+
         Parameters:
         -----------
         fitstile : string
@@ -50,12 +53,12 @@ class gmosdc:
             been applied to the spectra yet.
         vortab : string
             Name of the file containing the Voronoi binning table
-    
+
         Returns:
         --------
         Nothing.
         """
-    
+
         if len(pf.open(fitsfile)) == 2:
             dataext, hdrext = 1,0
         elif len(pf.open(fitsfile)) == 1:
@@ -94,7 +97,7 @@ class gmosdc:
             ravel(indices(shape(self.data)[1:])[0]),
             ravel(indices(shape(self.data)[1:])[1])
             ])
-    
+
     def continuum(self, writefits=False, outimage=None, fitting_window=None,
         copts=None):
         """
@@ -110,7 +113,7 @@ class gmosdc:
 
         fw = fitting_window
         fwidx = (self.restwl > fw[0]) & (self.restwl < fw[1])
-        
+
         wl = deepcopy(self.restwl[fwidx])
         data = deepcopy(self.data[fwidx])
 
@@ -144,15 +147,15 @@ class gmosdc:
                     return wl, s
             else:
                 c[:,i,j] = zeros(len(wl), dtype='float32')
-    
+
         self.cont = c
-    
+
         if writefits:
             if outimage == None:
                 outimage = self.fitsfile.replace('.fits','_continuum.fits')
-    
+
             hdr = deepcopy(self.header_data)
-    
+
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
@@ -168,16 +171,16 @@ class gmosdc:
                 'Continuum lower threshold'))
             hdr.append(('CONTHTR', copts['upper_threshold'],
                 'Continuum upper threshold'))
-    
+
             pf.writeto(outimage, data=c, header=hdr)
 
         return c
-    
+
     def snr_eval(self,wl_range=[6050,6200]):
         """
         Measures the signal to noise ratio (SNR) for each spectrum in a
         data cube, returning an image of the SNR.
-  
+
         Parameters:
         -----------
         self : gmosdc instance
@@ -185,12 +188,12 @@ class gmosdc:
         wl_range : array like
             An array like object containing two wavelength coordinates
             that define the SNR window at the rest frame.
-  
+
         Returns:
         --------
         snr : numpy.ndarray
             Image of the SNR for each spectrum.
-  
+
         Description:
         ------------
             This method evaluates the SNR for each spectrum in a data
@@ -199,7 +202,7 @@ class gmosdc:
             to provide the continuum, with zero rejection iterations
             and a 3 order polynomial.
         """
-  
+
         noise = zeros(shape(self.data)[1:], dtype='float32')
         signal = zeros(shape(self.data)[1:], dtype='float32')
         snrwindow = (self.restwl >= wl_range[0]) & (self.restwl <= wl_range[1])
@@ -217,18 +220,18 @@ class gmosdc:
                 signal[i,j] = nanmean(cont)
             else:
                 noise[i,j],signal[i,j] = nan, nan
-        
+
         self.noise = noise
         self.signal = signal
-  
+
         return array([signal,noise])
-  
+
     def wlprojection(self, wl0, fwhm=10, filtertype='box', writefits=False,
         outimage='wlprojection.fits'):
         """
         Writes a projection of the data cube along the wavelength
         coordinate, with the flux given by a given type of filter.
-   
+
         Parameters:
         -----------
         wl0 : float
@@ -244,14 +247,14 @@ class gmosdc:
                          wl0 and sigma = fwhm/(2*sqrt(2*log(2)))
         outimage : string
             Name of the output image
-   
+
         Returns:
         --------
         Nothing.
         """
-        
+
         if filtertype == 'box':
-           arrfilt = array( (self.restwl >= wl0-fwhm/2.) & 
+           arrfilt = array( (self.restwl >= wl0-fwhm/2.) &
                             (self.restwl <= wl0+fwhm/2.), dtype='float')
            arrfilt /= trapz(arrfilt,self.restwl)
         elif filtertype == 'gaussian':
@@ -260,16 +263,16 @@ class gmosdc:
         else:
           print 'ERROR! Parameter filtertype "{:s}" not understood.'\
               .format(filtertype)
-   
+
         outim = zeros(shape(self.data)[1:], dtype='float32')
-   
+
         for i,j in self.spec_indices:
           outim[i,j] = trapz(self.data[:,i,j]*arrfilt, self.restwl)
-   
+
         if writefits:
-   
+
           hdr = deepcopy(self.header)
-   
+
           try:
               hdr['REDSHIFT'] = self.redshift
           except KeyError:
@@ -279,11 +282,11 @@ class gmosdc:
               'Type of filter used in projection.'))
           hdr.append(('WLPRWL0', wl0, 'Central wavelength of the filter.'))
           hdr.append(('WLPRFWHM', fwhm, 'FWHM of the projection filter.'))
-   
-          pf.writeto(outimage,data=outim,header=hdr)      
-   
+
+          pf.writeto(outimage,data=outim,header=hdr)
+
         return outim
-      
+
     def plotspec(self, x, y):
         """
         Plots the spectrum at coordinates x,y.
@@ -299,17 +302,17 @@ class gmosdc:
         -------
         Nothing.
         """
-    
+
         fig = plt.figure(1)
-        ax = plt.axes()    
+        ax = plt.axes()
         try:
             if len(x) == 2 and len(y) == 2:
                 s = average(average(self.data[:,y[0]:y[1],x[0]:x[1]], 1), 1)
         except TypeError:
-            s = self.data[:,y,x]    
-        ax.plot(self.restwl, s)    
+            s = self.data[:,y,x]
+        ax.plot(self.restwl, s)
         plt.show()
-    
+
     def linefit(self, p0, function='gaussian', fitting_window=None,
             writefits=False, outimage=None, variance=None,
             constraints=(), bounds=None, inst_disp=1.0, individual_spec=False,
@@ -322,7 +325,7 @@ class gmosdc:
         minimize function that basically iterates over the cube,
         has a formula for the reduced chi squared, and applies
         an internal scale factor to the flux.
-    
+
         Parameters
         ----------
         p0 : iterable
@@ -425,7 +428,7 @@ class gmosdc:
         if copts == None:
             copts = {'niterate':5, 'degr':4, 'upper_threshold':2,
                 'lower_threshold':2}
-        
+
         copts['returns'] = 'function'
 
         try:
@@ -473,7 +476,7 @@ class gmosdc:
             xy = vor[unique(vor[:,2],return_index=True)[1],:2]
         else:
             xy = self.spec_indices
-        
+
         # Scale factor for the flux. Needed to avoid problems with
         # the minimization algorithm.
         flux_sf = ones(npars, dtype='float32')
@@ -499,7 +502,7 @@ class gmosdc:
                 r = sqrt((x - spiral_center[0])**2 + (y - spiral_center[1])**2)
             t = arctan2(y - y.max()/2., x - x.max()/2.)
             t[t < 0] += 2*pi
-            
+
             b = array([(ravel(r)[i], ravel(t)[i]) for i in\
                 range(len(ravel(r)))], dtype=[('radius', 'f8'),\
                 ('angle', 'f8')])
@@ -511,7 +514,8 @@ class gmosdc:
         for k, h in enumerate(xy):
             progress(k, nspec, 10)
             i, j = h
-            binNum = vor[(vor[:,0] == i)&(vor[:,1] == j), 2]
+            if self.binned:
+                binNum = vor[(vor[:,0] == i)&(vor[:,1] == j), 2]
             if ~any(data[:20,i,j]) or ~any(data[-20:,i,j]):
                 sol[:,i,j] = nan_solution
                 continue
@@ -566,9 +570,9 @@ class gmosdc:
         self.em_model = sol
         self.fit_status = fit_status
         p0 *= flux_sf
-    
+
         if writefits:
-            
+
             # Basic tests and first header
             if outimage == None:
                 outimage = self.fitsfile.replace('.fits',
@@ -577,7 +581,7 @@ class gmosdc:
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
-                hdr.append(('REDSHIFT', self.redshift, 
+                hdr.append(('REDSHIFT', self.redshift,
                     'Redshift used in GMOSDC'))
 
             # Creates MEF output.
@@ -590,7 +594,7 @@ class gmosdc:
             hdr.append(('CRPIX3', 1, 'Reference pixel for wavelength'))
             hdr.append(('CRVAL3', wl[0], 'Reference value for wavelength'))
             hdr.append(('CD3_3', average(diff(wl)),
-                'CD3_3'))           
+                'CD3_3'))
             h.append(pf.ImageHDU(data=self.fitspec, header=hdr))
 
             # Creates the fitted continuum extension.
@@ -610,7 +614,7 @@ class gmosdc:
             # Creates the minimize's exit status extension
             hdr['object'] = 'status'
             h.append(pf.ImageHDU(data=fit_status, header=hdr))
-            
+
             h.writeto(outimage)
 
         if individual_spec:
@@ -639,7 +643,7 @@ class gmosdc:
         self.fitspec = pf.getdata(fname, ext=1)
         self.fitcont = pf.getdata(fname, ext=2)
         self.resultspec = pf.getdata(fname, ext=3)
-        
+
         func_name = pf.getheader(fname, ext=4)['function']
         if func_name == 'gaussian':
             self.fit_func = lprof.gauss
@@ -741,7 +745,7 @@ class gmosdc:
             continuum_opts : dictionary
                 Dicitionary of options to be passed to the
                 spectools.continuum function
-        
+
         Returns
         -------
         """
@@ -774,7 +778,7 @@ class gmosdc:
             ax = fig.add_subplot(otherside, side, i+1)
             wl = self.restwl
             wl0, wl1 = wl_limits[i], wl_limits[i+1]
-            print wl[(wl > wl0) & (wl < wl1)]            
+            print wl[(wl > wl0) & (wl < wl1)]
             wlc, wlwidth = average([wl0, wl1]), (wl1-wl0)
 
             f = self.wlprojection(wlc, fwhm=wlwidth, writefits=False,
@@ -792,13 +796,13 @@ class gmosdc:
 
         fig.subplots_adjust(wspace=0, hspace=0)
         plt.show()
-  
+
     def voronoi_binning(self, targetsnr=10.0, writefits=False,
                         outfile=None, clobber=False, writevortab=True):
         """
         Applies Voronoi binning to the data cube, using Cappellari's
         Python implementation.
-    
+
         Parameters:
         -----------
         targetsnr : float
@@ -813,41 +817,41 @@ class gmosdc:
             Overwrites files with the same name given in 'outfile'.
         writevortab : boolean
             Saves an ASCII table with the binning recipe.
-    
+
         Returns:
         --------
         Nothing.
         """
-    
+
         try:
             x = shape(self.noise)
         except AttributeError:
             print 'This function requires prior execution of the snr_eval'\
                 + 'method.'
             return
-   
+
         valid_spaxels = ravel(~isnan(self.signal))
 
         x = ravel(indices(shape(self.signal))[0])[valid_spaxels]
         y = ravel(indices(shape(self.signal))[1])[valid_spaxels]
 
         xnan = ravel(indices(shape(self.signal))[0])[~valid_spaxels]
-        ynan = ravel(indices(shape(self.signal))[1])[~valid_spaxels]       
+        ynan = ravel(indices(shape(self.signal))[1])[~valid_spaxels]
 
         s, n = deepcopy(self.signal), deepcopy(self.noise)
-        
+
         s[s <= 0] = average(self.signal[self.signal > 0])
         n[n <= 0] = average(self.signal[self.signal > 0])*.5
 
         signal, noise = ravel(s)[valid_spaxels], ravel(n)[valid_spaxels]
-    
+
         binNum, xNode, yNode, xBar, yBar, sn, nPixels, scale = \
             voronoi_2d_binning(x, y, signal, noise, targetsnr, plot=1, quiet=0)
         v = column_stack([x, y, binNum])
 
         if writevortab:
             savetxt('voronoi_binning.dat', v, fmt='%.2f\t%.2f\t%d')
-        
+
         binned = zeros(shape(self.data), dtype='float32')
         binned[:, xnan, ynan] = nan
 
@@ -862,7 +866,7 @@ class gmosdc:
                 binned[:,k[0],k[1]] = binspec
 
         if writefits:
-            hdr = deepcopy(self.header_data)  
+            hdr = deepcopy(self.header_data)
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
@@ -871,11 +875,11 @@ class gmosdc:
             hdr.append(('VORBIN',True,'Processed by Voronoi binning?'))
             hdr.append(('VORTSNR',targetsnr,'Target SNR for Voronoi binning.'))
             if outfile == None:
-                outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])  
+                outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])
             pf.writeto(outfile,data=binned,header=hdr,clobber=clobber)
 
-        self.binned = binned
-  
+        self.binned_cube = binned
+
     def write_binnedspec(self, dopcor=False, writefits=False):
         """
         Writes only one spectrum for each bin in a FITS file.
@@ -904,15 +908,133 @@ class gmosdc:
         else:
             specs = row_stack([self.data[:,i,j] for i,j in unique_indices])
 
-        return specs        
-  
-    def lineflux(self,amplitude,sigma):
-      """
-      Calculates the flux in a line given the amplitude and sigma
-      of the gaussian function that fits it.
-  
-      """
-  
-      lf = amplitude * abs(sigma) * sqrt(2.*pi)
-  
-      return lf
+        return specs
+
+    def ppxf_kinematics(self, fitting_window, base, vel=0, sigma=180,
+        fwhm_gal=2, fwhm_model=1.8, noise=0.05, individual_spec=False,
+        plotfit=False):
+        """
+        Executes pPXF fitting of the stellar spectrum over the whole
+        data cube.
+
+        Parameters
+        ----------
+        fitting_window : array-like
+            Initial and final values of wavelength for fitting.
+        base : list
+            List of names of FITS spectra, with one entry for each
+            component.
+
+        Returns
+        -------
+        Nothing
+
+        Description
+        -----------
+        This function is merely a wrapper for Michelle Capellari's pPXF
+        Python algorithm for penalized pixel fitting of stellar
+        spectra.
+        """
+
+        w0, w1 = fitting_window
+        fw = (self.wl >= w0)&(self.wl < w1)
+
+        # Here we use the goodpixels as the fitting window
+        gp = arange(shape(self.data)[0])[fw]
+
+        lamRange1 = self.wl[[1, -1]]
+        gal_lin = deepcopy(self.data[:,0,0])
+        galaxy, logLam1, velscale = ppxf_util.log_rebin(lamRange1,
+            gal_lin)       
+
+        ssp = pf.getdata(base[0])
+        h2 = pf.getheader(base[0])
+
+        lamRange2 = st.get_wl(base[0], dwlkey='cdelt1')[[1,-1]]
+        sspNew, logLam2, velscale = ppxf_util.log_rebin(lamRange2, ssp,
+            velscale=velscale)
+        templates = empty((sspNew.size, len(base)))
+
+        # Convolve the whole Vazdekis library of spectral templates
+        # with the quadratic difference between the SAURON and the
+        # Vazdekis instrumental resolution. Logarithmically rebin
+        # and store each template as a column in the array TEMPLATES.
+        
+        # Quadratic sigma difference in pixels Vazdekis --> SAURON
+        # The formula below is rigorously valid if the shapes of the
+        # instrumental spectral profiles are well approximated by
+        # Gaussians.
+        
+        FWHM_dif = sqrt(fwhm_gal**2 - fwhm_model**2)
+        # Sigma difference in pixels
+        sigma = FWHM_dif/2.355/h2['CDELT1']
+
+        for j in range(len(base)):
+            hdu = pf.open(base[j])
+            ssp = hdu[0].data
+            ssp = ndimage.gaussian_filter1d(ssp,sigma)
+            sspNew, logLam2, velscale = ppxf_util.log_rebin(lamRange2, ssp,
+                velscale=velscale)
+            # Normalizes templates
+            templates[:,j] = sspNew/median(sspNew)
+        
+        c = 299792.458
+        dv = (logLam2[0]-logLam1[0])*c # km/s
+        z = exp(vel/c) - 1
+        
+        # Here the actual fit starts.
+        start = [vel, 180.] # (km/s), starting guess for [V,sigma]
+
+        # Assumes uniform noise accross the spectrum
+        noise = zeros(shape(self.data)[0], dtype='float32') + noise
+
+        if self.binned:
+            vor = loadtxt(self.voronoi_tab)
+            xy = vor[unique(vor[:,2],return_index=True)[1],:2]
+        else:
+            xy = self.spec_indices
+
+        if individual_spec:
+            xy = [individual_spec[::-1]]
+
+        ppxf_sol = zeros((4, shape(self.data)[1], shape(self.data)[2]),
+            dtype='float32')
+        ppxf_spec = zeros(shape(self.data), dtype='float32')
+        ppxf_model = zeros(shape(ppxf_spec), dtype='float32')
+
+        nspec = len(xy)
+        for k, h in enumerate(xy):
+            progress(k, nspec, 10)
+            i, j = h
+
+            gal_lin = deepcopy(self.data[:,i,j])
+            galaxy, logLam1, velscale = ppxf_util.log_rebin(lamRange1, gal_lin)
+        
+            # Normalize spectrum to avoid numerical issues.
+            galaxy = galaxy/median(galaxy)
+            # Assume constant noise per pixel here.
+            # This should be changed in the future.
+
+            galaxy = deepcopy(self.data[:,i,j])
+            galaxy = galaxy/median(galaxy)
+
+            pp = ppxf.ppxf(templates, galaxy, noise, velscale, start,
+                goodpixels=gp, plot=plotfit, moments=4, degree=4, vsyst=dv)
+
+            ppxf_sol[:,i,j] = pp.sol
+            ppxf_spec[:,i,j] = pp.galaxy
+            ppxf_model[:,i,j] = pp.bestfit
+
+        self.ppxf_sol = ppxf_sol
+        self.ppxf_spec = ppxf_spec
+        self.ppxf_model = ppxf_model
+
+    def lineflux(self, amplitude, sigma):
+        """
+        Calculates the flux in a line given the amplitude and sigma
+        of the gaussian function that fits it.
+        """
+
+        lf = amplitude * abs(sigma) * sqrt(2.*pi)
+
+        return lf
