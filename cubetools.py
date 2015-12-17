@@ -920,7 +920,8 @@ class gmosdc:
     def ppxf_kinematics(self, fitting_window, base_wl, base_spec,
         base_cdelt, writefits=True, outimage=None,
         vel=0, sigma=180, fwhm_gal=2, fwhm_model=1.8, noise=0.05,
-        individual_spec=False, plotfit=False, quiet=False):
+        individual_spec=False, plotfit=False, quiet=False,
+        deg=4):
         """
         Executes pPXF fitting of the stellar spectrum over the whole
         data cube.
@@ -1031,7 +1032,7 @@ class gmosdc:
             galaxy = galaxy/median(galaxy)
 
             pp = ppxf.ppxf(templates, galaxy, noise, velscale, start,
-                goodpixels=gp, plot=plotfit, moments=4, degree=4, vsyst=dv,
+                goodpixels=gp, plot=plotfit, moments=4, degree=deg, vsyst=dv,
                 quiet=quiet)
             if self.binned:
                 for l, m in vor[vor[:,2] == binNum,:2]:
@@ -1040,9 +1041,9 @@ class gmosdc:
                     ppxf_model[:,l,m] = pp.bestfit
 
             else:
-                ppxf_sol[:,l,m] = pp.sol
-                ppxf_spec[:,l,m] = pp.galaxy
-                ppxf_model[:,l,m] = pp.bestfit
+                ppxf_sol[:,i,j] = pp.sol
+                ppxf_spec[:,i,j] = pp.galaxy
+                ppxf_model[:,i,j] = pp.bestfit
 
         self.ppxf_sol = ppxf_sol
         self.ppxf_spec = ppxf_spec
