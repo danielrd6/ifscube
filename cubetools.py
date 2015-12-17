@@ -176,7 +176,7 @@ class gmosdc:
 
         return c
 
-    def snr_eval(self,wl_range=[6050,6200]):
+    def snr_eval(self, wl_range=[6050,6200], copts=None):
         """
         Measures the signal to noise ratio (SNR) for each spectrum in a
         data cube, returning an image of the SNR.
@@ -188,6 +188,8 @@ class gmosdc:
         wl_range : array like
             An array like object containing two wavelength coordinates
             that define the SNR window at the rest frame.
+        copts : dictionary
+            Options for the continuum fitting function.
 
         Returns:
         --------
@@ -205,17 +207,22 @@ class gmosdc:
 
         noise = zeros(shape(self.data)[1:], dtype='float32')
         signal = zeros(shape(self.data)[1:], dtype='float32')
-        snrwindow = (self.restwl >= wl_range[0]) & (self.restwl <= wl_range[1])
+        snrwindow = (self.restwl >= wl_range[0]) &\
+            (self.restwl <= wl_range[1])
         data = deepcopy(self.data)
 
         wl = self.restwl[snrwindow]
 
+        if copts == None:
+            copts = {'niterate':0, 'degr':3, 'upper_threshold':3,
+                'lower_threshold':3, 'returns':'function'}
+        else:
+            copts['returns'] = 'function'
+
         for i,j in self.spec_indices:
             if any(data[snrwindow,i,j]):
                 s = data[snrwindow,i,j]
-                cont = st.continuum(wl, s, niterate=0,
-                    degr=3, upper_threshold=3, lower_threshold=3,
-                    returns='function')[1]
+                cont = st.continuum(wl, s, **copts)[1]
                 noise[i,j] = nanstd(s - cont)
                 signal[i,j] = nanmean(cont)
             else:
@@ -910,9 +917,10 @@ class gmosdc:
 
         return specs
 
-    def ppxf_kinematics(self, fitting_window, base, vel=0, sigma=180,
-        fwhm_gal=2, fwhm_model=1.8, noise=0.05, individual_spec=False,
-        plotfit=False):
+    def ppxf_kinematics(self, fitting_window, base_wl, base_spec,
+        base_cdelt, writefits=True, outimage=None,
+        vel=0, sigma=180, fwhm_gal=2, fwhm_model=1.8, noise=0.05,
+        individual_spec=False, plotfit=False, quiet=False):
         """
         Executes pPXF fitting of the stellar spectrum over the whole
         data cube.
@@ -921,9 +929,12 @@ class gmosdc:
         ----------
         fitting_window : array-like
             Initial and final values of wavelength for fitting.
-        base : list
-            List of names of FITS spectra, with one entry for each
-            component.
+        base_wl : array
+            Wavelength coordinates of the base spectra.
+        base_spec : array
+            Flux density coordinates of the base spectra.
+        base_cdelt : number
+            Step in wavelength coordinates.
 
         Returns
         -------
@@ -947,13 +958,12 @@ class gmosdc:
         galaxy, logLam1, velscale = ppxf_util.log_rebin(lamRange1,
             gal_lin)       
 
-        ssp = pf.getdata(base[0])
-        h2 = pf.getheader(base[0])
+        lamRange2 = base_wl[[1,-1]]
+        ssp = base_spec[0]
 
-        lamRange2 = st.get_wl(base[0], dwlkey='cdelt1')[[1,-1]]
         sspNew, logLam2, velscale = ppxf_util.log_rebin(lamRange2, ssp,
             velscale=velscale)
-        templates = empty((sspNew.size, len(base)))
+        templates = empty((sspNew.size, len(base_spec)))
 
         # Convolve the whole Vazdekis library of spectral templates
         # with the quadratic difference between the SAURON and the
@@ -967,11 +977,10 @@ class gmosdc:
         
         FWHM_dif = sqrt(fwhm_gal**2 - fwhm_model**2)
         # Sigma difference in pixels
-        sigma = FWHM_dif/2.355/h2['CDELT1']
+        sigma = FWHM_dif/2.355/base_cdelt
 
-        for j in range(len(base)):
-            hdu = pf.open(base[j])
-            ssp = hdu[0].data
+        for j in range(len(base_spec)):
+            ssp = base_spec[j]
             ssp = ndimage.gaussian_filter1d(ssp,sigma)
             sspNew, logLam2, velscale = ppxf_util.log_rebin(lamRange2, ssp,
                 velscale=velscale)
@@ -1007,6 +1016,9 @@ class gmosdc:
             progress(k, nspec, 10)
             i, j = h
 
+            if self.binned:
+                binNum = vor[(vor[:,0] == i)&(vor[:,1] == j), 2]
+
             gal_lin = deepcopy(self.data[:,i,j])
             galaxy, logLam1, velscale = ppxf_util.log_rebin(lamRange1, gal_lin)
         
@@ -1019,15 +1031,59 @@ class gmosdc:
             galaxy = galaxy/median(galaxy)
 
             pp = ppxf.ppxf(templates, galaxy, noise, velscale, start,
-                goodpixels=gp, plot=plotfit, moments=4, degree=4, vsyst=dv)
+                goodpixels=gp, plot=plotfit, moments=4, degree=4, vsyst=dv,
+                quiet=quiet)
+            if self.binned:
+                for l, m in vor[vor[:,2] == binNum,:2]:
+                    ppxf_sol[:,l,m] = pp.sol
+                    ppxf_spec[:,l,m] = pp.galaxy
+                    ppxf_model[:,l,m] = pp.bestfit
 
-            ppxf_sol[:,i,j] = pp.sol
-            ppxf_spec[:,i,j] = pp.galaxy
-            ppxf_model[:,i,j] = pp.bestfit
+            else:
+                ppxf_sol[:,l,m] = pp.sol
+                ppxf_spec[:,l,m] = pp.galaxy
+                ppxf_model[:,l,m] = pp.bestfit
 
         self.ppxf_sol = ppxf_sol
         self.ppxf_spec = ppxf_spec
         self.ppxf_model = ppxf_model
+        
+        if writefits:
+
+            # Basic tests and first header
+            if outimage == None:
+                outimage = self.fitsfile.replace('.fits',
+                    '_ppxf.fits')
+            hdr = deepcopy(self.header_data)
+            try:
+                hdr['REDSHIFT'] = self.redshift
+            except KeyError:
+                hdr.append(('REDSHIFT', self.redshift,
+                    'Redshift used in GMOSDC'))
+
+            # Creates MEF output.
+            h = pf.HDUList()
+            h.append(pf.PrimaryHDU(header=hdr))
+
+            # Creates the fitted spectrum extension
+            hdr = pf.Header()
+            hdr.append(('object', 'spectrum', 'Data in this extension'))
+            hdr.append(('CRPIX3', 1, 'Reference pixel for wavelength'))
+            hdr.append(('CRVAL3', self.wl[0],
+                'Reference value for wavelength'))
+            hdr.append(('CD3_3', average(diff(self.wl)),
+                'CD3_3'))
+            h.append(pf.ImageHDU(data=self.ppxf_spec, header=hdr))
+
+            # Creates the fitted model extension.
+            hdr['object'] = 'model'
+            h.append(pf.ImageHDU(data=self.ppxf_model, header=hdr))
+
+            # Creates the solution extension.
+            hdr['object'] = 'parameters'
+            h.append(pf.ImageHDU(data=self.ppxf_sol, header=hdr))
+
+            h.writeto(outimage)
 
     def lineflux(self, amplitude, sigma):
         """
