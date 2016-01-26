@@ -251,8 +251,9 @@ def get_wl(image, dimension=0, hdrext=0, dataext=0, dwlkey='CD1_1',
     npoints = shape(pf.getdata(image,dataext))[dimension]
     wl = wl1 + (arange(1, npoints+1, dtype='float32') - pix0)*dwl
 
-    if h['dc-flag'] == 1:
-        wl = 10.**wl
+    try:
+        if h['dc-flag'] == 1:
+            wl = 10.**wl
     except KeyError:
         pass
       
