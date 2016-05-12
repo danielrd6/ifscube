@@ -471,7 +471,7 @@ class gmosdc:
             if variance is None:
                 variance = 1.0
         else:
-            variance = deepcopy(variance)/scale_factor**2
+            variance = deepcopy(variance[fw, :, :]) / scale_factor ** 2
 
         vcube = np.ones(np.shape(data), dtype='float32')
         if len(np.shape(variance)) == 0:
@@ -542,7 +542,7 @@ class gmosdc:
             i, j = h
             if self.binned:
                 binNum = vor[(vor[:, 0] == i) & (vor[:, 1] == j), 2]
-            if ~any(data[:20, i, j]) or ~any(data[-20:, i, j]):
+            if ~np.any(data[:20, i, j]) or ~np.any(data[-20:, i, j]):
                 sol[:, i, j] = nan_solution
                 continue
             v = vcube[:, i, j]
@@ -647,7 +647,7 @@ class gmosdc:
             h.writeto(outimage)
 
         if individual_spec:
-            return wl, s*scale_factor, cont*scale_factor,\
+            return wl, s * scale_factor, cont * scale_factor,\
                 fit_func(wl, p[:-1]), r
         else:
             return sol

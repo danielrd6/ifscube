@@ -4,7 +4,7 @@ from numpy.distutils.core import Extension, setup
 with open('./ifscube/.version', 'r') as verfile:
     __version__ = verfile.read().strip('\n')
 
-ext1 = Extension(name='elprofile',
+ext1 = Extension(name='ifscube.elprofile',
                  sources=['ifscube/profiles.f90'])
 
 setup(name='ifscube',
