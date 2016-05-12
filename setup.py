@@ -1,16 +1,17 @@
-from numpy.distutils.core import Extension
+from numpy.distutils.core import Extension, setup
 
-ext1 = Extension(name = 'profiles',
-                 sources = ['profiles.f90'])
 
-if __name__ == "__main__":
+with open('./ifscube/.version', 'r') as verfile:
+    __version__ = verfile.read().strip('\n')
 
-    from numpy.distutils.core import setup
+ext1 = Extension(name='elprofile',
+                 sources=['ifscube/profiles.f90'])
 
-    setup(name = 'lprof',
-        description = "Line profile functions",
-        author = "Daniel Ruschel Dutra",
-        autor_email = "druscheld@gmail.com",
-        ext_modules = [ext1]
-        )
-          
+setup(name='ifscube',
+      version=__version__,
+      packages=['ifscube'],
+      description="Fit emssision lines",
+      author="Daniel Ruschel Dutra",
+      author_email="druscheld@gmail.com",
+      url='https://git.cta.if.ufrgs.br/ruschel/ifscube',
+      ext_modules=[ext1])

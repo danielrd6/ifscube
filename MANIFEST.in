@@ -1,0 +1,4 @@
+include MANIFEST.in
+include README.txt
+include *py
+include ifscube/profiles.f90
