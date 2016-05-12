@@ -5,34 +5,17 @@ field spectroscopy data cubes.
 
 Author: Daniel Ruschel Dutra
 
-Website: https://github.com/danielrd6/ifscube
+Website: https://git.cta.if.ufrgs.br/ruschel/ifscube
 
 ## Installation instructions
 
-To install this software in your computer you must perform two simple
-steps: first you should to clone the git repository from
-https://github.com/danielrd6/ifscube by issuing the command
+We recommend installing the package via pip (https://pypi.python.org/pypi/pip),
+which is bundled with the standard Python distribution since Python 3.4.
 
-        git clone https://github.com/danielrd6/ifscube
+To install IFSCUBE using pip just enter the following in a terminal:
 
-Then you should compile the Fortran subroutines used in the linefit
-function. For that you will need a fortran compiler, like gfortran, for
-instance. If you already have a Fortran compiler installed, all you
-need to do is execute the setup.py script with the build_ext option.
+pip install git+https://git.cta.if.ufrgs.br/ruschel/ifscube.git
 
-        python setup.py build_ext
-
-I also recomend that you add the path to your local copy of the
-repository to the enviroment variable PYTHONPATH, so that you can
-access the functions in ifscube from any directory in your computer.
-In a bash terminal you should issue the command
-
-        export PYTHONPATH=$PYTHONPATH:/path/to/ifscube
-
-Additionaly, you can add the above to your .bashrc file, causing the
-variable to be set every time you open a bash terminal.
-
-If there were no errors you should be all set now. Enjoy!
 
 ## Voronoi binning method
 
