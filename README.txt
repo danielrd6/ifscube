@@ -14,7 +14,7 @@ which is bundled with the standard Python distribution since Python 3.4.
 
 To install IFSCUBE using pip just enter the following in a terminal:
 
-pip install git+https://git.cta.if.ufrgs.br/ruschel/ifscube.git
+        pip install --user git+https://git.cta.if.ufrgs.br/ruschel/ifscube.git
 
 
 ## Voronoi binning method
