@@ -38,7 +38,8 @@ class gmosdc:
     with GMOS IFU.
     """
 
-    def __init__(self, fitsfile, redshift=None, vortab=None):
+    def __init__(self, fitsfile, redshift=None, vortab=None, dataext=1,
+                 hdrext=0, var_ext=None):
         """
         Initializes the class and loads basic information onto the
         object.
@@ -51,20 +52,20 @@ class gmosdc:
             GEMINI-GMOS IRAF package.
         redshift : float
             Value of redshift (z) of the source, if no Doppler
-            correction has
-            been applied to the spectra yet.
+            correction has been applied to the spectra yet.
         vortab : string
             Name of the file containing the Voronoi binning table
+        dataext: integer
+            Extension of the FITS file containing the scientific data.
+        hdrext: integer
+            Extension of the FITS file containing the basic header.
+        var_ext: integer
+            Extension of the FITS file containing the variance cube.
 
         Returns:
         --------
         Nothing.
         """
-
-        if len(pf.open(fitsfile)) == 2:
-            dataext, hdrext = 1, 0
-        elif len(pf.open(fitsfile)) == 1:
-            dataext, hdrext = 0, 0
 
         self.data = pf.getdata(fitsfile, ext=dataext)
         self.header_data = pf.getheader(fitsfile, ext=dataext)
@@ -563,7 +564,7 @@ class gmosdc:
                                   (fit_status == 0)]
                     if np.shape(nearsol) == (5, 1):
                         p0 = deepcopy(nearsol.transpose()/flux_sf)
-                    elif any(nearsol):
+                    elif np.any(nearsol):
                         p0 = deepcopy(
                             np.average(nearsol.transpose(), 0) / flux_sf)
 

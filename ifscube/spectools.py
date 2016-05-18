@@ -292,70 +292,73 @@ def normspec(x,y,wl,span):
   
   return y2
 
-def resampspec(arr_in,dx=1,integers=True,smooth=False,swidth=1):
 
-  """
-  Resamples a 1D spectrum given as `arr_in`, with arr_in[:,0]
-  being the wavelength coordinates and arr_in[:,1] being the flux.
-  The resampling returns an array with one point per `dx`.
-  
-  Parameters
-  ----------
-  arr_in : two-dimensional array where arr_in[:,0] is the wavelength
-           and arr_in[:,1] is the flux
-  dx : the wavelenght interval of the resampled spectrum
-  integers : round the wavelength coordinate to integers
-  smooth : apply scipy.ndimage.gaussian_filter1d
-  swidth : standard deviation for Gaussian kernel
-  
-  Returns
-  -------
-  
-  arr : resampled version of arr_in
-  """
-  
-  arr = copy(arr_in)
+def resampspec(arr_in, dx=1, integers=True, smooth=False, swidth=1):
 
-  f = interp1d(arr[:,0],arr[:,1])
-  
-  if integers:
-    x0,x1 = int(arr[0,0]+1),int(arr[-1,0]-1)
-  else:
-    x0,x1 = arr[0,0],arr[-1,0]
+    """
+    Resamples a 1D spectrum given as `arr_in`, with arr_in[:,0]
+    being the wavelength coordinates and arr_in[:,1] being the flux.
+    The resampling returns an array with one point per `dx`.
 
-  x = linspace(x0,x1,num=abs(x0-x1)/dx+1)
-  
-  if smooth:
-    arr = column_stack([x,gaussian_filter1d(f(x),swidth)])
-  else:
-    arr = column_stack([x,f(x)])
- 
-  return arr
-  
+    Parameters
+    ----------
+    arr_in : two-dimensional array where arr_in[:,0] is the wavelength
+             and arr_in[:,1] is the flux
+    dx : the wavelenght interval of the resampled spectrum
+    integers : round the wavelength coordinate to integers
+    smooth : apply scipy.ndimage.gaussian_filter1d
+    swidth : standard deviation for Gaussian kernel
+
+    Returns
+    -------
+
+    arr : resampled version of arr_in
+    """
+
+    arr = copy(arr_in)
+
+    f = interp1d(arr[:, 0], arr[:, 1])
+
+    if integers:
+        x0, x1 = int(arr[0, 0] + 1), int(arr[-1, 0] - 1)
+    else:
+        x0, x1 = arr[0, 0], arr[-1, 0]
+
+    x = linspace(x0, x1, num=abs(x0 - x1) / dx + 1)
+
+    if smooth:
+        arr = column_stack([x, gaussian_filter1d(f(x), swidth)])
+    else:
+        arr = column_stack([x, f(x)])
+
+    return arr
+
+
 def dopcor(wl,z):
-  
-  """
-  Applies the Doppler correction to an array of wavelength
-  coordinates. z is defined as:
-  
-    z = (wo - we)/we 
 
-  where `wo` is the observed wavelength and `we` is the emitted wavelength.
-  
-  """
-  
-  wlnew = copy(wl)
+    """
+    Applies the Doppler correction to an array of wavelength
+    coordinates. z is defined as:
 
-  wlnew = wlnew/(z+1.)
-  
-  return wlnew
+      z = (wo - we)/we 
+
+    where `wo` is the observed wavelength and `we` is the emitted wavelength.
+
+    """
+
+    wlnew = copy(wl)
+
+    wlnew = wlnew / (z + 1.)
+
+    return wlnew
+
 
 def continuum(x, y, returns='ratio', degr=6, niterate=5,
-    lower_threshold=2, upper_threshold=3, verbose=False):
+              lower_threshold=2, upper_threshold=3, verbose=False):
     """
     Builds a polynomial continuum from segments of a spectrum,
     given in the form of wl and flux arrays.
-  
+
     Parameters
     ----------
     x : array-like
@@ -380,7 +383,7 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
         deviation of the residuals
     verbose : boolean
         Prints information about the fitting
-  
+
     Returns
     -------
     c : tuple
@@ -389,232 +392,256 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
         c[1] : numpy.ndarray
             See parameter "returns".
     """
-    
+
     xfull = deepcopy(x)
     s = interp1d(x,y)
-   
-    f = lambda x : polyval(polyfit(x,s(x),deg=degr),x)
-      
+
+    def f(x):
+        return polyval(polyfit(x, s(x), deg=degr), x)
+
     for i in range(niterate):
-      
+
         if len(x) == 0:
-            print 'Stopped at iteration: {:d}.'.format(i)
+            print('Stopped at iteration: {:d}.'.format(i))
             break
-        sig = std(s(x)-f(x))
-        res = s(x)-f(x)
-        x = x[(res < upper_threshold*sig)&(res > -lower_threshold*sig)]
-   
+        sig = std(s(x) - f(x))
+        res = s(x) - f(x)
+        x = x[(res < upper_threshold * sig) & (res > -lower_threshold * sig)]
+
     if verbose:
-        print('Final number of points used in the fit: {:d}'\
-            .format(len(x)))
-        print('Rejection ratio: {:.2f}'\
-            .format(1.-float(len(x))/float(len(xfull))))
-  
+        print('Final number of points used in the fit: {:d}'
+              .format(len(x)))
+        print('Rejection ratio: {:.2f}'
+              .format(1. - float(len(x)) / float(len(xfull))))
+
     p = polyfit(x, s(x), deg=degr)
-  
+
     if returns == 'ratio':
-        return xfull, s(xfull)/polyval(p,xfull)
-  
+        return xfull, s(xfull) / polyval(p, xfull)
+
     if returns == 'difference':
-        return xfull,s(xfull)-polyval(p,xfull)
-  
+        return xfull, s(xfull) - polyval(p, xfull)
+
     if returns == 'function':
-        return xfull,polyval(p,xfull)
+        return xfull, polyval(p, xfull)
 
-def eqw(wl,flux,lims,cniterate=5):
 
-  """
-  Measure the equivalent width of a feature in `arr`, defined by `lims`:
-  
+def eqw(wl, flux, lims, cniterate=5):
 
-  """
+    """
+    Measure the equivalent width of a feature in `arr`, defined by `lims`:
 
-  fspec = interp1d(wl,flux)
-  
-  fctn,ctnwl = continuum(wl,flux,lims[2:],niterate=cniterate)
-  
-  act = trapz(polyval(fctn,linspace(lims[0],lims[1])), x=linspace(lims[0],lims[1]))  # area under continuum
-  aspec = trapz(fspec(linspace(lims[0],lims[1])),linspace(lims[0],lims[1]))  # area under spectrum
-  
-  eqw = ((act - aspec)/act)*(lims[1]-lims[0])
-   
-   #Calculation of the error in the equivalent width, following the definition of Vollmann & Eversberg 2006 (doi: 10.1002/asna.200610645)
-   
-  sn = average(fspec(ctnwl))/std(fspec(ctnwl))
-  sigma_eqw = sqrt(1+average(polyval(fctn,ctnwl))/average(flux))*(lims[1] - lims[0] - eqw)/sn
-  
-  return eqw,sigma_eqw
 
-def joinspec(x1,y1,x2,y2):
-  """
-  Joins two spectra
+    """
 
-  Parameters:
-  -----------
-  x1 : array
-    Wavelength coordinates of the first spectrum
-  y1 : array
-    Flux coordinates of the first spectrum
-  x2 : array
-    Wavelength coordinates of the second spectrum
-  y2 : array
-    Flux coordinates of the second spectrum
-  
-  Returns:
-  --------
-  x : array
-    Joined spectrum wavelength coordinates
-  f : array
-    Flux coordinates
-  """
-  
-  f1 = interp1d(x1,y1,bounds_error='false',fill_value=0)
-  f2 = interp1d(x2,y2,bounds_error='false',fill_value=0)
+    fspec = interp1d(wl, flux)
 
-  if average(diff(x1)) <= average(diff(x2)):
-    dx = average(diff(x1))
-  else:
-    dx = average(diff(x2))
+    fctn, ctnwl = continuum(wl, flux, lims[2:], niterate=cniterate)
 
-  x = arange(x1[0],x2[-1],dx)
+    act = trapz(
+        polyval(fctn, linspace(lims[0], lims[1])),
+        x=linspace(lims[0], lims[1]))  # area under continuum
 
-  f = f1(x[x < x2[0]])
-  f = append(f,average(array([f1(x[(x >= x2[0])&(x < x1[-1])]),f2(x[(x >= x2[0])&(x < x1[-1])])]),axis=0))
-  f = append(f,f2(x[x >= x1[-1]]))
+    # area under spectrum
+    aspec = trapz(
+        fspec(np.linspace(lims[0], lims[1])), np.linspace(lims[0], lims[1]))
 
-  return x,f
+    eqw = ((act - aspec)/act)*(lims[1]-lims[0])
 
-def fnu2flambda(fnu,l):
-  """
-  Converts between flux units
+    # Calculation of the error in the equivalent width, following the
+    # definition of Vollmann & Eversberg 2006 (doi: 10.1002/asna.200610645)
 
-  Parameters:
-  -----------
-  fnu : number
-    Flux density in W/m^2/Hz
-  l : number
-    Wavelength in microns
+    sn = np.average(fspec(ctnwl)) / np.std(fspec(ctnwl))
+    sigma_eqw = np.sqrt(1 + average(polyval(fctn, ctnwl)) / average(flux)) *\
+        (lims[1] - lims[0] - eqw) / sn
 
-  Returns:
-  --------
-  flambda: number
-    Flux density in W/m^2/um
+    return eqw, sigma_eqw
 
-  Where does it come from?
-    d nu            c
-  -------- = - ---------- 
-  d lambda      lambda^2
-  """
 
-  flambda = 2.99792458*fnu*10**(-12)/l**2
+def joinspec(x1, y1, x2, y2):
+    """
+    Joins two spectra
 
-  return flambda
+    Parameters:
+    -----------
+    x1 : array
+        Wavelength coordinates of the first spectrum
+    y1 : array
+        Flux coordinates of the first spectrum
+    x2 : array
+        Wavelength coordinates of the second spectrum
+    y2 : array
+        Flux coordinates of the second spectrum
 
-def flambda2fnu(wl,fl):
-  """
-  Converts a flambda to fnu.
+    Returns:
+    --------
+    x : array
+        Joined spectrum wavelength coordinates
+    f : array
+        Flux coordinates
+    """
 
-  Parameters:
-  -----------
-  wl : 1d-array
-    Wavelength in angstroms
-  fl : 1d-array
-    Flux in ergs/s/cm^2/A
+    f1 = interp1d(x1, y1, bounds_error='false', fill_value=0)
+    f2 = interp1d(x2, y2, bounds_error='false', fill_value=0)
 
-  Returns:
-  --------
-  fnu : 1d-array
-    Flux in Jy (10^23 erg/s/cm^2/Hz)
-  """
+    if average(diff(x1)) <= average(diff(x2)):
+        dx = average(diff(x1))
+    else:
+        dx = average(diff(x2))
 
-  fnu = 3.33564095e+4*fl*wl**2
+    x = arange(x1[0], x2[-1], dx)
 
-  return fnu
+    f = f1(x[x < x2[0]])
 
-def mask(arr,maskfile):
-  """
-  Eliminates masked points from a spectrum.
-  
-  Parameters:
-  -----------
-  arr : ndarray
-    Input spectrum for masking. The array can have
-    any number of columns, provided that the wavelength
-    is in the first one.
-  maskfile : string
-    Name of the ASCII file containing the mask definitions,
-    with one region per line defined by a lower and an
-    upper limit in this order.
+    f = np.append(f, np.average(np.array([
+        f1(x[(x >= x2[0]) & (x < x1[-1])]),
+        f2(x[(x >= x2[0]) & (x < x1[-1])])]), axis=0))
 
-  Returns:
-  --------
-  b : ndarray
-    An exact copy of arr without the points that lie
-    within the regions defined by maskfile.
-  """
-  m = loadtxt(maskfile)
-  a = copy.deepcopy(arr)
+    f = np.append(f, f2(x[x >= x1[-1]]))
 
-  for i in range(len(m)):
-    a[(a[:,0]>=m[i,0])&(a[:,0]<=m[i,1])] = 0
-  
-  b = a[a[:,0] != 0]
+    return x, f
 
-  return b
 
-def specphotometry(spec,filt,intlims=(8,13),coords='wavelength',verbose=False,get_filter_center=False):
-  """
-  Evaluates the integrated flux for a given filter
-  over a spectrum.
+def fnu2flambda(fnu, l):
+    """
+    Converts between flux units
 
-  Parameters:
-  -----------
-  spec : function
-    A function that describes the spectrum with only
-    the wavelength or frequency as parameter.
-  filt : function
-    The same as the above but for the filter.
-  intlims: iterable
-    Lower and upper limits for the integration.
-  coords : string
-    'wavelength' or 'frequency'
-    This argument is passed directly to the function
-    blackbody in the absence of a standard star spectrum.
+    Parameters:
+    -----------
+    fnu : number
+        Flux density in W/m^2/Hz
+    l : number
+        Wavelength in microns
 
-  Returns:
-  --------
-  phot : float
-    Photometric data point that results from the
-    integration and scaling of the filter over the 
-    spectrum (CGS).
+    Returns:
+    --------
+    flambda: number
+        Flux density in W/m^2/um
 
-  Notes:
-  ------
-  This method employs the scipy.integrate.quad function
-  to perform all the integrations, with a limit of 1000
-  and epsrel of 1.e-3.
-  """
+    Where does it come from?
+      d nu            c
+    -------- = - ----------
+    d lambda      lambda^2
+    """
 
-  l,er = 100,1.e-2
-  x0,x1 = intlims
+    flambda = 2.99792458 * fnu * 10 ** (-12) / l ** 2
 
-#  if stdstar == None:
-#    stdstar = lambda x : blackbody(x*1.e-4,5.e+3,coordinate='wavelength')
-  
-  y2 = lambda x : filt(x)*spec(x)
+    return flambda
 
-  if get_filter_center:
-    medianfunction = lambda x: abs(quad(filt,-inf,x,epsrel=er,limit=l)[0] - \
-                                   quad(filt,x,inf,epsrel=er,limit=l)[0])
-    fcenter = minimize(medianfunction,11.5,bounds=[[11.1,11.9]],method='SLSQP')
-  
-  cal = quad(filt,x0,x1,limit=l,epsrel=er)[0]
-  phot = quad(y2,x0,x1,limit=l,epsrel=er)[0]/cal
 
-  if verbose:
-    print 'Central wavelength: {:.2f}; Flux: {:.2f}'.format(float(fcenter),phot)
+def flambda2fnu(wl, fl):
+    """
+    Converts a flambda to fnu.
 
-  if get_filter_center:
-    return phot,float(fcenter['x'])
-  else:
-    return phot
+    Parameters:
+    -----------
+    wl : 1d-array
+        Wavelength in angstroms
+    fl : 1d-array
+        Flux in ergs/s/cm^2/A
+
+    Returns:
+    --------
+    fnu : 1d-array
+        Flux in Jy (10^23 erg/s/cm^2/Hz)
+    """
+
+    fnu = 3.33564095e+4 * fl * wl ** 2
+
+    return fnu
+
+
+def mask(arr, maskfile):
+    """
+    Eliminates masked points from a spectrum.
+
+    Parameters:
+    -----------
+    arr : ndarray
+        Input spectrum for masking. The array can have
+        any number of columns, provided that the wavelength
+        is in the first one.
+    maskfile : string
+        Name of the ASCII file containing the mask definitions,
+        with one region per line defined by a lower and an
+        upper limit in this order.
+
+    Returns:
+    --------
+    b : ndarray
+        An exact copy of arr without the points that lie
+        within the regions defined by maskfile.
+    """
+    m = np.loadtxt(maskfile)
+    a = copy.deepcopy(arr)
+
+    for i in range(len(m)):
+        a[(a[:, 0] >= m[i, 0]) & (a[:, 0] <= m[i, 1])] = 0
+
+    b = a[a[:, 0] != 0]
+
+    return b
+
+
+def specphotometry(spec, filt, intlims=(8, 13), coords='wavelength',
+                   verbose=False, get_filter_center=False):
+    """
+    Evaluates the integrated flux for a given filter
+    over a spectrum.
+
+    Parameters:
+    -----------
+    spec : function
+        A function that describes the spectrum with only
+        the wavelength or frequency as parameter.
+    filt : function
+        The same as the above but for the filter.
+    intlims: iterable
+        Lower and upper limits for the integration.
+    coords : string
+        'wavelength' or 'frequency'
+        This argument is passed directly to the function
+        blackbody in the absence of a standard star spectrum.
+
+    Returns:
+    --------
+    phot : float
+        Photometric data point that results from the
+        integration and scaling of the filter over the
+        spectrum (CGS).
+
+    Notes:
+    ------
+    This method employs the scipy.integrate.quad function
+    to perform all the integrations, with a limit of 1000
+    and epsrel of 1.e-3.
+    """
+
+    l, er = 100, 1.e-2
+    x0, x1 = intlims
+
+    # if stdstar == None:
+    # stdstar = lambda x : blackbody(x*1.e-4,5.e+3,coordinate='wavelength')
+
+    def y2(x):
+        return filt(x) * spec(x)
+
+    if get_filter_center:
+        def medianfunction(x):
+            return abs(quad(filt, -inf, x, epsrel=er, limit=l)[0] -
+                       quad(filt, x, +inf, epsrel=er, limit=l)[0])
+
+        fcenter = minimize(medianfunction, 11.5, bounds=[[11.1, 11.9]],
+                           method='SLSQP')
+
+    cal = quad(filt, x0, x1, limit=l, epsrel=er)[0]
+    phot = quad(y2, x0, x1, limit=l, epsrel=er)[0] / cal
+
+    if verbose:
+        print('Central wavelength: {:.2f}; Flux: {:.2f}'
+              .format(float(fcenter), phot))
+
+    if get_filter_center:
+        return phot, float(fcenter['x'])
+    else:
+        return phot
