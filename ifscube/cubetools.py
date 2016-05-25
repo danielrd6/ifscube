@@ -166,21 +166,17 @@ class gmosdc:
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
-                hdr.append(
-                    ('REDSHIFT', self.redshift, 'Redshift used in GMOSDC'))
+                hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
 
             hdr['CRVAL3'] = wl[0]
-            hdr.append(
-                ('CONTDEGR', copts['degr'], 'Degree of continuum polynomial'))
-            hdr.append(
-                ('CONTNITE', copts['niterate'],
-                 'Continuum rejection iterations'))
-            hdr.append(
-                ('CONTLTR', copts['lower_threshold'],
-                 'Continuum lower threshold'))
-            hdr.append(
-                ('CONTHTR', copts['upper_threshold'],
-                 'Continuum upper threshold'))
+            hdr['CONTDEGR'] = (copts['degr'],
+                               'Degree of continuum polynomial')
+            hdr['CONTNITE'] = (copts['niterate'],
+                               'Continuum rejection iterations')
+            hdr['CONTLTR'] = (copts['lower_threshold'],
+                              'Continuum lower threshold')
+            hdr['CONTHTR'] = (copts['upper_threshold'],
+                              'Continuum upper threshold')
 
             pf.writeto(outimage, data=c, header=hdr)
 
@@ -296,13 +292,13 @@ class gmosdc:
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
-                hdr.append(
-                    ('REDSHIFT', self.redshift, 'Redshift used in GMOSDC'))
-            hdr.append(('WLPROJ', True, 'Processed by WLPROJECTION?'))
-            hdr.append(
-                ('WLPRTYPE', filtertype, 'Type of filter used in projection.'))
-            hdr.append(('WLPRWL0', wl0, 'Central wavelength of the filter.'))
-            hdr.append(('WLPRFWHM', fwhm, 'FWHM of the projection filter.'))
+                hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
+
+            hdr['WLPROJ'] = (True, 'Processed by WLPROJECTION?')
+            hdr['WLPRTYPE'] = (filtertype,
+                               'Type of filter used in projection.')
+            hdr['WLPRWL0'] = (wl0, 'Central wavelength of the filter.')
+            hdr['WLPRFWHM'] = (fwhm, 'FWHM of the projection filter.')
 
             pf.writeto(outimage, data=outim, header=hdr)
 
@@ -611,8 +607,8 @@ class gmosdc:
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
-                hdr.append(('REDSHIFT', self.redshift,
-                            'Redshift used in GMOSDC'))
+                hdr['REDSHIFT'] = (self.redshift,
+                                   'Redshift used in GMOSDC')
 
             # Creates MEF output.
             h = pf.HDUList()
@@ -620,11 +616,10 @@ class gmosdc:
 
             # Creates the fitted spectrum extension
             hdr = pf.Header()
-            hdr.append(('object', 'spectrum', 'Data in this extension'))
-            hdr.append(('CRPIX3', 1, 'Reference pixel for wavelength'))
-            hdr.append(('CRVAL3', wl[0], 'Reference value for wavelength'))
-            hdr.append(('CD3_3', np.average(np.diff(wl)),
-                        'CD3_3'))
+            hdr['object'] = ('spectrum', 'Data in this extension')
+            hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
+            hdr['CRVAL3'] = (wl[0], 'Reference value for wavelength')
+            hdr['CD3_3'] = (np.average(np.diff(wl)), 'CD3_3')
             h.append(pf.ImageHDU(data=self.fitspec, header=hdr))
 
             # Creates the fitted continuum extension.
@@ -637,8 +632,8 @@ class gmosdc:
 
             # Creates the solution extension.
             hdr['object'] = 'parameters'
-            hdr.append(('function', function, 'Fitted function'))
-            hdr.append(('nfunc', len(p)/3, 'Number of functions'))
+            hdr['function'] = (function, 'Fitted function')
+            hdr['nfunc'] = (len(p)/3, 'Number of functions')
             h.append(pf.ImageHDU(data=sol, header=hdr))
 
             # Creates the minimize's exit status extension
@@ -909,11 +904,10 @@ class gmosdc:
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
-                hdr.append(('REDSHIFT', self.redshift,
-                            'Redshift used in GMOSDC'))
-            hdr.append(('VORBIN', True, 'Processed by Voronoi binning?'))
-            hdr.append(('VORTSNR', targetsnr,
-                        'Target SNR for Voronoi binning.'))
+                hdr['REDSHIFT'] = (self.redshift,
+                                   'Redshift used in GMOSDC')
+            hdr['VORBIN'] = (True, 'Processed by Voronoi binning?')
+            hdr['VORTSNR'] = (targetsnr, 'Target SNR for Voronoi binning.')
             if outfile is None:
                 outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])
             pf.writeto(outfile, data=binned, header=hdr, clobber=clobber)
@@ -1096,8 +1090,7 @@ class gmosdc:
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
-                hdr.append((
-                    'REDSHIFT', self.redshift, 'Redshift used in GMOSDC'))
+                hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
 
             # Creates MEF output.
             h = pf.HDUList()
@@ -1105,12 +1098,10 @@ class gmosdc:
 
             # Creates the fitted spectrum extension
             hdr = pf.Header()
-            hdr.append(('object', 'spectrum', 'Data in this extension'))
-            hdr.append(('CRPIX3', 1, 'Reference pixel for wavelength'))
-            hdr.append((
-                'CRVAL3', self.wl[0], 'Reference value for wavelength'))
-            hdr.append((
-                'CD3_3', np.average(np.diff(self.wl)), 'CD3_3'))
+            hdr['object'] = ('spectrum', 'Data in this extension')
+            hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
+            hdr['CRVAL3'] = (self.wl[0], 'Reference value for wavelength')
+            hdr['CD3_3'] = (np.average(np.diff(self.wl)), 'CD3_3')
             h.append(pf.ImageHDU(data=self.ppxf_spec, header=hdr))
 
             # Creates the fitted model extension.
