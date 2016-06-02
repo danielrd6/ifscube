@@ -676,30 +676,62 @@ class gmosdc:
             self.fit_func = lprof.gausshermite
         self.em_model = pf.getdata(fname, ext=4)
 
-    def eqw(self, amp_index=0, center_index=1, sigma_index=2, sigma_limit=3):
+    def eqw(self, component=0, sigma_factor=3):
         """
         Evaluates the equivalent width of a previous linefit.
+
+        Parameters
+        ----------
+        component : number
+            Component of emission model
+        sigma_factor : number
+            Radius of integration as a number of line sigmas.
         """
         xy = self.spec_indices
         eqw_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
         eqw_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
 
-        def fit_func(x, a, b, c):
-            return a * np.exp(-(x - b) ** 2 / 2. / c ** 2)
+        if self.fit_func == lprof.gauss:
+            npars = 3
+        if self.fit_func == lprof.gausshermite:
+            npars = 5
+
+        par_indexes = np.arange(npars) + npars * component
+
+        center_index = 1 + npars * component
+        sigma_index = 2 + npars * component
 
         for i, j in xy:
-            cond = (self.fitwl > self.em_model[center_index, i, j] -
-                    sigma_limit * self.em_model[sigma_index, i, j]) &\
-                (self.fitwl < self.em_model[center_index, i, j] +
-                 sigma_limit * self.em_model[sigma_index, i, j])
-            fit = fit_func(
-                self.fitwl[cond],
-                *self.em_model[[amp_index, center_index, sigma_index], i, j])
-            cont = self.fitcont[cond, i, j]
-            eqw_model[i, j] = trapz(1. - (fit + cont) / cont,
-                                    x=self.fitwl[cond])
-            eqw_direct[i, j] = trapz(1. - self.data[cond, i, j]/cont,
-                                     x=self.restwl[cond])
+            if np.any(np.isnan(self.em_model[par_indexes, i, j])):
+                eqw_model[i, j] = np.nan
+                eqw_direct[i, j] = np.nan
+            else:
+                cond = (self.fitwl > self.em_model[center_index, i, j] -
+                        sigma_factor * self.em_model[sigma_index, i, j]) &\
+                    (self.fitwl < self.em_model[center_index, i, j] +
+                     sigma_factor * self.em_model[sigma_index, i, j])
+
+                cond_data = (
+                    self.restwl > self.em_model[center_index, i, j] -
+                    sigma_factor * self.em_model[sigma_index, i, j]) & \
+                    (
+                        self.restwl < self.em_model[center_index, i, j] +
+                        sigma_factor * self.em_model[sigma_index, i, j])
+
+                fit = self.fit_func(self.fitwl[cond],
+                                    self.em_model[par_indexes, i, j])
+
+                cont = self.fitcont[cond, i, j]
+                cont_data = interp1d(
+                    self.fitwl,
+                    self.fitcont[:, i, j])(self.restwl[cond_data])
+
+                eqw_model[i, j] = trapz(
+                    1. - (fit + cont) / cont, x=self.fitwl[cond])
+
+                eqw_direct[i, j] = trapz(
+                    1. - self.data[cond_data, i, j] / cont_data,
+                    x=self.restwl[cond_data])
 
         return np.array([eqw_model, eqw_direct])
 
