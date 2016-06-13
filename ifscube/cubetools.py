@@ -304,7 +304,7 @@ class gmosdc:
 
         return outim
 
-    def plotspec(self, x, y):
+    def plotspec(self, x, y, noise_smooth=30):
         """
         Plots the spectrum at coordinates x,y.
 
@@ -330,6 +330,15 @@ class gmosdc:
         except TypeError:
             s = self.data[:, y, x]
         ax.plot(self.restwl, s)
+
+        try:
+            n = ndimage.gaussian_filter1d(self.noise[:, y, x], noise_smooth)
+            sg = ndimage.gaussian_filter1d(s, noise_smooth)
+            ax.fill_between(self.restwl, sg - n, sg + n, edgecolor='',
+                            alpha=0.2, color='green')
+        except AttributeError:
+            pass
+
         plt.show()
 
     def linefit(self, p0, function='gaussian', fitting_window=None,
@@ -464,12 +473,6 @@ class gmosdc:
         data = deepcopy(self.data[fw, :, :]) / scale_factor
         fit_status = np.ones(np.shape(data)[1:], dtype='float32') * -1
 
-        if len(np.shape(variance)) == 0:
-            if variance is None:
-                variance = 1.0
-        else:
-            variance = deepcopy(variance[fw, :, :]) / scale_factor ** 2
-
         vcube = np.ones(np.shape(data), dtype='float32')
         if len(np.shape(variance)) == 0:
             vcube *= variance
@@ -480,7 +483,9 @@ class gmosdc:
             for i, j in enumerate(vcube):
                 vcube[i] = variance
         elif len(np.shape(variance)) == 3:
-            vcube = variance
+            vcube = variance[fw, :, :]
+
+        vcube /= scale_factor ** 2
 
         npars = len(p0)
         nan_solution = np.array([np.nan for i in range(npars+1)])
@@ -570,7 +575,7 @@ class gmosdc:
                     print(h, r.message)
                 # Reduced chi squared of the fit.
                 chi2 = res(r['x'])
-                nu = len(s)/inst_disp - npars - 1
+                nu = len(s)/inst_disp - npars - len(constraints) - 1
                 red_chi2 = chi2 / nu
                 p = np.append(r['x']*flux_sf, red_chi2)
                 fit_status[i, j] = r.status
