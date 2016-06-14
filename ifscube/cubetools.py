@@ -67,9 +67,16 @@ class gmosdc:
         Nothing.
         """
 
-        self.data = pf.getdata(fitsfile, ext=dataext)
-        self.header_data = pf.getheader(fitsfile, ext=dataext)
-        self.header = pf.getheader(fitsfile, ext=hdrext)
+        hdulist = pf.open(fitsfile)
+
+        self.data = hdulist[dataext].data
+
+        self.nanSpaxels = np.any(self.data == 0, 0)
+        self.data[:, self.nanSpaxels] = np.nan
+
+        self.header_data = hdulist[dataext].header
+        self.header = hdulist[hdrext].header
+        self.hdrext = hdrext
 
         self.wl = st.get_wl(
             fitsfile, hdrext=dataext, dimension=0, dwlkey='CD3_3',
@@ -83,17 +90,25 @@ class gmosdc:
                     'WARNING! Redshift not given and not found in the image' +
                     ' header. Using redshift = 0.')
                 redshift = 0.0
-        self.restwl = self.wl/(1.+redshift)
+        self.restwl = self.wl / (1. + redshift)
+
+        if var_ext is not None:
+            g = pf.open(fitsfile)
+            self.noise_cube = g[var_ext].data
+            self.noise = np.nanmean(g[var_ext].data, 0)
+            self.noise[self.nanSpaxels] = np.nan
+            self.signal = np.nanmean(self.data, 0)
+            self.signal[self.nanSpaxels] = np.nan
+
+            self.noise[np.isinf(self.noise)] =\
+                self.signal[np.isinf(self.noise)]
 
         try:
-            if self.header['VORBIN'] and vortab is not None:
+            if self.header['VORBIN']:
+                vortab = pf.open(fitsfile)['VOR'].data
                 self.voronoi_tab = vortab
                 self.binned = True
-            elif self.header['VORBIN'] and vortab is None:
-                print(
-                    'WARNING! Data has been binned but no binning table has' +
-                    ' been given.')
-                self.binned = True
+
         except KeyError:
             self.binned = False
 
@@ -112,8 +127,10 @@ class gmosdc:
         """
 
         if self.binned:
-            v = np.loadtxt(self.voronoi_tab)
-            xy = v[np.unique(v[:, 2], return_index=True)[1], :2]
+            v = self.voronoi_tab
+            xy = np.column_stack([
+                v[np.unique(v['binNum'], return_index=True)[1]][coords]
+                for coords in ['xcoords', 'ycoords']])
         else:
             xy = self.spec_indices
 
@@ -332,7 +349,8 @@ class gmosdc:
         ax.plot(self.restwl, s)
 
         try:
-            n = ndimage.gaussian_filter1d(self.noise[:, y, x], noise_smooth)
+            n = ndimage.gaussian_filter1d(self.noise_cube[:, y, x],
+                                          noise_smooth)
             sg = ndimage.gaussian_filter1d(s, noise_smooth)
             ax.fill_between(self.restwl, sg - n, sg + n, edgecolor='',
                             alpha=0.2, color='green')
@@ -469,7 +487,7 @@ class gmosdc:
                 minopts['eps'] = 1e-3
 
         wl = deepcopy(self.restwl[fw])
-        scale_factor = np.median(self.data[fw, :, :])
+        scale_factor = np.nanmean(self.data[fw, :, :])
         data = deepcopy(self.data[fw, :, :]) / scale_factor
         fit_status = np.ones(np.shape(data)[1:], dtype='float32') * -1
 
@@ -498,8 +516,12 @@ class gmosdc:
         self.resultspec = np.zeros(np.shape(data), dtype='float32')
 
         if self.binned:
-            vor = np.loadtxt(self.voronoi_tab)
-            xy = vor[np.unique(vor[:, 2], return_index=True)[1], :2]
+            v = self.voronoi_tab
+            xy = np.column_stack([
+                v[np.unique(v['binNum'], return_index=True)[1]][coords]
+                for coords in ['xcoords', 'ycoords']])
+            vor = np.column_stack([
+                v[coords] for coords in ['xcoords', 'ycoords', 'binNum']])
         else:
             xy = self.spec_indices
 
@@ -919,13 +941,13 @@ class gmosdc:
             voronoi_2d_binning(x, y, signal, noise, targetsnr, plot=1, quiet=0)
         v = np.column_stack([x, y, binNum])
 
-        if writevortab:
-            np.savetxt('voronoi_binning.dat', v, fmt='%.2f\t%.2f\t%d')
+        # if writevortab:
+        #     np.savetxt('voronoi_binning.dat', v, fmt='%.2f\t%.2f\t%d')
 
         binned = np.zeros(np.shape(self.data), dtype='float32')
         binned[:, xnan, ynan] = np.nan
 
-        for i in np.arange(binNum.max()+1):
+        for i in np.arange(binNum.max() + 1):
             samebin = v[:, 2] == i
             samebin_coords = v[samebin, :2]
 
@@ -937,7 +959,8 @@ class gmosdc:
                 binned[:, k[0], k[1]] = binspec
 
         if writefits:
-            hdr = deepcopy(self.header_data)
+            hdulist = pf.open(self.fitsfile)
+            hdr = self.header
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
@@ -945,9 +968,22 @@ class gmosdc:
                                    'Redshift used in GMOSDC')
             hdr['VORBIN'] = (True, 'Processed by Voronoi binning?')
             hdr['VORTSNR'] = (targetsnr, 'Target SNR for Voronoi binning.')
+
+            hdulist[self.hdrext].header = hdr
+
+            tbhdu = pf.BinTableHDU.from_columns([
+                pf.Column(name='xcoords', format='i8', array=x),
+                pf.Column(name='ycoords', format='i8', array=y),
+                pf.Column(name='binNum', format='i8', array=binNum)],
+                name='VOR')
+
+            hdulist.append(tbhdu)
+            hdulist[1].data = binned
+
             if outfile is None:
                 outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])
-            pf.writeto(outfile, data=binned, header=hdr, clobber=clobber)
+
+            hdulist.writeto(outfile, clobber=clobber)
 
         self.binned_cube = binned
 
@@ -1066,8 +1102,10 @@ class gmosdc:
         noise = np.zeros(np.shape(self.data)[0], dtype='float32') + noise
 
         if self.binned:
-            vor = np.loadtxt(self.voronoi_tab)
-            xy = vor[np.unique(vor[:, 2], return_index=True)[1], :2]
+            vor = self.voronoi_tab
+            xy = np.column_stack([
+                vor[np.unique(vor['binNum'], return_index=True)[1]][coords]
+                for coords in ['xcoords', 'ycoords']])
         else:
             xy = self.spec_indices
 
