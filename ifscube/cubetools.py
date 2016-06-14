@@ -491,17 +491,22 @@ class gmosdc:
         data = deepcopy(self.data[fw, :, :]) / scale_factor
         fit_status = np.ones(np.shape(data)[1:], dtype='float32') * -1
 
-        vcube = np.ones(np.shape(data), dtype='float32')
-        if len(np.shape(variance)) == 0:
-            vcube *= variance
-        elif len(np.shape(variance)) == 1:
-            for i, j in self.spec_indices:
-                vcube[:, i, j] = variance
-        elif len(np.shape(variance)) == 2:
-            for i, j in enumerate(vcube):
-                vcube[i] = variance
-        elif len(np.shape(variance)) == 3:
-            vcube = variance[fw, :, :]
+        if variance is None:
+            try:
+                vcube = self.noise_cube[fw, :, :] ** 2
+            except AttributeError:
+                vcube = np.ones(np.shape(data), dtype='float32')
+        elif variance is not None:
+            if len(np.shape(variance)) == 0:
+                vcube *= variance
+            elif len(np.shape(variance)) == 1:
+                for i, j in self.spec_indices:
+                    vcube[:, i, j] = variance
+            elif len(np.shape(variance)) == 2:
+                for i, j in enumerate(vcube):
+                    vcube[i] = variance
+            elif len(np.shape(variance)) == 3:
+                vcube = variance[fw, :, :]
 
         vcube /= scale_factor ** 2
 
