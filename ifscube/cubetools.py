@@ -571,7 +571,9 @@ class gmosdc:
             i, j = h
             if self.binned:
                 binNum = vor[(vor[:, 0] == i) & (vor[:, 1] == j), 2]
-            if ~np.any(data[:20, i, j]) or ~np.any(data[-20:, i, j]):
+            if (~np.any(data[:20, i, j])) or\
+                    ~np.any(data[-20:, i, j]) or\
+                    np.any(np.isnan(data[:, i, j])):
                 sol[:, i, j] = nan_solution
                 continue
             v = vcube[:, i, j]
