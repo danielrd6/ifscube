@@ -7,7 +7,7 @@ Website: https://github.com/danielrd6/ifscube
 
 import numpy as np
 import pyfits as pf
-import spectools as st
+import ifscube.spectools as st
 # import matplotlib as mpl
 import matplotlib.pyplot as plt
 from scipy.integrate import trapz
@@ -19,7 +19,7 @@ from scipy.optimize import minimize
 # from scipy.integrate import trapz
 from scipy.interpolate import interp1d
 from scipy import ndimage
-import elprofile as lprof
+import ifscube.elprofile as lprof
 import ppxf
 import ppxf_util
 
