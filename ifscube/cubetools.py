@@ -1061,11 +1061,18 @@ class gmosdc:
         w0, w1 = fitting_window
         fw = (self.wl >= w0) & (self.wl < w1)
 
-        # Here we use the goodpixels as the fitting window
-        gp = np.arange(np.shape(self.data)[0])[fw]
+        cushion = 100.
+        baseCut = (base_wl > w0 - cushion) & (base_wl < w1 + cushion)
+        base_spec = base_spec[:, baseCut]
+        base_wl = base_wl[baseCut]
 
-        lamRange1 = self.wl[[1, -1]]
-        gal_lin = deepcopy(self.data[:, 0, 0])
+        # Here we use the goodpixels as the fitting window
+        # gp = np.arange(np.shape(self.data)[0])[fw]
+        gp = np.arange(len(self.wl[fw]))
+
+        lamRange1 = self.wl[fw][[1, -1]]
+        centerSpaxel = np.array(np.shape(self.data[0])) / 2
+        gal_lin = deepcopy(self.data[fw, centerSpaxel[0], centerSpaxel[1]])
         galaxy, logLam1, velscale = ppxf_util.log_rebin(
             lamRange1, gal_lin)
 
@@ -1106,7 +1113,7 @@ class gmosdc:
         start = [vel, 180.]  # (km/s), starting guess for [V,sigma]
 
         # Assumes uniform noise accross the spectrum
-        noise = np.zeros(np.shape(self.data)[0], dtype='float32') + noise
+        noise = np.zeros(len(galaxy), dtype=galaxy.dtype) + noise
 
         if self.binned:
             vor = self.voronoi_tab
@@ -1122,7 +1129,9 @@ class gmosdc:
         ppxf_sol = np.zeros(
             (4, np.shape(self.data)[1], np.shape(self.data)[2]),
             dtype='float32')
-        ppxf_spec = np.zeros(np.shape(self.data), dtype='float32')
+        ppxf_spec = np.zeros(
+            (len(galaxy), np.shape(self.data)[1], np.shape(self.data)[2]),
+            dtype='float32')
         ppxf_model = np.zeros(np.shape(ppxf_spec), dtype='float32')
 
         nspec = len(xy)
@@ -1133,16 +1142,9 @@ class gmosdc:
             if self.binned:
                 binNum = vor[(vor[:, 0] == i) & (vor[:, 1] == j), 2]
 
-            gal_lin = deepcopy(self.data[:, i, j])
+            gal_lin = deepcopy(self.data[fw, i, j])
             galaxy, logLam1, velscale = ppxf_util.log_rebin(lamRange1, gal_lin)
-
-            # Normalize spectrum to avoid numerical issues.
-            galaxy = galaxy/np.median(galaxy)
-            # Assume constant noise per pixel here.
-            # This should be changed in the future.
-
-            galaxy = deepcopy(self.data[:, i, j])
-            galaxy = galaxy/np.median(galaxy)
+            galaxy = galaxy / np.median(galaxy)
 
             pp = ppxf.ppxf(
                 templates, galaxy, noise, velscale, start, goodpixels=gp,
