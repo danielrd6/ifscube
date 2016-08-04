@@ -1139,9 +1139,6 @@ class gmosdc:
             progress(k, nspec, 10)
             i, j = h
 
-            if self.binned:
-                binNum = vor[(vor[:, 0] == i) & (vor[:, 1] == j), 2]
-
             gal_lin = deepcopy(self.data[fw, i, j])
             galaxy, logLam1, velscale = ppxf_util.log_rebin(lamRange1, gal_lin)
             galaxy = galaxy / np.median(galaxy)
@@ -1149,8 +1146,16 @@ class gmosdc:
             pp = ppxf.ppxf(
                 templates, galaxy, noise, velscale, start, goodpixels=gp,
                 plot=plotfit, moments=4, degree=deg, vsyst=dv, quiet=quiet)
+
             if self.binned:
-                for l, m in vor[vor[:, 2] == binNum, :2]:
+
+                binNum = vor[
+                    (vor['xcoords'] == j) & (vor['ycoords'] == i)]['binNum']
+                sameBinNum = vor['binNum'] == binNum
+                sameBinX = vor['xcoords'][sameBinNum]
+                sameBinY = vor['ycoords'][sameBinNum]
+
+                for l, m in np.column_stack([sameBinY, sameBinX]):
                     ppxf_sol[:, l, m] = pp.sol
                     ppxf_spec[:, l, m] = pp.galaxy
                     ppxf_model[:, l, m] = pp.bestfit
