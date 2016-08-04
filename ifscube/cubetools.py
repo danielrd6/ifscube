@@ -24,6 +24,14 @@ import ppxf
 import ppxf_util
 
 
+class nanSolution:
+
+    def ppxf(self, sol, galaxy, bestfit):
+        self.sol = np.array([np.nan for i in range(len(sol))])
+        self.galaxy = np.array([np.nan for i in range(len(galaxy))])
+        self.bestfit = np.array([np.nan for i in range(len(galaxy))])
+
+
 def progress(x, xmax, steps=10):
     try:
         if x % (xmax / steps) == 0:
@@ -931,11 +939,11 @@ class gmosdc:
 
         valid_spaxels = np.ravel(~np.isnan(self.signal))
 
-        x = np.ravel(np.indices(np.shape(self.signal))[0])[valid_spaxels]
-        y = np.ravel(np.indices(np.shape(self.signal))[1])[valid_spaxels]
+        x = np.ravel(np.indices(np.shape(self.signal))[1])[valid_spaxels]
+        y = np.ravel(np.indices(np.shape(self.signal))[0])[valid_spaxels]
 
-        xnan = np.ravel(np.indices(np.shape(self.signal))[0])[~valid_spaxels]
-        ynan = np.ravel(np.indices(np.shape(self.signal))[1])[~valid_spaxels]
+        xnan = np.ravel(np.indices(np.shape(self.signal))[1])[~valid_spaxels]
+        ynan = np.ravel(np.indices(np.shape(self.signal))[0])[~valid_spaxels]
 
         s, n = deepcopy(self.signal), deepcopy(self.noise)
 
@@ -946,13 +954,10 @@ class gmosdc:
 
         binNum, xNode, yNode, xBar, yBar, sn, nPixels, scale = \
             voronoi_2d_binning(x, y, signal, noise, targetsnr, plot=1, quiet=0)
-        v = np.column_stack([x, y, binNum])
-
-        # if writevortab:
-        #     np.savetxt('voronoi_binning.dat', v, fmt='%.2f\t%.2f\t%d')
+        v = np.column_stack([y, x, binNum])
 
         binned = np.zeros(np.shape(self.data), dtype='float32')
-        binned[:, xnan, ynan] = np.nan
+        binned[:, ynan, xnan] = np.nan
 
         for i in np.arange(binNum.max() + 1):
             samebin = v[:, 2] == i
@@ -1118,8 +1123,8 @@ class gmosdc:
         if self.binned:
             vor = self.voronoi_tab
             xy = np.column_stack([
-                vor[np.unique(vor['binNum'], return_index=True)[1]][coords]
-                for coords in ['xcoords', 'ycoords']])
+                vor[coords][np.unique(vor['binNum'], return_index=True)[1]]
+                for coords in ['ycoords', 'xcoords']])
         else:
             xy = self.spec_indices
 
@@ -1135,17 +1140,22 @@ class gmosdc:
         ppxf_model = np.zeros(np.shape(ppxf_spec), dtype='float32')
 
         nspec = len(xy)
+
         for k, h in enumerate(xy):
             progress(k, nspec, 10)
             i, j = h
 
             gal_lin = deepcopy(self.data[fw, i, j])
             galaxy, logLam1, velscale = ppxf_util.log_rebin(lamRange1, gal_lin)
-            galaxy = galaxy / np.median(galaxy)
+            galaxy = galaxy / np.nanmean(galaxy)
 
-            pp = ppxf.ppxf(
-                templates, galaxy, noise, velscale, start, goodpixels=gp,
-                plot=plotfit, moments=4, degree=deg, vsyst=dv, quiet=quiet)
+            if np.any(np.isnan(galaxy)):
+                pp = nanSolution()
+                pp.ppxf(ppxf_sol[:, 0, 0], galaxy, galaxy)
+            else:
+                pp = ppxf.ppxf(
+                    templates, galaxy, noise, velscale, start, goodpixels=gp,
+                    plot=plotfit, moments=4, degree=deg, vsyst=dv, quiet=quiet)
 
             if self.binned:
 
