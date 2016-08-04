@@ -71,7 +71,7 @@ class gmosdc:
 
         self.data = hdulist[dataext].data
 
-        self.nanSpaxels = np.all(self.data == 0, 0)
+        self.nanSpaxels = np.any(self.data == 0, 0)
         self.data[:, self.nanSpaxels] = np.nan
 
         self.header_data = hdulist[dataext].header
