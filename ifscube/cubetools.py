@@ -47,7 +47,7 @@ class gmosdc:
     """
 
     def __init__(self, fitsfile, redshift=None, vortab=None, dataext=1,
-                 hdrext=0, var_ext=None):
+                 hdrext=0, var_ext=None, nan_spaxels='all'):
         """
         Initializes the class and loads basic information onto the
         object.
@@ -69,6 +69,10 @@ class gmosdc:
             Extension of the FITS file containing the basic header.
         var_ext: integer
             Extension of the FITS file containing the variance cube.
+        nan_spaxels: None, 'any', 'all'
+            Mark spaxels as NaN if any or all pixels are equal to
+            zero.
+
 
         Returns:
         --------
@@ -79,8 +83,12 @@ class gmosdc:
 
         self.data = hdulist[dataext].data
 
-        self.nanSpaxels = np.all(self.data == 0, 0)
-        self.data[:, self.nanSpaxels] = np.nan
+        if nan_spaxels is not None:
+            if nan_spaxels == 'all':
+                self.nanSpaxels = np.all(self.data == 0, 0)
+            if nan_spaxels == 'any':
+                self.nanSapxels = np.any(self.data == 0, 0)
+            self.data[:, self.nanSpaxels] = np.nan
 
         self.header_data = hdulist[dataext].header
         self.header = hdulist[hdrext].header
