@@ -1044,7 +1044,7 @@ class gmosdc:
                         base_cdelt, writefits=True, outimage=None,
                         vel=0, sigma=180, fwhm_gal=2, fwhm_model=1.8,
                         noise=0.05, individual_spec=False, plotfit=False,
-                        quiet=False, deg=4):
+                        quiet=False, deg=4, mask=None, cushion=100.):
         """
         Executes pPXF fitting of the stellar spectrum over the whole
         data cube.
@@ -1074,7 +1074,6 @@ class gmosdc:
         w0, w1 = fitting_window
         fw = (self.wl >= w0) & (self.wl < w1)
 
-        cushion = 100.
         baseCut = (base_wl > w0 - cushion) & (base_wl < w1 + cushion)
         base_spec = base_spec[:, baseCut]
         base_wl = base_wl[baseCut]
@@ -1082,6 +1081,15 @@ class gmosdc:
         # Here we use the goodpixels as the fitting window
         # gp = np.arange(np.shape(self.data)[0])[fw]
         gp = np.arange(len(self.wl[fw]))
+
+        if mask is not None:
+            if len(mask) == 1:
+                gp = gp[
+                    (self.wl[fw] < mask[0][0]) | (self.wl[fw] > mask[0][1])]
+            else:
+                gp = np.intersect1d(
+                    *[gp[(self.wl[fw] < i[0]) | (self.wl[fw] > i[1])]
+                      for i in mask])
 
         lamRange1 = self.wl[fw][[1, -1]]
         centerSpaxel = np.array(np.shape(self.data[0])) / 2
@@ -1164,6 +1172,8 @@ class gmosdc:
                 pp = ppxf.ppxf(
                     templates, galaxy, noise, velscale, start, goodpixels=gp,
                     plot=plotfit, moments=4, degree=deg, vsyst=dv, quiet=quiet)
+                if plotfit:
+                    plt.show()
 
             if self.binned:
 
@@ -1186,6 +1196,8 @@ class gmosdc:
         self.ppxf_sol = ppxf_sol
         self.ppxf_spec = ppxf_spec
         self.ppxf_model = ppxf_model
+        self.ppxf_wl = self.wl[fw]
+        self.ppxf_goodpixels = gp
 
         if writefits:
 
@@ -1218,6 +1230,14 @@ class gmosdc:
             # Creates the solution extension.
             hdr['object'] = 'parameters'
             h.append(pf.ImageHDU(data=self.ppxf_sol, header=hdr))
+
+            # Creates the wavelength extension.
+            hdr['object'] = 'wavelength'
+            h.append(pf.ImageHDU(data=self.ppxf_wl, header=hdr))
+
+            # Creates the goodpixels extension.
+            hdr['object'] = 'goodpixels'
+            h.append(pf.ImageHDU(data=self.ppxf_goodpixels, header=hdr))
 
             h.writeto(outimage)
 
