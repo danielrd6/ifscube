@@ -1087,9 +1087,10 @@ class gmosdc:
                 gp = gp[
                     (self.wl[fw] < mask[0][0]) | (self.wl[fw] > mask[0][1])]
             else:
-                gp = np.intersect1d(
-                    *[gp[(self.wl[fw] < i[0]) | (self.wl[fw] > i[1])]
-                      for i in mask])
+                m = np.array([
+                    (self.wl[fw] < i[0]) | (self.wl[fw] > i[1])
+                    for i in mask])
+                gp = gp[np.sum(m, 0) == m.shape[0]]
 
         lamRange1 = self.wl[fw][[1, -1]]
         centerSpaxel = np.array(np.shape(self.data[0])) / 2
