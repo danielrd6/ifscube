@@ -10,6 +10,7 @@ import pyfits as pf
 import ifscube.spectools as st
 # import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 from scipy.integrate import trapz
 from copy import deepcopy
 from voronoi_2d_binning import voronoi_2d_binning
@@ -22,6 +23,7 @@ from scipy import ndimage
 import ifscube.elprofile as lprof
 import ppxf
 import ppxf_util
+from numpy import ma
 
 
 class nanSolution:
@@ -839,7 +841,9 @@ class gmosdc:
         plt.show()
 
     def channelmaps(self, channels=6, lambda0=None, velmin=None, velmax=None,
-                    continuum_width=300, continuum_opts=None, sigma=1e-16):
+                    continuum_width=300, continuum_opts=None,
+                    lowerThreshold=1e-16, plotOpts={},
+                    ):
         """
         Creates velocity channel maps from a data cube.
 
@@ -858,10 +862,14 @@ class gmosdc:
             continuum_opts : dictionary
                 Dicitionary of options to be passed to the
                 spectools.continuum function
+            lowerThreshold: number
+                Minimum flux for plotting.
 
         Returns
         -------
         """
+
+        sigma = lowerThreshold
         # Converting from velocities to wavelength
         wlmin, wlmax = lambda0*(np.array([velmin, velmax])/2.99792e+5 + 1.)
         wlstep = (wlmax - wlmin)/channels
@@ -879,12 +887,12 @@ class gmosdc:
         cw = continuum_width
         fw = lambda0 + np.array([-cw / 2., cw / 2.])
 
-        cont = self.continuum(niterate=cp['niterate'], degr=cp['degr'],
-                              upper_threshold=cp['upper_threshold'],
-                              lower_threshold=cp['lower_threshold'],
-                              fitting_window=fw)
+        cont = self.continuum(
+            writefits=False, outimage=None, fitting_window=fw, copts=cp)
+
         contwl = self.wl[(self.wl > fw[0]) & (self.wl < fw[1])]
         cont_wl2pix = interp1d(contwl, np.arange(len(contwl)))
+        channelMaps = []
 
         for i in np.arange(channels):
             ax = fig.add_subplot(otherside, side, i+1)
@@ -893,13 +901,20 @@ class gmosdc:
             print(wl[(wl > wl0) & (wl < wl1)])
             wlc, wlwidth = np.average([wl0, wl1]), (wl1-wl0)
 
-            f = self.wlprojection(wlc, fwhm=wlwidth, writefits=False,
-                                  filtertype='box')\
+            f = self.wlprojection(
+                wlc, fwhm=wlwidth, writefits=False, filtertype='box')\
                 - cont[int(round(cont_wl2pix(wlc)))]
-            f[f < sigma] = np.nan
+
+            mask = f < sigma
+            channel = ma.array(f, mask=mask)
             cp = continuum_opts
 
-            ax.imshow(f, interpolation='none', aspect=1)
+            y, x = np.indices(np.array(f.shape) + 1) - 0.5
+            ax.set_xlim(x.min(), x.max())
+            ax.set_ylim(y.min(), y.max())
+
+            ax.pcolormesh(x, y, channel, **plotOpts)
+            ax.set_aspect('equal', 'box')
             ax.annotate(
                 '{:.0f}'.format((wlc - lambda0)/lambda0*2.99792e+5),
                 xy=(0.1, 0.8), xycoords='axes fraction', color='k')
@@ -907,9 +922,11 @@ class gmosdc:
                 ax.set_yticklabels([])
             if i / float((otherside-1) * side) < 1:
                 ax.set_xticklabels([])
+            channelMaps += [channel]
 
-        fig.subplots_adjust(wspace=0, hspace=0)
+        plt.tight_layout()
         plt.show()
+        return channelMaps
 
     def voronoi_binning(self, targetsnr=10.0, writefits=False,
                         outfile=None, clobber=False, writevortab=True):
