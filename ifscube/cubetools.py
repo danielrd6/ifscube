@@ -10,6 +10,7 @@ import pyfits as pf
 import ifscube.spectools as st
 # import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 from scipy.integrate import trapz
 from copy import deepcopy
 from voronoi_2d_binning import voronoi_2d_binning
@@ -22,6 +23,7 @@ from scipy import ndimage
 import ifscube.elprofile as lprof
 import ppxf
 import ppxf_util
+from numpy import ma
 
 
 class nanSolution:
@@ -47,7 +49,7 @@ class gmosdc:
     """
 
     def __init__(self, fitsfile, redshift=None, vortab=None, dataext=1,
-                 hdrext=0, var_ext=None):
+                 hdrext=0, var_ext=None, nan_spaxels='all'):
         """
         Initializes the class and loads basic information onto the
         object.
@@ -69,6 +71,10 @@ class gmosdc:
             Extension of the FITS file containing the basic header.
         var_ext: integer
             Extension of the FITS file containing the variance cube.
+        nan_spaxels: None, 'any', 'all'
+            Mark spaxels as NaN if any or all pixels are equal to
+            zero.
+
 
         Returns:
         --------
@@ -79,8 +85,12 @@ class gmosdc:
 
         self.data = hdulist[dataext].data
 
-        self.nanSpaxels = np.any(self.data == 0, 0)
-        self.data[:, self.nanSpaxels] = np.nan
+        if nan_spaxels is not None:
+            if nan_spaxels == 'all':
+                self.nanSpaxels = np.all(self.data == 0, 0)
+            if nan_spaxels == 'any':
+                self.nanSapxels = np.any(self.data == 0, 0)
+            self.data[:, self.nanSpaxels] = np.nan
 
         self.header_data = hdulist[dataext].header
         self.header = hdulist[hdrext].header
@@ -831,7 +841,9 @@ class gmosdc:
         plt.show()
 
     def channelmaps(self, channels=6, lambda0=None, velmin=None, velmax=None,
-                    continuum_width=300, continuum_opts=None, sigma=1e-16):
+                    continuum_width=300, continuum_opts=None,
+                    lowerThreshold=1e-16, plotOpts={},
+                    ):
         """
         Creates velocity channel maps from a data cube.
 
@@ -850,10 +862,14 @@ class gmosdc:
             continuum_opts : dictionary
                 Dicitionary of options to be passed to the
                 spectools.continuum function
+            lowerThreshold: number
+                Minimum flux for plotting.
 
         Returns
         -------
         """
+
+        sigma = lowerThreshold
         # Converting from velocities to wavelength
         wlmin, wlmax = lambda0*(np.array([velmin, velmax])/2.99792e+5 + 1.)
         wlstep = (wlmax - wlmin)/channels
@@ -871,12 +887,12 @@ class gmosdc:
         cw = continuum_width
         fw = lambda0 + np.array([-cw / 2., cw / 2.])
 
-        cont = self.continuum(niterate=cp['niterate'], degr=cp['degr'],
-                              upper_threshold=cp['upper_threshold'],
-                              lower_threshold=cp['lower_threshold'],
-                              fitting_window=fw)
+        cont = self.continuum(
+            writefits=False, outimage=None, fitting_window=fw, copts=cp)
+
         contwl = self.wl[(self.wl > fw[0]) & (self.wl < fw[1])]
         cont_wl2pix = interp1d(contwl, np.arange(len(contwl)))
+        channelMaps = []
 
         for i in np.arange(channels):
             ax = fig.add_subplot(otherside, side, i+1)
@@ -885,13 +901,20 @@ class gmosdc:
             print(wl[(wl > wl0) & (wl < wl1)])
             wlc, wlwidth = np.average([wl0, wl1]), (wl1-wl0)
 
-            f = self.wlprojection(wlc, fwhm=wlwidth, writefits=False,
-                                  filtertype='box')\
+            f = self.wlprojection(
+                wlc, fwhm=wlwidth, writefits=False, filtertype='box')\
                 - cont[int(round(cont_wl2pix(wlc)))]
-            f[f < sigma] = np.nan
+
+            mask = f < sigma
+            channel = ma.array(f, mask=mask)
             cp = continuum_opts
 
-            ax.imshow(f, interpolation='none', aspect=1)
+            y, x = np.indices(np.array(f.shape) + 1) - 0.5
+            ax.set_xlim(x.min(), x.max())
+            ax.set_ylim(y.min(), y.max())
+
+            ax.pcolormesh(x, y, channel, **plotOpts)
+            ax.set_aspect('equal', 'box')
             ax.annotate(
                 '{:.0f}'.format((wlc - lambda0)/lambda0*2.99792e+5),
                 xy=(0.1, 0.8), xycoords='axes fraction', color='k')
@@ -899,9 +922,11 @@ class gmosdc:
                 ax.set_yticklabels([])
             if i / float((otherside-1) * side) < 1:
                 ax.set_xticklabels([])
+            channelMaps += [channel]
 
-        fig.subplots_adjust(wspace=0, hspace=0)
+        plt.tight_layout()
         plt.show()
+        return channelMaps
 
     def voronoi_binning(self, targetsnr=10.0, writefits=False,
                         outfile=None, clobber=False, writevortab=True):
@@ -1036,7 +1061,7 @@ class gmosdc:
                         base_cdelt, writefits=True, outimage=None,
                         vel=0, sigma=180, fwhm_gal=2, fwhm_model=1.8,
                         noise=0.05, individual_spec=False, plotfit=False,
-                        quiet=False, deg=4):
+                        quiet=False, deg=4, mask=None, cushion=100.):
         """
         Executes pPXF fitting of the stellar spectrum over the whole
         data cube.
@@ -1066,7 +1091,6 @@ class gmosdc:
         w0, w1 = fitting_window
         fw = (self.wl >= w0) & (self.wl < w1)
 
-        cushion = 100.
         baseCut = (base_wl > w0 - cushion) & (base_wl < w1 + cushion)
         base_spec = base_spec[:, baseCut]
         base_wl = base_wl[baseCut]
@@ -1074,6 +1098,16 @@ class gmosdc:
         # Here we use the goodpixels as the fitting window
         # gp = np.arange(np.shape(self.data)[0])[fw]
         gp = np.arange(len(self.wl[fw]))
+
+        if mask is not None:
+            if len(mask) == 1:
+                gp = gp[
+                    (self.wl[fw] < mask[0][0]) | (self.wl[fw] > mask[0][1])]
+            else:
+                m = np.array([
+                    (self.wl[fw] < i[0]) | (self.wl[fw] > i[1])
+                    for i in mask])
+                gp = gp[np.sum(m, 0) == m.shape[0]]
 
         lamRange1 = self.wl[fw][[1, -1]]
         centerSpaxel = np.array(np.shape(self.data[0])) / 2
@@ -1156,6 +1190,8 @@ class gmosdc:
                 pp = ppxf.ppxf(
                     templates, galaxy, noise, velscale, start, goodpixels=gp,
                     plot=plotfit, moments=4, degree=deg, vsyst=dv, quiet=quiet)
+                if plotfit:
+                    plt.show()
 
             if self.binned:
 
@@ -1178,6 +1214,8 @@ class gmosdc:
         self.ppxf_sol = ppxf_sol
         self.ppxf_spec = ppxf_spec
         self.ppxf_model = ppxf_model
+        self.ppxf_wl = self.wl[fw]
+        self.ppxf_goodpixels = gp
 
         if writefits:
 
@@ -1210,6 +1248,14 @@ class gmosdc:
             # Creates the solution extension.
             hdr['object'] = 'parameters'
             h.append(pf.ImageHDU(data=self.ppxf_sol, header=hdr))
+
+            # Creates the wavelength extension.
+            hdr['object'] = 'wavelength'
+            h.append(pf.ImageHDU(data=self.ppxf_wl, header=hdr))
+
+            # Creates the goodpixels extension.
+            hdr['object'] = 'goodpixels'
+            h.append(pf.ImageHDU(data=self.ppxf_goodpixels, header=hdr))
 
             h.writeto(outimage)
 
