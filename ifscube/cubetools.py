@@ -1061,7 +1061,8 @@ class gmosdc:
                         base_cdelt, writefits=True, outimage=None,
                         vel=0, sigma=180, fwhm_gal=2, fwhm_model=1.8,
                         noise=0.05, individual_spec=False, plotfit=False,
-                        quiet=False, deg=4, mask=None, cushion=100.):
+                        quiet=False, deg=4, mask=None, cushion=100.,
+                        moments=4):
         """
         Executes pPXF fitting of the stellar spectrum over the whole
         data cube.
@@ -1190,7 +1191,8 @@ class gmosdc:
             else:
                 pp = ppxf.ppxf(
                     templates, galaxy, noise, velscale, start, goodpixels=gp,
-                    plot=plotfit, moments=4, degree=deg, vsyst=dv, quiet=quiet)
+                    plot=plotfit, moments=moments, degree=deg, vsyst=dv,
+                    quiet=quiet)
                 if plotfit:
                     plt.show()
 
@@ -1212,7 +1214,7 @@ class gmosdc:
                 ppxf_spec[:, i, j] = pp.galaxy
                 ppxf_model[:, i, j] = pp.bestfit
 
-        self.ppxf_sol = ppxf_sol 
+        self.ppxf_sol = ppxf_sol
         self.ppxf_spec = ppxf_spec * normFactor
         self.ppxf_model = ppxf_model * normFactor
         self.ppxf_wl = self.wl[fw]
