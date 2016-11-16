@@ -6,7 +6,7 @@ Website: https://github.com/danielrd6/ifscube
 """
 
 import numpy as np
-import pyfits as pf
+import astropy.io.fits as pf
 import ifscube.spectools as st
 # import matplotlib as mpl
 import matplotlib.pyplot as plt

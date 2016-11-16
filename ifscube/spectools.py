@@ -9,7 +9,7 @@ are the wavelength coordinates and arr[:,1] are the flux points.
 """
 
 from copy import deepcopy
-import pyfits as pf
+import astropy.io.fits as pf
 from numpy import *
 from scipy.integrate import trapz
 from scipy.integrate import quad
