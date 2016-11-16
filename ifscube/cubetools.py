@@ -1181,7 +1181,8 @@ class gmosdc:
 
             gal_lin = deepcopy(self.data[fw, i, j])
             galaxy, logLam1, velscale = ppxf_util.log_rebin(lamRange1, gal_lin)
-            galaxy = galaxy / np.nanmean(galaxy)
+            normFactor = np.nanmean(galaxy)
+            galaxy = galaxy / normFactor
 
             if np.any(np.isnan(galaxy)):
                 pp = nanSolution()
@@ -1211,9 +1212,9 @@ class gmosdc:
                 ppxf_spec[:, i, j] = pp.galaxy
                 ppxf_model[:, i, j] = pp.bestfit
 
-        self.ppxf_sol = ppxf_sol
-        self.ppxf_spec = ppxf_spec
-        self.ppxf_model = ppxf_model
+        self.ppxf_sol = ppxf_sol 
+        self.ppxf_spec = ppxf_spec * normFactor
+        self.ppxf_model = ppxf_model * normFactor
         self.ppxf_wl = self.wl[fw]
         self.ppxf_goodpixels = gp
 
