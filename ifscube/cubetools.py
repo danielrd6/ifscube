@@ -24,6 +24,8 @@ import ifscube.elprofile as lprof
 import ppxf
 import ppxf_util
 from numpy import ma
+import astropy.constants
+import pdb
 
 
 class nanSolution:
@@ -1113,9 +1115,9 @@ class gmosdc:
         lamRange1 = self.wl[fw][[1, -1]]
         centerSpaxel = np.array(np.shape(self.data[0])) / 2
         gal_lin = deepcopy(self.data[fw, centerSpaxel[0], centerSpaxel[1]])
+
         galaxy, logLam1, velscale = ppxf_util.log_rebin(
             lamRange1, gal_lin)
-
         lamRange2 = base_wl[[1, -1]]
         ssp = base_spec[0]
 
@@ -1145,8 +1147,8 @@ class gmosdc:
             # Normalizes templates
             templates[:, j] = sspNew/np.median(sspNew)
 
-        c = 299792.458
-        dv = (logLam2[0]-logLam1[0])*c  # km/s
+        c = astropy.constants.c.value * 1.e-3
+        dv = (logLam2[0] - logLam1[0]) * c  # km/s
         # z = np.exp(vel/c) - 1
 
         # Here the actual fit starts.
@@ -1181,7 +1183,8 @@ class gmosdc:
             i, j = h
 
             gal_lin = deepcopy(self.data[fw, i, j])
-            galaxy, logLam1, velscale = ppxf_util.log_rebin(lamRange1, gal_lin)
+            galaxy, logLam1, velscale = ppxf_util.log_rebin(
+                lamRange1, gal_lin)
             normFactor = np.nanmean(galaxy)
             galaxy = galaxy / normFactor
 
@@ -1217,7 +1220,7 @@ class gmosdc:
         self.ppxf_sol = ppxf_sol
         self.ppxf_spec = ppxf_spec * normFactor
         self.ppxf_model = ppxf_model * normFactor
-        self.ppxf_wl = self.wl[fw]
+        self.ppxf_wl = np.e ** logLam1
         self.ppxf_goodpixels = gp
 
         if writefits:
@@ -1243,7 +1246,16 @@ class gmosdc:
             hdr['CRVAL3'] = (self.wl[0], 'Reference value for wavelength')
             hdr['CD3_3'] = (np.average(np.diff(self.wl)), 'CD3_3')
             h.append(pf.ImageHDU(data=self.ppxf_spec, header=hdr))
-
+            
+            # Creates the residual spectrum extension
+            hdr = pf.Header()
+            hdr['object'] = ('residuals', 'Data in this extension')
+            hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
+            hdr['CRVAL3'] = (self.ppxf_wl[0], 'Reference value for wavelength')
+            hdr['CD3_3'] = (np.average(np.diff(self.ppxf_wl)), 'CD3_3')
+            h.append(pf.ImageHDU(data=self.ppxf_spec - self.ppxf_model,
+                     header=hdr))
+            
             # Creates the fitted model extension.
             hdr['object'] = 'model'
             h.append(pf.ImageHDU(data=self.ppxf_model, header=hdr))
