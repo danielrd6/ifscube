@@ -249,7 +249,7 @@ def get_wl(image, dimension=0, hdrext=0, dataext=0, dwlkey='CD1_1',
     h = pf.getheader(image,ext=hdrext)
     dwl, wl1, pix0 = [float(h[i]) for i in [dwlkey, wl0key, pix0key]]
     npoints = shape(pf.getdata(image,dataext))[dimension]
-    wl = wl1 + (arange(1, npoints+1, dtype='float32') - pix0)*dwl
+    wl = wl1 + (arange(1, npoints+1, dtype='float64') - pix0)*dwl
 
     try:
         if h['dc-flag'] == 1:
