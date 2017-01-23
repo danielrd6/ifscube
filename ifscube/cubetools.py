@@ -248,6 +248,7 @@ class gmosdc:
             and a 3 order polynomial.
         """
 
+        pdb.set_trace()
         noise = np.zeros(np.shape(self.data)[1:], dtype='float32')
         signal = np.zeros(np.shape(self.data)[1:], dtype='float32')
         snrwindow = (self.restwl >= wl_range[0]) &\
@@ -263,7 +264,8 @@ class gmosdc:
             copts['returns'] = 'function'
 
         for i, j in self.spec_indices:
-            if any(data[snrwindow, i, j]):
+            if any(data[snrwindow, i, j]) and\
+                    all(~np.isnan(data[snrwindow, i, j])):
                 s = data[snrwindow, i, j]
                 cont = st.continuum(wl, s, **copts)[1]
                 noise[i, j] = np.nanstd(s - cont)
