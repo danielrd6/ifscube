@@ -932,7 +932,8 @@ class gmosdc:
         return channelMaps
 
     def voronoi_binning(self, targetsnr=10.0, writefits=False,
-                        outfile=None, clobber=False, writevortab=True):
+                        outfile=None, clobber=False, writevortab=True,
+                        dataext=1):
         """
         Applies Voronoi binning to the data cube, using Cappellari's
         Python implementation.
@@ -1018,7 +1019,7 @@ class gmosdc:
                 name='VOR')
 
             hdulist.append(tbhdu)
-            hdulist[1].data = binned
+            hdulist[dataext].data = binned
 
             if outfile is None:
                 outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])
