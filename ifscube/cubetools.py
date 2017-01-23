@@ -263,7 +263,8 @@ class gmosdc:
             copts['returns'] = 'function'
 
         for i, j in self.spec_indices:
-            if any(data[snrwindow, i, j]):
+            if any(data[snrwindow, i, j]) and\
+                    all(~np.isnan(data[snrwindow, i, j])):
                 s = data[snrwindow, i, j]
                 cont = st.continuum(wl, s, **copts)[1]
                 noise[i, j] = np.nanstd(s - cont)
