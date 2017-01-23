@@ -248,7 +248,6 @@ class gmosdc:
             and a 3 order polynomial.
         """
 
-        pdb.set_trace()
         noise = np.zeros(np.shape(self.data)[1:], dtype='float32')
         signal = np.zeros(np.shape(self.data)[1:], dtype='float32')
         snrwindow = (self.restwl >= wl_range[0]) &\
