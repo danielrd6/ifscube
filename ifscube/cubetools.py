@@ -44,6 +44,31 @@ def progress(x, xmax, steps=10):
         pass
 
 
+def bound_updater(p0, bound_range):
+
+    newbound = []
+    if np.shape(bound_range) != ():
+        npars = len(bound_range)
+        ncomponents = len(p0) / npars
+        for i in range(0, len(p0), npars):
+            for j in range(npars):
+                newbound += [
+                    [p0[i + j] - bound_range[j], p0[i + j] + bound_range[j]]]
+        
+    else:
+        
+        for i in p0:
+            if i == 0:
+                newbound += [[i - bound_range, i + bound_range]]
+            else:
+                newbound += [[i * (1. - bound_range), i * (1. + bound_range)]]
+                if newbound[-1][1] < newbound[-1][0]:
+                    newbound[-1].sort()
+
+
+    return newbound
+
+
 class gmosdc:
     """
     A class for dealing with data cubes, originally written to work
@@ -384,6 +409,7 @@ class gmosdc:
                 writefits=False, outimage=None, variance=None, constraints=(),
                 bounds=None, inst_disp=1.0, individual_spec=False,
                 min_method='SLSQP', minopts=None, copts=None, refit=False,
+                update_bounds=False, bound_range=.1,
                 spiral_loop=False, spiral_center=None, fit_continuum=True,
                 refit_radius=3):
         """
@@ -451,6 +477,10 @@ class gmosdc:
         refit : boolean
             Use parameters from nearby sucessful fits as the initial
             guess for the next fit.
+        update_bounds : boolean
+            If using refit, update the bounds for the next fit.
+        bound_range : number
+            Fractional difference for updating the bounds when using refit.
         spiral_loop : boolean
             Begins the fitting with the central spaxel and continues
             spiraling outwards.
@@ -619,10 +649,14 @@ class gmosdc:
                         p0 = deepcopy(
                             np.average(nearsol.transpose(), 0) / flux_sf)
 
+                        if update_bounds:
+                            bounds = bound_updater(p0, bound_range)
+
                 r = minimize(res, x0=p0, method=min_method, bounds=bounds,
                              constraints=constraints, options=minopts)
                 if r.status != 0:
-                    print(h, r.message)
+                    print(h, r.message, r.status)
+                    # pdb.set_trace()
                 # Reduced chi squared of the fit.
                 chi2 = res(r['x'])
                 nu = len(s)/inst_disp - npars - len(constraints) - 1
