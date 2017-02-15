@@ -50,11 +50,31 @@ def bound_updater(p0, bound_range):
     if np.shape(bound_range) != ():
         npars = len(bound_range)
         ncomponents = len(p0) / npars
-        for i in range(0, len(p0), npars):
-            for j in range(npars):
-                newbound += [
-                    [p0[i + j] - bound_range[j], p0[i + j] + bound_range[j]]]
-        
+
+        if type(bound_range[0]) == dict:
+            for i in range(0, len(p0), npars):
+                for j in range(npars):
+                    if bound_range[j]['type'] == 'factor':
+                        newbound += [
+                            [p0[i + j] * (1. - bound_range[j]['value']),
+                             p0[i + j] * (1. + bound_range[j]['value'])]]
+                        if newbound[-1][1] < newbound[-1][0]:
+                            newbound[-1].sort()
+                    if bound_range[j]['type'] == 'add':
+                        newbound += [
+                            [p0[i + j] - bound_range[j]['value'],
+                             p0[i + j] + bound_range[j]['value']]]
+                    if bound_range[j]['type'] == 'hard':
+                        newbound += [
+                            [- bound_range[j]['value'],
+                             + bound_range[j]['value']]]
+
+        else:
+            for i in range(0, len(p0), npars):
+                for j in range(npars):
+                    newbound += [
+                        [p0[i + j] - bound_range[j],
+                         p0[i + j] + bound_range[j]]]        
     else:
         
         for i in p0:
