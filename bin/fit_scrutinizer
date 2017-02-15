@@ -1,0 +1,202 @@
+#!/usr/bin/python
+import matplotlib
+matplotlib.use('TkAgg')
+# import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
+from matplotlib.figure import Figure
+import numpy as np
+from numpy import ma
+import argparse
+import copy
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+import ifscube.cubetools as ct
+
+from Tkinter import *
+
+
+class mclass:
+    def __init__(self,  window, datacube, fitfile, fitstatus_mask):
+
+        self.fitstatus_mask = fitstatus_mask
+        
+        cube = ct.gmosdc(datacube)
+        cube.loadfit(fitfile)
+
+        self.window = window
+        self.buttonPlot = Button(
+            window, text="Plot", command=self.plot)
+        self.text = Text(
+                window, bg='white', height=10, width=80,
+                font=('Helvetica', 12))
+
+        l_par = Listbox(window, selectmode=SINGLE, exportselection=0)
+        l_component = Listbox(window, selectmode=SINGLE, exportselection=0)
+
+        for i in ['Flux', 'Velocity', 'Sigma', 'h3', 'h4']:
+            l_par.insert(END, i)
+
+        for i in range(cube.fit_info['components']):
+            l_component.insert(END, i)
+        
+        self.fig = Figure(figsize=(6,6))
+        self.fitplot = Figure(figsize=(12, 6))
+        self.ax1 = self.fig.add_subplot(111)
+        self.ax2 = self.fitplot.add_subplot(111)
+
+        div = make_axes_locatable(self.ax1)
+        self.cax = div.append_axes('right', size='5%', pad=0)
+        self.cax.set_xticks([])
+        self.cax.set_yticks([])
+        
+        canvas = FigureCanvasTkAgg(self.fig, master=self.window)
+        canvas2 = FigureCanvasTkAgg(self.fitplot, master=self.window)
+
+        # toolbar.update()
+        
+        canvas.get_tk_widget()\
+                .grid(row=0, column=0, rowspan=6, columnspan=6)
+        canvas2.get_tk_widget()\
+                .grid(row=0, column=7, rowspan=6, columnspan=12)
+
+        tb_frame = Frame(window)
+        tb_frame.grid(row=7, column=0, columnspan=6, sticky=W)
+        toolbar = NavigationToolbar2TkAgg(canvas, tb_frame)
+
+        other_tb_frame = Frame(window)
+        other_tb_frame.grid(row=7, column=7, columnspan=12, sticky=W)
+        other_toolbar = NavigationToolbar2TkAgg(canvas2, other_tb_frame)
+
+        self.buttonPlot.grid(row=8, column=0)
+        l_par.grid(row=8, column=1)
+        l_component.grid(row=8, column=2)
+        self.text.grid(row=8, column=7)
+
+        self.l_par = l_par
+        self.l_component = l_component
+        
+        self.connect_id = canvas.mpl_connect(
+            'motion_notify_event', self.onclick)
+
+        # self.key_id = canvas.mpl_connect(
+        #     'key_press_event', self.keypress)
+
+        # print(self.connect_id)
+        # print(self.key_id)
+
+        canvas.draw() 
+
+        self.canvas = canvas
+        self.canvas2 = canvas2
+
+        self.cube = cube
+
+    def keypress(selfi, event):
+        print(event.key)
+
+
+    def getim(self, fitstatus_mask=True):
+
+        npars, ncomps = [
+            self.cube.fit_info[i] for i in ('parameters', 'components')]
+
+        par = self.l_par.curselection()[0]
+        comp = self.l_component.curselection()[0]
+
+        k = comp * ncomps + par
+
+        if self.fitstatus_mask:
+            m = (
+                    (self.cube.fit_status != 0) |
+                    (np.any(np.isnan(self.cube.em_model), 0))
+                )
+        else:
+            m = np.any(np.isnan(self.cube.em_model), 0)
+
+        d = ma.array(copy.deepcopy(self.cube.em_model[k]), mask=m)
+        
+        cm = 'viridis'
+        if par == 0:
+            d *= 1e+17
+        
+        elif par == 1:
+            mwl = np.median(d[~d.mask])
+            d = (d - mwl) / d * 2.998e+5
+            cm = 'Spectral_r'
+
+        elif par == 2:
+            wl = ma.array(self.cube.em_model[k - 1], mask=m)
+            d = d / wl * 2.998e+5
+        elif par > 2:
+            cm = 'Spectral_r'
+
+        return d, cm
+
+    
+    def plot(self):
+
+        a = self.ax1
+        a.cla()
+        self.cax.cla()
+        
+        d, cm = self.getim()
+
+        if cm == 'Spectral_r':
+            im = a.pcolormesh(d, cmap=cm, vmin=-abs(d.max()), vmax=d.max())
+        else:
+            im = a.pcolormesh(d, cmap=cm)
+        
+        cbar = matplotlib.colorbar.Colorbar(self.cax, im)
+
+        a.set_aspect('equal', 'datalim')
+        
+        self.canvas.draw()
+    
+    
+    def onclick(self, event):
+
+        # print(event.key)
+               
+        try:
+            i, j = [int(np.floor(x) + 0.5) for x in (event.xdata, event.ydata)]
+            if np.any(np.array([i, j] < 0)):
+                self.text.delete('1.0', 'end')
+                self.text.insert(INSERT, 'Index Error!')
+                return
+        except AttributeError:
+            self.text.delete('1.0', 'end')
+            self.text.insert(INSERT, 'You clicked outside the plot!')
+            return
+
+        self.text.delete('1.0', 'end')
+
+        a = self.ax2
+        a.cla()
+
+        self.text.insert(INSERT, ('({:6d}, {:6d})\n').format(i, j))
+
+        try:
+            s = self.cube.plotfit(i, j, axis=a, output='return')
+            self.text.insert(INSERT, s)
+        except IndexError:
+            self.text.insert(INSERT, 'Index Error!')
+
+        self.canvas2.draw()
+
+
+if __name__ == '__main__':
+   
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'datacube', type=str, help='The original data cube.')
+    parser.add_argument(
+        'fitfile', type=str, help='Result of the fit')
+    parser.add_argument(
+        '--fitstatus_mask', type=bool, help='Apply fit status mask.')
+    args = parser.parse_args()
+
+    window = Tk()
+    window.title('IFSCUBE Fit Scrutinizer')
+    start = mclass(window, args.datacube, args.fitfile, args.fitstatus_mask)
+    window.mainloop()

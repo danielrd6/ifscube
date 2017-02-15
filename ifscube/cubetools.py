@@ -778,12 +778,26 @@ class gmosdc:
         self.fitcont = pf.getdata(fname, ext=2)
         self.resultspec = pf.getdata(fname, ext=3)
 
+        self.em_model = pf.getdata(fname, ext=4)
+        self.fit_status = pf.getdata(fname, ext=5)
+        
+        fit_info = {}
         func_name = pf.getheader(fname, ext=4)['function']
+        fit_info['function'] = func_name
+
         if func_name == 'gaussian':
             self.fit_func = lprof.gauss
+            npars = 3
+
         if func_name == 'gauss_hermite':
             self.fit_func = lprof.gausshermite
-        self.em_model = pf.getdata(fname, ext=4)
+            npars = 5
+        
+        fit_info['parameters'] = npars
+        fit_info['components'] = (self.em_model.shape[0] - 1) / npars
+
+        self.fit_info = fit_info
+
 
     def eqw(self, component=0, sigma_factor=3):
         """
@@ -844,7 +858,8 @@ class gmosdc:
 
         return np.array([eqw_model, eqw_direct])
 
-    def plotfit(self, x, y):
+
+    def plotfit(self, x, y, show=True, axis=None, output='stdout'):
         """
         Plots the spectrum and features just fitted.
 
@@ -860,10 +875,12 @@ class gmosdc:
         Nothing.
         """
 
-        # fig = plt.figure(1)
-        plt.figure(1)
-        plt.clf()
-        ax = plt.axes()
+        if axis is None:
+            fig = plt.figure(1)
+            plt.clf()
+            ax = fig.add_subplot(111)
+        else:
+            ax = axis
 
         p = self.em_model[:-1, y, x]
         c = self.fitcont[:, y, x]
@@ -894,8 +911,15 @@ class gmosdc:
                 ('{:10.2e}' + (npars-1) * '{:10.2f}' + '\n')
                 .format(*p[i:i+npars]))
 
-        print(pars)
-        plt.show()
+        if show:
+            plt.show()
+        
+        if output == 'stdout':
+            print(pars)
+        if output == 'return':
+            return pars
+
+        return
 
     def channelmaps(self, channels=6, lambda0=None, velmin=None, velmax=None,
                     continuum_width=300, continuum_opts=None,
