@@ -561,13 +561,13 @@ class gmosdc:
         scale_factor = np.nanmean(self.data[fw, :, :])
         data = deepcopy(self.data[fw, :, :]) / scale_factor
         fit_status = np.ones(np.shape(data)[1:], dtype='float32') * -1
-
-        if variance is None:
-            try:
-                vcube = self.noise_cube[fw, :, :] ** 2
-            except AttributeError:
-                vcube = np.ones(np.shape(data), dtype='float32')
-        elif variance is not None:
+       
+        try:
+            vcube = (self.noise_cube[fw, :, :] ** 2) / (scale_factor ** 2)
+        except AttributeError:
+            vcube = np.ones(np.shape(data), dtype='float32')
+        
+        if variance is not None:
             if len(np.shape(variance)) == 0:
                 vcube *= variance
             elif len(np.shape(variance)) == 1:
@@ -579,7 +579,7 @@ class gmosdc:
             elif len(np.shape(variance)) == 3:
                 vcube = variance[fw, :, :]
 
-        vcube /= scale_factor ** 2
+            vcube /= scale_factor ** 2
 
         npars = len(p0)
         nan_solution = np.array([np.nan for i in range(npars+1)])
@@ -676,7 +676,6 @@ class gmosdc:
                              constraints=constraints, options=minopts)
                 if r.status != 0:
                     print(h, r.message, r.status)
-                    # pdb.set_trace()
                 # Reduced chi squared of the fit.
                 chi2 = res(r['x'])
                 nu = len(s)/inst_disp - npars - len(constraints) - 1
