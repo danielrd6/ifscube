@@ -12,6 +12,7 @@ import copy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import ifscube.cubetools as ct
 import Tkinter as Tk
+import pdb
 
 
 class mclass:
@@ -117,7 +118,7 @@ class mclass:
         par = self.l_par.curselection()[0]
         comp = self.l_component.curselection()[0]
 
-        k = comp * ncomps + par
+        k = comp * npars + par
 
         if self.fitstatus_mask:
             m = (
@@ -151,6 +152,8 @@ class mclass:
         a = self.ax1
         a.cla()
         self.cax.cla()
+
+        # pdb.set_trace()
 
         d, cm = self.getim()
 
