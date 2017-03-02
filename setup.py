@@ -7,6 +7,9 @@ with open('./ifscube/.version', 'r') as verfile:
 ext1 = Extension(name='ifscube.elprofile',
                  sources=['ifscube/profiles.f90'])
 
+packdata = {}
+packdata['ifscube'] = ['examples/*']
+
 setup(name='ifscube',
       version=__version__,
       packages=['ifscube'],
