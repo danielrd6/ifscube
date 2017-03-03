@@ -8,25 +8,24 @@ Website: https://github.com/danielrd6/ifscube
 import numpy as np
 import astropy.io.fits as pf
 import ifscube.spectools as st
-# import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from scipy.integrate import trapz
 from copy import deepcopy
-from voronoi_2d_binning import voronoi_2d_binning
-# from scipy.optimize import curve_fit
 from scipy.optimize import minimize
-# from scipy.ndimage import gaussian_filter as gf
-# from scipy.integrate import trapz
 from scipy.interpolate import interp1d
 from scipy import ndimage
 import ifscube.elprofile as lprof
-import ppxf
-import ppxf_util
 from numpy import ma
 import astropy.constants
 import pdb
 
+# Comment this next three lines out if you do not wish to use the pPXF
+# and Voronoi binning functions, which are essentially wrappers for
+# Michele Cappellari's implementations.
+from voronoi_2d_binning import voronoi_2d_binning
+import ppxf_util
+import ppxf
 
 class nanSolution:
 
