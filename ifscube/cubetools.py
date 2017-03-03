@@ -9,7 +9,6 @@ import numpy as np
 import astropy.io.fits as pf
 import ifscube.spectools as st
 import matplotlib.pyplot as plt
-from matplotlib import gridspec
 from scipy.integrate import trapz
 from copy import deepcopy
 from scipy.optimize import minimize
@@ -18,7 +17,6 @@ from scipy import ndimage
 import ifscube.elprofile as lprof
 from numpy import ma
 import astropy.constants
-import pdb
 
 # Uncomment this next three lines out if you do not wish to use the
 # pPXF and Voronoi binning functions, which are essentially wrappers
@@ -27,6 +25,7 @@ import pdb
 # from voronoi_2d_binning import voronoi_2d_binning
 # import ppxf_util
 # import ppxf
+
 
 class nanSolution:
 
@@ -49,7 +48,6 @@ def bound_updater(p0, bound_range):
     newbound = []
     if np.shape(bound_range) != ():
         npars = len(bound_range)
-        ncomponents = len(p0) / npars
 
         if type(bound_range[0]) == dict:
             for i in range(0, len(p0), npars):
@@ -74,9 +72,9 @@ def bound_updater(p0, bound_range):
                 for j in range(npars):
                     newbound += [
                         [p0[i + j] - bound_range[j],
-                         p0[i + j] + bound_range[j]]]        
+                         p0[i + j] + bound_range[j]]]
     else:
-        
+
         for i in p0:
             if i == 0:
                 newbound += [[i - bound_range, i + bound_range]]
@@ -84,7 +82,6 @@ def bound_updater(p0, bound_range):
                 newbound += [[i * (1. - bound_range), i * (1. + bound_range)]]
                 if newbound[-1][1] < newbound[-1][0]:
                     newbound[-1].sort()
-
 
     return newbound
 
@@ -561,12 +558,12 @@ class gmosdc:
         scale_factor = np.nanmean(self.data[fw, :, :])
         data = deepcopy(self.data[fw, :, :]) / scale_factor
         fit_status = np.ones(np.shape(data)[1:], dtype='float32') * -1
-       
+
         try:
             vcube = (self.noise_cube[fw, :, :] ** 2) / (scale_factor ** 2)
         except AttributeError:
             vcube = np.ones(np.shape(data), dtype='float32')
-        
+
         if variance is not None:
             if len(np.shape(variance)) == 0:
                 vcube *= variance
@@ -779,7 +776,7 @@ class gmosdc:
 
         self.em_model = pf.getdata(fname, ext=4)
         self.fit_status = pf.getdata(fname, ext=5)
-        
+
         fit_info = {}
         func_name = pf.getheader(fname, ext=4)['function']
         fit_info['function'] = func_name
@@ -791,12 +788,11 @@ class gmosdc:
         if func_name == 'gauss_hermite':
             self.fit_func = lprof.gausshermite
             npars = 5
-        
+
         fit_info['parameters'] = npars
         fit_info['components'] = (self.em_model.shape[0] - 1) / npars
 
         self.fit_info = fit_info
-
 
     def eqw(self, component=0, sigma_factor=3):
         """
@@ -857,7 +853,6 @@ class gmosdc:
 
         return np.array([eqw_model, eqw_direct])
 
-
     def plotfit(self, x, y, show=True, axis=None, output='stdout'):
         """
         Plots the spectrum and features just fitted.
@@ -912,7 +907,7 @@ class gmosdc:
 
         if show:
             plt.show()
-        
+
         if output == 'stdout':
             print(pars)
         if output == 'return':
@@ -1325,7 +1320,7 @@ class gmosdc:
             hdr['CRVAL3'] = (self.wl[0], 'Reference value for wavelength')
             hdr['CD3_3'] = (np.average(np.diff(self.wl)), 'CD3_3')
             h.append(pf.ImageHDU(data=self.ppxf_spec, header=hdr))
-            
+
             # Creates the residual spectrum extension
             hdr = pf.Header()
             hdr['object'] = ('residuals', 'Data in this extension')
@@ -1334,7 +1329,7 @@ class gmosdc:
             hdr['CD3_3'] = (np.average(np.diff(self.ppxf_wl)), 'CD3_3')
             h.append(pf.ImageHDU(data=self.ppxf_spec - self.ppxf_model,
                      header=hdr))
-            
+
             # Creates the fitted model extension.
             hdr['object'] = 'model'
             h.append(pf.ImageHDU(data=self.ppxf_model, header=hdr))
