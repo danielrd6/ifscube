@@ -20,12 +20,13 @@ from numpy import ma
 import astropy.constants
 import pdb
 
-# Comment this next three lines out if you do not wish to use the pPXF
-# and Voronoi binning functions, which are essentially wrappers for
-# Michele Cappellari's implementations.
-from voronoi_2d_binning import voronoi_2d_binning
-import ppxf_util
-import ppxf
+# Uncomment this next three lines out if you do not wish to use the
+# pPXF and Voronoi binning functions, which are essentially wrappers
+# for Michele Cappellari's implementations.
+
+# from voronoi_2d_binning import voronoi_2d_binning
+# import ppxf_util
+# import ppxf
 
 class nanSolution:
 
