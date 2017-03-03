@@ -1,31 +1,28 @@
 #!/usr/bin/env python
 
 """
-Spectools provide a number of small routines to work with 1D spectra in the form
-of numpy arrays or FITS files, depending on the function.
+Spectools provide a number of small routines to work with 1D spectra in
+the form of numpy arrays or FITS files, depending on the function.
 
-If the spectrum is specified as an array, the default is to assume that arr[:,0]
-are the wavelength coordinates and arr[:,1] are the flux points.
+If the spectrum is specified as an array, the default is to assume that
+arr[:,0] are the wavelength coordinates and arr[:,1] are the flux
+points.
 """
 
-from copy import deepcopy
+import copy
 import astropy.io.fits as pf
-from numpy import *
-from scipy.integrate import trapz
-from scipy.integrate import quad
+import numpy as np
+from scipy.integrate import trapz, quad
 from scipy.ndimage import gaussian_filter1d
-from scipy import interpolate
-from scipy.interpolate import interp1d
-from scipy.interpolate import UnivariateSpline
-from scipy.optimize import curve_fit
-from scipy.optimize import fsolve
-from scipy.optimize import minimize
+from scipy.interpolate import interp1d, UnivariateSpline
+from scipy.optimize import curve_fit, minimize
 import re
+
 
 def rmbg(x, y, samp, order=1):
     """
     Removes a background function from one dimensional data.
-  
+
     Parameters
     ----------
     x : numpy.array
@@ -34,35 +31,36 @@ def rmbg(x, y, samp, order=1):
       A list of the background sampling limits
     order : integer
       Polyfit order
-  
+
     Returns
     -------
     xnew : numpy.array
     ynew : numpy.array
     """
-    xs = array([])
-    ys = array([])
-  
-    for i in range(0,len(samp),2):
-        xs = append(xs, x[(x >= samp[i]) & (x < samp[i+1])])
-        ys = append(ys, y[(x >= samp[i]) & (x < samp[i+1])])
-  
-    p = polyfit(xs, ys, deg=order)
-  
-    ynew = y-polyval(p, x)
-  
+    xs = np.array([])
+    ys = np.array([])
+
+    for i in range(0, len(samp), 2):
+        xs = np.append(xs, x[(x >= samp[i]) & (x < samp[i + 1])])
+        ys = np.append(ys, y[(x >= samp[i]) & (x < samp[i + 1])])
+
+    p = np.polyfit(xs, ys, deg=order)
+
+    ynew = y - np.polyval(p, x)
+
     return x, ynew
-  
+
+
 def fitgauss(x, y, p0=None, fitcenter=True, fitbg=True):
     """
     Returns a gaussian function that fits the data. This function
     requires a background subtraction, meaning that the data should
     fall to zero within the fitting limits.
-            
+
                   (  -(mu-x)^2  )
     f(x) = m * exp| ----------- | + bg
                   (  2*sigma^2  )
-    
+
     Parameters
     ----------
     p0 : iterable
@@ -77,152 +75,150 @@ def fitgauss(x, y, p0=None, fitcenter=True, fitbg=True):
     fitbg : boolean
         Chooses wether to fit a horizontal background level or accept
         the value given in p0[3].
-  
+
     Returns
     -------
     ans : tuple
         ans[0] = Lambda function with the fitted parameters
         ans[1] = Fit parameters
-     
+
     """
-  
-    if p0 == None:
-      p0 = zeros(4)
-      p0[0] = y.max()
-      p0[1] = where(y == y.max())[0][0]
-      p0[2] = 3
-      p0[3] = 1
-  
-    p0 = array(p0)
-    p = deepcopy(p0)
-    gauss = lambda t,m,mu,sigma,bg : m*exp(-(t-mu)**2/(2*sigma**2))+bg
-  
-    fitpars = array([True, fitcenter, True, fitbg])
-  
+
+    if p0 is None:
+        p0 = np.zeros(4)
+        p0[0] = y.max()
+        p0[1] = np.where(y == y.max())[0][0]
+        p0[2] = 3
+        p0[3] = 1
+
+    p0 = np.array(p0)
+    p = copy.deepcopy(p0)
+
+    def gauss(t, m, mu, sigma, bg):
+        return m * np.exp(-(t - mu)**2 / (2 * sigma**2)) + bg
+
+    fitpars = np.array([True, fitcenter, True, fitbg])
+
     if not fitcenter and fitbg:
-        p[fitpars] = curve_fit(lambda a, b, c, d :\
-            gauss(a,b,p0[1],c,d), x,y,p0[fitpars])[0]
+        p[fitpars] = curve_fit(lambda a, b, c, d:
+                               gauss(a, b, p0[1], c, d), x, y, p0[fitpars])[0]
     elif fitcenter and not fitbg:
-        p[fitpars] = curve_fit(lambda a, b, c, d :\
-            gauss(a,b,c,d,p0[3]), x,y, p0[fitpars])[0]
+        p[fitpars] = curve_fit(lambda a, b, c, d:
+                               gauss(a, b, c, d, p0[3]), x, y, p0[fitpars])[0]
     elif not fitcenter and not fitbg:
-        p[fitpars] = curve_fit(lambda a, b, c :\
-            gauss(a,b,p0[1],c,p0[3]), x,y, p0[fitpars])[0]
+        p[fitpars] = curve_fit(lambda a, b, c:
+                               gauss(a, b, p0[1], c, p0[3]), x, y,
+                               p0[fitpars])[0]
     else:
-        p = curve_fit(gauss,x,y,p0)[0]
-  
-    fit = lambda t: p[0]*exp(-(t-p[1])**2/(2*p[2]**2))+p[3]
-    
-    p[2] = abs(p[2])
-    return fit,p
-  
+        p = curve_fit(gauss, x, y, p0)[0]
+
+    def fit(t):
+        return p[0] * np.exp(-(t - p[1])**2 / (2 * p[2]**2)) + p[3]
+
+    p[2] = np.abs(p[2])
+    return fit, p
+
+
 def fwhm(x, y, bg=[0, 100, 150, 240]):
     """
     Evaluates the full width half maximum of y in units of x.
-  
+
     Parameters
     ----------
     x : numpy.array
     y : numpy.array
     bg : list
       Background sampling limits
-  
+
     Returns
     -------
     fwhm : number
       Full width half maximum
     """
-    
-  #  xnew = copy(x)
-  #  ynew = copy(y)
-  
-  #  xc = x[(x>bg[0])&(x<bg[1]) | (x>bg[2])&(x<bg[3])]
-  #  yc = y[(x>bg[0])&(x<bg[1]) | (x>bg[2])&(x<bg[3])]
-  
-  #  bgfit = polyfit(xc,yc,1)
-  
-  #  ynew = ynew-polyval(bgfit,xnew)
-  
-    xnew,ynew = rmbg(x, y, bg)
-  
-    f = UnivariateSpline(xnew, ynew/max(ynew)-.5, s=0)
-    fwhm = f.roots()[1]-f.roots()[0]
-  
+
+    xnew, ynew = rmbg(x, y, bg)
+
+    f = UnivariateSpline(xnew, ynew / max(ynew) - .5, s=0)
+    fwhm = f.roots()[1] - f.roots()[0]
+
     return fwhm
 
-def blackbody(x,T,coordinate='wavelength'):
-  """
-  Evaluates the blackbody spectrum for a given temperature.
 
-  Parameters:
-  -----------
-  x : numpy.array
-    Wavelength or frequency coordinatei (CGS).
-  T : number
-    Blacbody temperature in Kelvin
-  coordinate : string
-    Specify the coordinates of x as 'wavelength' or 'frequency'.
-  
-  Returns:
-  --------
-  b(x,T) : numpy.array
-    Flux density in cgs units.
-  """
+def blackbody(x, T, coordinate='wavelength'):
+    """
+    Evaluates the blackbody spectrum for a given temperature.
 
-  h = 6.6261e-27  # cm**2*g/s
-  c = 2.998e+10  # cm/s
-  kb = 1.3806488e-16  # erg/K
+    Parameters:
+    -----------
+    x : numpy.array
+      Wavelength or frequency coordinatei (CGS).
+    T : number
+      Blacbody temperature in Kelvin
+    coordinate : string
+      Specify the coordinates of x as 'wavelength' or 'frequency'.
 
-  if coordinate == 'wavelength':
-    b = lambda x,t : 2.*h*c**2./x**5*(1./(exp(h*c/(x*kb*t))-1.))
-  elif coordinate == 'frequency':
-    b = lambda x,t : 2*h*c**2/x**5*(exp((h*c)/(x*kb*t))-1)**(-1)
-  
-  return b(x,T)
+    Returns:
+    --------
+    b(x,T) : numpy.array
+      Flux density in cgs units.
+    """
+
+    h = 6.6261e-27  # cm**2*g/s
+    c = 2.998e+10  # cm/s
+    kb = 1.3806488e-16  # erg/K
+
+    if coordinate == 'wavelength':
+        def b(x, t):
+            return 2. * h * c**2. / x**5 * \
+                    (1. / (np.exp(h * c / (x * kb * t)) - 1.))
+    elif coordinate == 'frequency':
+        def b(x, t):
+            return 2 * h * c**2 / \
+                    x**5 * (np.exp((h * c) / (x * kb * t)) - 1)**(-1)
+
+    return b(x, T)
+
 
 def natural_sort(l):
-  #This code is not mine! I copied it from http://stackoverflow.com/questions/4836710/does-python-have-a-built-in-function-for-string-natural-sort
-  
-  convert = lambda text: int(text) if text.isdigit() else text.lower() 
-  alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ] 
-  return sorted(l, key = alphanum_key)
-    
-def closest(arr,value):
+    # This code is not mine! I copied it from
+    # http://stackoverflow.com/questions/4836710/does-python-have-a-built-in-
+    # function-for-string-natural-sort
 
-  """Returns the index of the array element that is numerically closest
-  to the given value. The returned variable is an integer. This function
-  expects a one-dimensional array.
+    def convert(text):
+        return int(text) if text.isdigit() else text.lower()
 
-  >>> closest(arange(5),3.7)
-  4
-  """
-  
-#  arr = abs(arr - value)
-#  minloc = where(arr == arr.min())[0]
-  
-#  if minloc == array([]):
-#    minloc = -1
-#  else:
-#    minloc = minloc[0]
-    
-#  return minloc
+    def alphanum_key(key):
+        return [convert(c) for c in re.split('([0-9]+)', key)]
 
-  idx = abs(arr - value).argmin()
-  return idx
+    return sorted(l, key=alphanum_key)
 
-def get_wl(image, dimension=0, hdrext=0, dataext=0, dwlkey='CD1_1', 
-    wl0key='CRVAL1', pix0key='CRPIX1'):
-  
+
+def closest(arr, value):
+    """
+    Returns the index of the array element that is numerically closest
+    to the given value. The returned variable is an integer. This
+    function expects a one-dimensional array.
+
+    >>> closest(arange(5),3.7)
+    4
+    """
+
+    idx = np.abs(arr - value).argmin()
+    return idx
+
+
+def get_wl(image, dimension=0, hdrext=0, dataext=0, dwlkey='CD1_1',
+           wl0key='CRVAL1', pix0key='CRPIX1'):
     """
     Obtains the wavelenght coordinates from the header keywords of the
     FITS file image. The default keywords are CD1_1 for the delta
     lambda, CRVAL for the value of the first pixel and CRPIX1 for the
     number of the first pixel. These keywords are the standard for
     GEMINI images.
-    
+
     The function is prepared to work with Multi-Extesion FITS (MEF)
     files.
-  
+
     Parameters
     ----------
     image : string
@@ -239,62 +235,62 @@ def get_wl(image, dimension=0, hdrext=0, dataext=0, dwlkey='CD1_1',
         Header keyword for the first pixel value
     pix0key : string
         Header keyword for the first pixel coordinate
-    
+
     Returns
     -------
     wl : numpy.array
         Wavelength coordinates for each data point
     """
-   
-    h = pf.getheader(image,ext=hdrext)
+
+    h = pf.getheader(image, ext=hdrext)
     dwl, wl1, pix0 = [float(h[i]) for i in [dwlkey, wl0key, pix0key]]
-    npoints = shape(pf.getdata(image,dataext))[dimension]
-    wl = wl1 + (arange(1, npoints+1, dtype='float64') - pix0)*dwl
+    npoints = np.shape(pf.getdata(image, dataext))[dimension]
+    wl = wl1 + (np.arange(1, npoints + 1, dtype='float64') - pix0) * dwl
 
     try:
         if h['dc-flag'] == 1:
             wl = 10.**wl
     except KeyError:
         pass
-      
+
     return wl
 
-def normspec(x,y,wl,span):
-  
-  """
-  Normalizes a copy of a 1D spectrum given as arr_in, with the wavelength
-  as arr_in[:,0] and the flux as arr_in[:,1]. The normalization value is the
-  average flux between wl-span/2. and wl+span/2..
 
-  Parameters:
-  -----------
-  x : numpy.array
-    Input wavelength coordinates
-  y : numpy.array
-    Input flux coordinates
-  wl : number
-    Central wavelength for normalization
-  span : number
-    Width of normalization window
-  """
- 
+def normspec(x, y, wl, span):
+    """
+    Normalizes a copy of a 1D spectrum given as arr_in, with the
+    wavelength as arr_in[:,0] and the flux as arr_in[:,1]. The
+    normalization value is the average flux between wl-span/2. and
+    wl+span/2..
+
+    Parameters:
+    -----------
+    x : numpy.array
+      Input wavelength coordinates
+    y : numpy.array
+      Input flux coordinates
+    wl : number
+      Central wavelength for normalization
+    span : number
+      Width of normalization window
+    """
+
 #  arr = copy(column_stack([x,y]))
 
-  y2 = copy(y)
+    y2 = copy.deepcopy(y)
 
 #  if closest(x,wl-span/2.) == closest(x,wl+span/2.):
-  if wl-span/2. < x[0] or wl+span/2. > x[-1]:
-    print 'ERROR: Normalization wavelength outside data limits.'
-    return
+    if wl - span / 2. < x[0] or wl + span / 2. > x[-1]:
+        print('ERROR: Normalization wavelength outside data limits.')
+        return
 
-  f = interp1d(x,y2)
-  y2 = y2/average(f(linspace(wl-span/2.,wl+span/2.,1000)))
-  
-  return y2
+    f = interp1d(x, y2)
+    y2 = y2 / np.average(f(np.linspace(wl - span / 2., wl + span / 2., 1000)))
+
+    return y2
 
 
 def resampspec(arr_in, dx=1, integers=True, smooth=False, swidth=1):
-
     """
     Resamples a 1D spectrum given as `arr_in`, with arr_in[:,0]
     being the wavelength coordinates and arr_in[:,1] being the flux.
@@ -315,7 +311,7 @@ def resampspec(arr_in, dx=1, integers=True, smooth=False, swidth=1):
     arr : resampled version of arr_in
     """
 
-    arr = copy(arr_in)
+    arr = copy.deepcopy(arr_in)
 
     f = interp1d(arr[:, 0], arr[:, 1])
 
@@ -324,29 +320,28 @@ def resampspec(arr_in, dx=1, integers=True, smooth=False, swidth=1):
     else:
         x0, x1 = arr[0, 0], arr[-1, 0]
 
-    x = linspace(x0, x1, num=abs(x0 - x1) / dx + 1)
+    x = np.linspace(x0, x1, num=abs(x0 - x1) / dx + 1)
 
     if smooth:
-        arr = column_stack([x, gaussian_filter1d(f(x), swidth)])
+        arr = np.column_stack([x, gaussian_filter1d(f(x), swidth)])
     else:
-        arr = column_stack([x, f(x)])
+        arr = np.column_stack([x, f(x)])
 
     return arr
 
 
-def dopcor(wl,z):
-
+def dopcor(wl, z):
     """
     Applies the Doppler correction to an array of wavelength
     coordinates. z is defined as:
 
-      z = (wo - we)/we 
+      z = (wo - we)/we
 
     where `wo` is the observed wavelength and `we` is the emitted wavelength.
 
     """
 
-    wlnew = copy(wl)
+    wlnew = copy.deepcopy(wl)
 
     wlnew = wlnew / (z + 1.)
 
@@ -393,18 +388,18 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
             See parameter "returns".
     """
 
-    xfull = deepcopy(x)
-    s = interp1d(x,y)
+    xfull = copy.deepcopy(x)
+    s = interp1d(x, y)
 
     def f(x):
-        return polyval(polyfit(x, s(x), deg=degr), x)
+        return np.polyval(np.polyfit(x, s(x), deg=degr), x)
 
     for i in range(niterate):
 
         if len(x) == 0:
             print('Stopped at iteration: {:d}.'.format(i))
             break
-        sig = std(s(x) - f(x))
+        sig = np.std(s(x) - f(x))
         res = s(x) - f(x)
         x = x[(res < upper_threshold * sig) & (res > -lower_threshold * sig)]
 
@@ -414,20 +409,19 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
         print('Rejection ratio: {:.2f}'
               .format(1. - float(len(x)) / float(len(xfull))))
 
-    p = polyfit(x, s(x), deg=degr)
+    p = np.polyfit(x, s(x), deg=degr)
 
     if returns == 'ratio':
-        return xfull, s(xfull) / polyval(p, xfull)
+        return xfull, s(xfull) / np.polyval(p, xfull)
 
     if returns == 'difference':
-        return xfull, s(xfull) - polyval(p, xfull)
+        return xfull, s(xfull) - np.polyval(p, xfull)
 
     if returns == 'function':
-        return xfull, polyval(p, xfull)
+        return xfull, np.polyval(p, xfull)
 
 
 def eqw(wl, flux, lims, cniterate=5):
-
     """
     Measure the equivalent width of a feature in `arr`, defined by `lims`:
 
@@ -439,20 +433,21 @@ def eqw(wl, flux, lims, cniterate=5):
     fctn, ctnwl = continuum(wl, flux, lims[2:], niterate=cniterate)
 
     act = trapz(
-        polyval(fctn, linspace(lims[0], lims[1])),
-        x=linspace(lims[0], lims[1]))  # area under continuum
+        np.polyval(fctn, np.linspace(lims[0], lims[1])),
+        x=np.linspace(lims[0], lims[1]))  # area under continuum
 
     # area under spectrum
     aspec = trapz(
         fspec(np.linspace(lims[0], lims[1])), np.linspace(lims[0], lims[1]))
 
-    eqw = ((act - aspec)/act)*(lims[1]-lims[0])
+    eqw = ((act - aspec) / act) * (lims[1] - lims[0])
 
     # Calculation of the error in the equivalent width, following the
     # definition of Vollmann & Eversberg 2006 (doi: 10.1002/asna.200610645)
 
     sn = np.average(fspec(ctnwl)) / np.std(fspec(ctnwl))
-    sigma_eqw = np.sqrt(1 + average(polyval(fctn, ctnwl)) / average(flux)) *\
+    sigma_eqw = np.sqrt(
+        1 + np.average(np.polyval(fctn, ctnwl)) / np.average(flux)) * \
         (lims[1] - lims[0] - eqw) / sn
 
     return eqw, sigma_eqw
@@ -484,12 +479,12 @@ def joinspec(x1, y1, x2, y2):
     f1 = interp1d(x1, y1, bounds_error='false', fill_value=0)
     f2 = interp1d(x2, y2, bounds_error='false', fill_value=0)
 
-    if average(diff(x1)) <= average(diff(x2)):
-        dx = average(diff(x1))
+    if np.average(np.diff(x1)) <= np.average(np.diff(x2)):
+        dx = np.average(np.diff(x1))
     else:
-        dx = average(diff(x2))
+        dx = np.average(np.diff(x2))
 
-    x = arange(x1[0], x2[-1], dx)
+    x = np.arange(x1[0], x2[-1], dx)
 
     f = f1(x[x < x2[0]])
 
@@ -620,16 +615,13 @@ def specphotometry(spec, filt, intlims=(8, 13), coords='wavelength',
     l, er = 100, 1.e-2
     x0, x1 = intlims
 
-    # if stdstar == None:
-    # stdstar = lambda x : blackbody(x*1.e-4,5.e+3,coordinate='wavelength')
-
     def y2(x):
         return filt(x) * spec(x)
 
     if get_filter_center:
         def medianfunction(x):
-            return abs(quad(filt, -inf, x, epsrel=er, limit=l)[0] -
-                       quad(filt, x, +inf, epsrel=er, limit=l)[0])
+            return np.abs(quad(filt, -np.inf, x, epsrel=er, limit=l)[0] -
+                          quad(filt, x, +np.inf, epsrel=er, limit=l)[0])
 
         fcenter = minimize(medianfunction, 11.5, bounds=[[11.1, 11.9]],
                            method='SLSQP')
