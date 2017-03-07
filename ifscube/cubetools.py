@@ -1348,6 +1348,27 @@ class gmosdc:
 
             h.writeto(outimage)
 
+    def ppxf_plot(self, xy, axis=None):
+
+        if axis is None:
+            fig = plt.figure(1)
+            plt.clf()
+            ax = fig.add_subplot(111)
+        else:
+            ax = axis
+            ax.cla()
+
+        gp = self.ppxf_goodpixels
+
+        ax.plot(self.ppxf_wl[gp], self.ppxf_spec[gp, xy[1], xy[0]])
+        ax.plot(self.ppxf_wl, self.ppxf_spec[:, xy[1], xy[0]])
+        ax.plot(self.ppxf_wl, self.ppxf_model[:, xy[1], xy[0]])
+        
+        print(
+            ('Velocity: {:.2f}\nSigma: {:.2f}\nh3: {:.2f}\nh4: {:.2f}').\
+                    format(*self.ppxf_sol[:, xy[1], xy[0]]))
+
+
     def lineflux(self, amplitude, sigma):
         """
         Calculates the flux in a line given the amplitude and sigma
