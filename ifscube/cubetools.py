@@ -1172,27 +1172,28 @@ class gmosdc:
         base_spec = base_spec[:, baseCut]
         base_wl = base_wl[baseCut]
 
-        # Here we use the goodpixels as the fitting window
-        # gp = np.arange(np.shape(self.data)[0])[fw]
-        gp = np.arange(len(self.wl[fw]))
-
-        if mask is not None:
-            if len(mask) == 1:
-                gp = gp[
-                    (self.wl[fw] < mask[0][0]) | (self.wl[fw] > mask[0][1])]
-            else:
-                m = np.array([
-                    (self.wl[fw] < i[0]) | (self.wl[fw] > i[1])
-                    for i in mask])
-                gp = gp[np.sum(m, 0) == m.shape[0]]
-
-        lamRange1 = self.wl[fw][[1, -1]]
+        lamRange1 = self.wl[fw][[0, -1]]
         centerSpaxel = np.array(np.shape(self.data[0])) / 2
         gal_lin = deepcopy(self.data[fw, centerSpaxel[0], centerSpaxel[1]])
 
         galaxy, logLam1, velscale = ppxf_util.log_rebin(
             lamRange1, gal_lin)
-        lamRange2 = base_wl[[1, -1]]
+
+        # Here we use the goodpixels as the fitting window
+        # gp = np.arange(np.shape(self.data)[0])[fw]
+        gp = np.arange(len(logLam1))
+        lam1 = np.exp(logLam1)
+
+        if mask is not None:
+            if len(mask) == 1:
+                gp = gp[
+                    (lam1 < mask[0][0]) | (lam1 > mask[0][1])]
+            else:
+                m = np.array([
+                    (lam1 < i[0]) | (lam1 > i[1]) for i in mask])
+                gp = gp[np.sum(m, 0) == m.shape[0]]
+
+        lamRange2 = base_wl[[0, -1]]
         ssp = base_spec[0]
 
         sspNew, logLam2, velscale = ppxf_util.log_rebin(
