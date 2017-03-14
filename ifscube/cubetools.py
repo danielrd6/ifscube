@@ -546,14 +546,6 @@ class gmosdc:
 
         copts['returns'] = 'function'
 
-        try:
-            minopts['eps']
-        except TypeError:
-            if minopts is None:
-                minopts = {'eps': 1e-3}
-            else:
-                minopts['eps'] = 1e-3
-
         wl = deepcopy(self.restwl[fw])
         scale_factor = np.nanmean(self.data[fw, :, :])
         data = deepcopy(self.data[fw, :, :]) / scale_factor
@@ -1364,11 +1356,10 @@ class gmosdc:
         ax.plot(self.ppxf_wl[gp], self.ppxf_spec[gp, xy[1], xy[0]])
         ax.plot(self.ppxf_wl, self.ppxf_spec[:, xy[1], xy[0]])
         ax.plot(self.ppxf_wl, self.ppxf_model[:, xy[1], xy[0]])
-        
-        print(
-            ('Velocity: {:.2f}\nSigma: {:.2f}\nh3: {:.2f}\nh4: {:.2f}').\
-                    format(*self.ppxf_sol[:, xy[1], xy[0]]))
 
+        print(
+            ('Velocity: {:.2f}\nSigma: {:.2f}\nh3: {:.2f}\nh4: {:.2f}').
+            format(*self.ppxf_sol[:, xy[1], xy[0]]))
 
     def lineflux(self, amplitude, sigma):
         """
