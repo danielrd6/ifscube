@@ -584,9 +584,9 @@ class gmosdc:
             v = self.voronoi_tab
             xy = np.column_stack([
                 v[np.unique(v['binNum'], return_index=True)[1]][coords]
-                for coords in ['xcoords', 'ycoords']])
+                for coords in ['ycoords', 'xcoords']])
             vor = np.column_stack([
-                v[coords] for coords in ['xcoords', 'ycoords', 'binNum']])
+                v[coords] for coords in ['ycoords', 'xcoords', 'binNum']])
         else:
             xy = self.spec_indices
 
