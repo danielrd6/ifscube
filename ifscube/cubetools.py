@@ -1075,14 +1075,27 @@ class gmosdc:
             hdr['VORTSNR'] = (targetsnr, 'Target SNR for Voronoi binning.')
 
             hdulist[self.hdrext].header = hdr
+            tbhdu = pf.BinTableHDU.from_columns(
+                [
+                    pf.Column(name='xcoords', format='i8', array=x),
+                    pf.Column(name='ycoords', format='i8', array=y),
+                    pf.Column(name='binNum', format='i8', array=binNum),
+                ], name='VOR')
 
-            tbhdu = pf.BinTableHDU.from_columns([
-                pf.Column(name='xcoords', format='i8', array=x),
-                pf.Column(name='ycoords', format='i8', array=y),
-                pf.Column(name='binNum', format='i8', array=binNum)],
-                name='VOR')
+            tbhdu_plus = pf.BinTableHDU.from_columns(
+                [
+                    pf.Column(name='ubin', format='i8',
+                        array=np.unique(binNum)),
+                    pf.Column(name='xNode', format='F16.8', array=xNode),
+                    pf.Column(name='yNode', format='F16.8', array=yNode),
+                    pf.Column(name='xBar', format='F16.8', array=xBar),
+                    pf.Column(name='yBar', format='F16.8', array=yBar),
+                    pf.Column(name='sn', format='F16.8', array=sn),
+                    pf.Column(name='nPixels', format='i8', array=nPixels),
+                ], name='VORPLUS')
 
             hdulist.append(tbhdu)
+            hdulist.append(tbhdu_plus)
             hdulist[dataext].data = binned
 
             if outfile is None:
