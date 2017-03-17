@@ -141,14 +141,6 @@ class Spectrum():
 
         copts['returns'] = 'function'
 
-        try:
-            minopts['eps']
-        except TypeError:
-            if minopts is None:
-                minopts = {'eps': 1e-3}
-            else:
-                minopts['eps'] = 1e-3
-
         wl = deepcopy(self.wl[fw])
         scale_factor = np.nanmean(self.data[fw])
         data = deepcopy(self.data[fw]) / scale_factor
