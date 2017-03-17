@@ -1,0 +1,45 @@
+# This is a list of emission lines typically found in the spectra of
+# AGN. It was compiled from the spectral features cited in table 13.2
+# of Osterbrock & Ferland 2nd Edition, ISBN 1-891389-34-3, that lists
+# optical emission lines in the spectrum of Cyg A.
+#
+# The wavelength values were taken from the Atomic Line List
+# v2.05b21 (http://www.pa.uky.edu/~peter/newpage/), and represent air
+# wavelengths.
+#
+# Species Name      Wavelength(AA)
+[Ne V]              3345.4
+[Ne V]              3425.5
+[O II]              3726.032
+[O II]              3728.815
+[Ne III]            3869.07
+[Ne III]            3967.79
+[S II]              4068.60
+H$\delta$           4101.735
+H$\gamma$           4340.463
+[O III]             4636.209
+He I                4471.47
+He II               4685.71
+H$\beta$            4861.325
+[O III]             4958.911
+[O III]             5006.843
+[N I]               5197.9016
+[N I]               5200.2574
+[Fe XIV]            5303.0
+[Fe VII]            5720.71
+[N II]              5754.64
+He I                5876.00
+[Fe VII]            6086.29
+[O I]               6300.304
+[O I]               6363.776
+[Fe X]              6374.5
+[N II]              6548.04
+H$\alpha$           6562.80
+[N II]              6583.46
+[S II]              6716.44
+[S II]              6730.82
+[Ar III]            7135.8
+[O II]              7319.99
+[O II]              7329.67
+[O II]              7330.73
+[Ar III]            7751.1

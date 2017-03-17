@@ -8,7 +8,7 @@ ext1 = Extension(name='ifscube.elprofile',
                  sources=['ifscube/profiles.f90'])
 
 packdata = {}
-packdata['ifscube'] = ['examples/*']
+packdata['ifscube'] = ['examples/*', 'data/*']
 
 setup(name='ifscube',
       version=__version__,
