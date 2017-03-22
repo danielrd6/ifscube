@@ -23,7 +23,7 @@ class Spectrum():
     def linefit(self, p0, function='gaussian', fitting_window=None,
                 writefits=False, outimage=None, variance=None,
                 constraints=(), bounds=None, inst_disp=1.0,
-                min_method='SLSQP', minopts=None, copts=None):
+                min_method='SLSQP', minopts={'eps': 1e-3}, copts=None):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties. This is a wrapper for the scipy

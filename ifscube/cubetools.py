@@ -22,9 +22,9 @@ import astropy.constants
 # pPXF and Voronoi binning functions, which are essentially wrappers
 # for Michele Cappellari's implementations.
 
-# from voronoi_2d_binning import voronoi_2d_binning
-# import ppxf_util
-# import ppxf
+from voronoi_2d_binning import voronoi_2d_binning
+import ppxf_util
+import ppxf
 
 
 class nanSolution:
@@ -423,12 +423,13 @@ class gmosdc:
         plt.show()
 
     def linefit(self, p0, function='gaussian', fitting_window=None,
-                writefits=False, outimage=None, variance=None, constraints=(),
-                bounds=None, inst_disp=1.0, individual_spec=False,
-                min_method='SLSQP', minopts=None, copts=None, refit=False,
-                update_bounds=False, bound_range=.1,
-                spiral_loop=False, spiral_center=None, fit_continuum=True,
-                refit_radius=3):
+            writefits=False, outimage=None, variance=None,
+            constraints=(), bounds=None, inst_disp=1.0,
+            individual_spec=False, min_method='SLSQP',
+            minopts={'eps': 1e-3}, copts=None, refit=False,
+            update_bounds=False, bound_range=.1, spiral_loop=False,
+            spiral_center=None, fit_continuum=True, refit_radius=3):
+
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties. This is a wrapper for the scipy
