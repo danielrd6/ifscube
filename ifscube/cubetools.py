@@ -92,8 +92,9 @@ class gmosdc:
     with GMOS IFU.
     """
 
-    def __init__(self, fitsfile, redshift=None, vortab=None, dataext=1,
-                 hdrext=0, var_ext=None, nan_spaxels='all'):
+    def __init__(self, fitsfile, redshift=None, vortab=None,
+                 dataext=1, hdrext=0, var_ext=None, ncubes_ext=None,
+                 nan_spaxels='all'):
         """
         Initializes the class and loads basic information onto the
         object.
@@ -155,22 +156,39 @@ class gmosdc:
         self.restwl = self.wl / (1. + redshift)
 
         if var_ext is not None:
-            g = pf.open(fitsfile)
-            self.noise_cube = g[var_ext].data
-            self.noise = np.nanmean(g[var_ext].data, 0)
-            self.noise[self.nanSpaxels] = np.nan
+            # The noise for each pixel in the cube
+            self.noise_cube = hdulist[var_ext].data
+
+            # An image of the mean noise, collapsed over the 
+            # wavelength dimension.
+            self.noise = np.nanmean(hdulist[var_ext].data, 0)
+
+            # Image of the mean signal
             self.signal = np.nanmean(self.data, 0)
+            
+            # Maybe this step is redundant, I have to check it later.
+            # Guarantees that both noise and signal images have
+            # the appropriate spaxels set to nan.
+            self.noise[self.nanSpaxels] = np.nan
             self.signal[self.nanSpaxels] = np.nan
 
             self.noise[np.isinf(self.noise)] =\
                 self.signal[np.isinf(self.noise)]
+
+        if ncubes_ext is not None:
+            # The self.ncubes variable describes how many different
+            # pixels contributed to the final combined pixel. This can
+            # also serve as a flag, when zero cubes contributed to the
+            # pixel. Additionaly, it may be useful to mask regions that
+            # are present in only one observation, for greater
+            # confidence.
+            self.ncubes = hdulist[ncubes_ext].data 
 
         try:
             if self.header['VORBIN']:
                 vortab = pf.open(fitsfile)['VOR'].data
                 self.voronoi_tab = vortab
                 self.binned = True
-
         except KeyError:
             self.binned = False
 
@@ -181,8 +199,8 @@ class gmosdc:
             np.ravel(np.indices(np.shape(self.data)[1:])[1])
             ])
 
-    def continuum(self, writefits=False, outimage=None, fitting_window=None,
-                  copts=None):
+    def continuum(self, writefits=False, outimage=None,
+                  fitting_window=None, copts=None):
         """
         Evaluates a polynomial continuum for the whole cube and stores
         it in self.cont.
@@ -1050,19 +1068,28 @@ class gmosdc:
             voronoi_2d_binning(x, y, signal, noise, targetsnr, plot=1, quiet=0)
         v = np.column_stack([y, x, binNum])
 
+        # Initializing the binned arrays as zeros.
         binned = np.zeros(np.shape(self.data), dtype='float32')
-        binned[:, ynan, xnan] = np.nan
+        ncube = np.zeros(np.shape(self.data), dtype='float32')
+        errbin = np.zeros(np.shape(self.data), dtype='float32')
+
+        # For every nan in the original cube, fill with nan the
+        # binned cubes.
+        for i in [binned, flagbin, errbin]:
+            i[:, ynan, xnan] = np.nan
 
         for i in np.arange(binNum.max() + 1):
             samebin = v[:, 2] == i
             samebin_coords = v[samebin, :2]
 
-            binspec = np.average(
-               self.data[:, samebin_coords[:, 0], samebin_coords[:, 1]],
-               axis=1)
-
             for k in samebin_coords:
-                binned[:, k[0], k[1]] = binspec
+                # The binned spectra should be the average of the
+                # flux densities.
+                idx = (Ellipsis, k[0], k[1])
+                binned[idx] = np.average(
+                    self.data[:, samebin_coords[:, 0], samebin_coords[:, 1]],
+                    axis=1
+                )
 
         if writefits:
             hdulist = pf.open(self.fitsfile)
