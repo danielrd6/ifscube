@@ -126,6 +126,10 @@ class gmosdc:
         Nothing.
         """
 
+        self.dataext = dataext
+        self.var_ext = var_ext
+        self.ncubes_ext = ncubes_ext
+
         hdulist = pf.open(fitsfile)
 
         self.data = hdulist[dataext].data
@@ -1069,13 +1073,13 @@ class gmosdc:
         v = np.column_stack([y, x, binNum])
 
         # Initializing the binned arrays as zeros.
-        binned = np.zeros(np.shape(self.data), dtype='float32')
-        ncube = np.zeros(np.shape(self.data), dtype='float32')
-        errbin = np.zeros(np.shape(self.data), dtype='float32')
+        b_data = np.zeros(np.shape(self.data), dtype='float32')
+        b_ncubes = np.zeros(np.shape(self.ncubes), dtype='float32')
+        b_noise = np.zeros(np.shape(self.noise), dtype='float32')
 
         # For every nan in the original cube, fill with nan the
         # binned cubes.
-        for i in [binned, flagbin, errbin]:
+        for i in [b_data, b_ncubes, b_noise]:
             i[:, ynan, xnan] = np.nan
 
         for i in np.arange(binNum.max() + 1):
@@ -1083,17 +1087,45 @@ class gmosdc:
             samebin_coords = v[samebin, :2]
 
             for k in samebin_coords:
-                # The binned spectra should be the average of the
-                # flux densities.
-                idx = (Ellipsis, k[0], k[1])
-                binned[idx] = np.average(
-                    self.data[:, samebin_coords[:, 0], samebin_coords[:, 1]],
-                    axis=1
+                
+                # Storing the indexes in a variable to avoid typos in
+                # subsequent references to the same indexes.
+                #
+                # binned_idx represents the indexes of the new binned
+                # arrays, which are being created here.
+                #
+                # unbinned_idx represents the original cube indexes.
+
+                binned_idx = (Ellipsis, k[0], k[1])
+                unbinned_idx = (
+                    Ellipsis, samebin_coords[:, 0], samebin_coords[:, 1]
                 )
 
+                # The binned spectra should be the average of the
+                # flux densities.
+                binned[binned_idx] = np.average(
+                    self.data[unbinned_idx], axis=1)
+
+                # Ncubes must be the sum, since they represent how many
+                # original pixels have contributed to each pixel in the
+                # binned cube. In the unbinned data this is identical
+                # to the number of individual exposures that contribute
+                # to a given pixel.
+                b_ncubes[binned_idx] = np.sum(
+                    self.ncubes[unbinned_idx], axis=1)
+
+                # The resulting noise is defined as the quadratic sum
+                # of the original noise.
+                b_noise[binned_idx] = np.sqrt(np.sum(np.square(
+                    self.noise[unbinned_idx]), axis=1))
+
         if writefits:
+            
+            # Starting with the original data cube
             hdulist = pf.open(self.fitsfile)
             hdr = self.header
+
+            # Add a few new keywords to the header
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
@@ -1103,6 +1135,14 @@ class gmosdc:
             hdr['VORTSNR'] = (targetsnr, 'Target SNR for Voronoi binning.')
 
             hdulist[self.hdrext].header = hdr
+
+            # Storing the binned data in the HDUList
+            hdulist[self.dataext].data = b_data
+            hdulist[self.var_ext].data = b_noise
+            hdulist[self.ncubes_ext].data = b_ncubes
+            
+            # Write a FITS table with the description of the
+            # tesselation process.
             tbhdu = pf.BinTableHDU.from_columns(
                 [
                     pf.Column(name='xcoords', format='i8', array=x),
@@ -1124,7 +1164,6 @@ class gmosdc:
 
             hdulist.append(tbhdu)
             hdulist.append(tbhdu_plus)
-            hdulist[dataext].data = binned
 
             if outfile is None:
                 outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])
