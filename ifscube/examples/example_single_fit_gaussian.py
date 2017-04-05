@@ -47,9 +47,9 @@ c = [
 # Loading the spectrum
 myspec = ds.Spectrum('ngc6300_nuc.fits')
 
-myspec.linefit(
+x = myspec.linefit(
     p0, fitting_window=(6500, 6700), function='gaussian',
     constraints=c, bounds=b,
 )
 
-myspec.plotfit()
+myspec.plotfit(output='return')
