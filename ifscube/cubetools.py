@@ -92,8 +92,9 @@ class gmosdc:
     with GMOS IFU.
     """
 
-    def __init__(self, fitsfile, redshift=None, vortab=None, dataext=1,
-                 hdrext=0, var_ext=None, nan_spaxels='all'):
+    def __init__(self, fitsfile, redshift=None, vortab=None,
+                 dataext=1, hdrext=0, var_ext=None, ncubes_ext=None,
+                 nan_spaxels='all'):
         """
         Initializes the class and loads basic information onto the
         object.
@@ -125,6 +126,10 @@ class gmosdc:
         Nothing.
         """
 
+        self.dataext = dataext
+        self.var_ext = var_ext
+        self.ncubes_ext = ncubes_ext
+
         hdulist = pf.open(fitsfile)
 
         self.data = hdulist[dataext].data
@@ -155,22 +160,39 @@ class gmosdc:
         self.restwl = self.wl / (1. + redshift)
 
         if var_ext is not None:
-            g = pf.open(fitsfile)
-            self.noise_cube = g[var_ext].data
-            self.noise = np.nanmean(g[var_ext].data, 0)
-            self.noise[self.nanSpaxels] = np.nan
+            # The noise for each pixel in the cube
+            self.noise_cube = hdulist[var_ext].data
+
+            # An image of the mean noise, collapsed over the 
+            # wavelength dimension.
+            self.noise = np.nanmean(hdulist[var_ext].data, 0)
+
+            # Image of the mean signal
             self.signal = np.nanmean(self.data, 0)
+            
+            # Maybe this step is redundant, I have to check it later.
+            # Guarantees that both noise and signal images have
+            # the appropriate spaxels set to nan.
+            self.noise[self.nanSpaxels] = np.nan
             self.signal[self.nanSpaxels] = np.nan
 
             self.noise[np.isinf(self.noise)] =\
                 self.signal[np.isinf(self.noise)]
+
+        if ncubes_ext is not None:
+            # The self.ncubes variable describes how many different
+            # pixels contributed to the final combined pixel. This can
+            # also serve as a flag, when zero cubes contributed to the
+            # pixel. Additionaly, it may be useful to mask regions that
+            # are present in only one observation, for greater
+            # confidence.
+            self.ncubes = hdulist[ncubes_ext].data 
 
         try:
             if self.header['VORBIN']:
                 vortab = pf.open(fitsfile)['VOR'].data
                 self.voronoi_tab = vortab
                 self.binned = True
-
         except KeyError:
             self.binned = False
 
@@ -181,8 +203,8 @@ class gmosdc:
             np.ravel(np.indices(np.shape(self.data)[1:])[1])
             ])
 
-    def continuum(self, writefits=False, outimage=None, fitting_window=None,
-                  copts=None):
+    def continuum(self, writefits=False, outimage=None,
+                  fitting_window=None, copts=None):
         """
         Evaluates a polynomial continuum for the whole cube and stores
         it in self.cont.
@@ -1050,23 +1072,60 @@ class gmosdc:
             voronoi_2d_binning(x, y, signal, noise, targetsnr, plot=1, quiet=0)
         v = np.column_stack([y, x, binNum])
 
-        binned = np.zeros(np.shape(self.data), dtype='float32')
-        binned[:, ynan, xnan] = np.nan
+        # Initializing the binned arrays as zeros.
+        b_data = np.zeros(np.shape(self.data), dtype='float32')
+        b_ncubes = np.zeros(np.shape(self.ncubes), dtype='float32')
+        b_noise = np.zeros(np.shape(self.noise_cube), dtype='float32')
+
+        # For every nan in the original cube, fill with nan the
+        # binned cubes.
+        for i in [b_data, b_ncubes, b_noise]:
+            i[:, ynan, xnan] = np.nan
 
         for i in np.arange(binNum.max() + 1):
             samebin = v[:, 2] == i
             samebin_coords = v[samebin, :2]
 
-            binspec = np.average(
-               self.data[:, samebin_coords[:, 0], samebin_coords[:, 1]],
-               axis=1)
-
             for k in samebin_coords:
-                binned[:, k[0], k[1]] = binspec
+                
+                # Storing the indexes in a variable to avoid typos in
+                # subsequent references to the same indexes.
+                #
+                # binned_idx represents the indexes of the new binned
+                # arrays, which are being created here.
+                #
+                # unbinned_idx represents the original cube indexes.
+
+                binned_idx = (Ellipsis, k[0], k[1])
+                unbinned_idx = (
+                    Ellipsis, samebin_coords[:, 0], samebin_coords[:, 1]
+                )
+
+                # The binned spectra should be the average of the
+                # flux densities.
+                b_data[binned_idx] = np.average(
+                    self.data[unbinned_idx], axis=1)
+
+                # Ncubes must be the sum, since they represent how many
+                # original pixels have contributed to each pixel in the
+                # binned cube. In the unbinned data this is identical
+                # to the number of individual exposures that contribute
+                # to a given pixel.
+                b_ncubes[binned_idx] = np.sum(
+                    self.ncubes[unbinned_idx], axis=1)
+
+                # The resulting noise is defined as the quadratic sum
+                # of the original noise.
+                b_noise[binned_idx] = np.sqrt(np.sum(np.square(
+                    self.noise_cube[unbinned_idx]), axis=1))
 
         if writefits:
+            
+            # Starting with the original data cube
             hdulist = pf.open(self.fitsfile)
             hdr = self.header
+
+            # Add a few new keywords to the header
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
@@ -1076,6 +1135,14 @@ class gmosdc:
             hdr['VORTSNR'] = (targetsnr, 'Target SNR for Voronoi binning.')
 
             hdulist[self.hdrext].header = hdr
+
+            # Storing the binned data in the HDUList
+            hdulist[self.dataext].data = b_data
+            hdulist[self.var_ext].data = b_noise
+            hdulist[self.ncubes_ext].data = b_ncubes
+            
+            # Write a FITS table with the description of the
+            # tesselation process.
             tbhdu = pf.BinTableHDU.from_columns(
                 [
                     pf.Column(name='xcoords', format='i8', array=x),
@@ -1097,14 +1164,13 @@ class gmosdc:
 
             hdulist.append(tbhdu)
             hdulist.append(tbhdu_plus)
-            hdulist[dataext].data = binned
 
             if outfile is None:
                 outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])
 
             hdulist.writeto(outfile, clobber=clobber)
 
-        self.binned_cube = binned
+        self.binned_cube = b_data
 
     def write_binnedspec(self, dopcor=False, writefits=False):
         """
