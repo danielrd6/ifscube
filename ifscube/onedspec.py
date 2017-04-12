@@ -1,6 +1,6 @@
 import astropy.io.fits as pf
 import numpy as np
-from numpy import ma
+# from numpy import ma
 import spectools as st
 import ifscube.elprofile as lprof
 from copy import deepcopy
@@ -356,3 +356,15 @@ class Spectrum():
             return pars
 
         return
+
+    def plotspec(self, overplot=True):
+
+        if overplot:
+            try:
+                ax = plt.gca()
+            except:
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+
+        ax.plot(self.wl, self.data)
+        plt.show()
