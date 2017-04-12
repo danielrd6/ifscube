@@ -1075,7 +1075,7 @@ class gmosdc:
         # Initializing the binned arrays as zeros.
         b_data = np.zeros(np.shape(self.data), dtype='float32')
         b_ncubes = np.zeros(np.shape(self.ncubes), dtype='float32')
-        b_noise = np.zeros(np.shape(self.noise), dtype='float32')
+        b_noise = np.zeros(np.shape(self.noise_cube), dtype='float32')
 
         # For every nan in the original cube, fill with nan the
         # binned cubes.
@@ -1103,7 +1103,7 @@ class gmosdc:
 
                 # The binned spectra should be the average of the
                 # flux densities.
-                binned[binned_idx] = np.average(
+                b_data[binned_idx] = np.average(
                     self.data[unbinned_idx], axis=1)
 
                 # Ncubes must be the sum, since they represent how many
@@ -1117,7 +1117,7 @@ class gmosdc:
                 # The resulting noise is defined as the quadratic sum
                 # of the original noise.
                 b_noise[binned_idx] = np.sqrt(np.sum(np.square(
-                    self.noise[unbinned_idx]), axis=1))
+                    self.noise_cube[unbinned_idx]), axis=1))
 
         if writefits:
             
@@ -1170,7 +1170,7 @@ class gmosdc:
 
             hdulist.writeto(outfile, clobber=clobber)
 
-        self.binned_cube = binned
+        self.binned_cube = b_data
 
     def write_binnedspec(self, dopcor=False, writefits=False):
         """
