@@ -57,3 +57,8 @@ x = myspec.linefit(
 )
 
 myspec.plotfit(output='return')
+
+myspec.fit_uncertainties()
+
+print('Flux      : {:.2e}'.format(myspec.em_model[0]))
+print('Flux error: {:.2e}'.format(myspec.flux_err))
