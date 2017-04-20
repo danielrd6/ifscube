@@ -47,6 +47,10 @@ c = [
 # Loading the spectrum
 myspec = ds.Spectrum('ngc6300_nuc.fits')
 
+# Creating a fake variance spectrum with signal-to-noise = 20.
+var = (myspec.data / 20.) ** 2
+myspec = ds.Spectrum('ngc6300_nuc.fits', variance=var)
+
 x = myspec.linefit(
     p0, fitting_window=(6500, 6700), function='gaussian',
     constraints=c, bounds=b,
