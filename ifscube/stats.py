@@ -4,7 +4,7 @@
 import numpy as np
 
 
-def line_flux_error(flux, fwhm, delta_l, peak, s_peak=None):
+def line_flux_error(flux, fwhm, delta_l, peak, s_peak):
     """
     Evaluates the uncertainty in the flux of the fitted line.
     Based on Lenz & Ayres 1992 and Wesson 2015
