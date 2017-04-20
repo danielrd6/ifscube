@@ -1,24 +1,30 @@
 import astropy.io.fits as pf
 import numpy as np
-# from numpy import ma
-import spectools as st
+import ifscube.spectools as st
 import ifscube.elprofile as lprof
 from copy import deepcopy
 from scipy.optimize import minimize
 from astropy import wcs
 import matplotlib.pyplot as plt
+from ifscube import stats
+from scipy.interpolate import interp1d
 
 
 class Spectrum():
 
-    def __init__(self, fname, ext=0):
+    def __init__(self, fname, ext=0, variance=None):
 
         with pf.open(fname) as hdu:
             self.data = hdu[ext].data
             self.header = hdu[ext].header
             self.wcs = wcs.WCS(self.header)
 
+        if variance is not None:
+            self.var = variance
+            self.err = np.sqrt(variance)
+
         self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
+        self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
 
     def linefit(self, p0, function='gaussian', fitting_window=None,
                 writefits=False, outimage=None, variance=None,
@@ -253,6 +259,33 @@ class Spectrum():
             h.writeto(outimage)
 
         return sol
+
+    def fit_uncertainties(self, snr=10):
+
+        if self.fit_func == lprof.gauss:
+
+            peak = self.em_model[0]
+            flux = self.em_model[0] * self.em_model[2] * np.sqrt(2. * np.pi)
+
+        elif self.fit_func == lprof.gausshermite:
+
+            # This is a crude estimate for the peak, and only works
+            # for small values of h3 and h4.
+
+            peak = self.em_model[0] / self.em_model[2] / np.sqrt(2. * np.pi)
+            flux = self.em_model[0]
+
+        try:
+            s_peak = interp1d(self.wl, self.err)(self.em_model[1])
+        except AttributeError:
+            s_peak = peak / snr
+
+        # The third element in em_model is always the sigma
+        fwhm = self.em_model[2] * 2. * np.sqrt(2. * np.log(2.))
+
+        sf = stats.line_flux_error(flux, fwhm, self.delta_lambda, peak, s_peak)
+
+        self.flux_err = sf
 
     def loadfit(self, fname):
         """
