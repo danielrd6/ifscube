@@ -4,7 +4,6 @@ Functions for the analysis of integral field spectroscopy.
 Author: Daniel Ruschel Dutra
 Website: https://github.com/danielrd6/ifscube
 """
-
 import numpy as np
 import astropy.io.fits as pf
 import ifscube.spectools as st
@@ -18,13 +17,13 @@ import ifscube.elprofile as lprof
 from numpy import ma
 import astropy.constants
 
-# Uncomment this next three lines out if you do not wish to use the
-# pPXF and Voronoi binning functions, which are essentially wrappers
-# for Michele Cappellari's implementations.
+# Uncomment this next three lines out if you wish to use the pPXF and
+# Voronoi binning functions, which are essentially wrappers for Michele
+# Cappellari's implementations.
 
-from voronoi_2d_binning import voronoi_2d_binning
-import ppxf_util
-import ppxf
+# from voronoi_2d_binning import voronoi_2d_binning
+# import ppxf_util
+# import ppxf
 
 
 class nanSolution:
@@ -253,6 +252,11 @@ class gmosdc:
                         'Could not find a solution for {:d},{:d}.'
                         .format(i, j))
                     return wl, s
+                except ValueError:
+                    print(
+                        'Is this a spectrum full of nan?'
+                        )
+                    c[:, i, j] = np.nan
             else:
                 c[:, i, j] = np.zeros(len(wl), dtype='float32')
 
@@ -983,9 +987,12 @@ class gmosdc:
         contwl = self.wl[(self.wl > fw[0]) & (self.wl < fw[1])]
         cont_wl2pix = interp1d(contwl, np.arange(len(contwl)))
         channelMaps = []
+        axes = []
+        pmaps = []
 
         for i in np.arange(channels):
             ax = fig.add_subplot(otherside, side, i+1)
+            axes += [ax]
             wl = self.restwl
             wl0, wl1 = wl_limits[i], wl_limits[i+1]
             print(wl[(wl > wl0) & (wl < wl1)])
@@ -995,18 +1002,18 @@ class gmosdc:
                 wlc, fwhm=wlwidth, writefits=False, filtertype='box')\
                 - cont[int(round(cont_wl2pix(wlc)))]
 
-            if logFlux:
-                f = np.log10(f)
-
             mask = f < sigma
             channel = ma.array(f, mask=mask)
             cp = continuum_opts
+
+            if logFlux:
+                channel = np.log10(channel)
 
             y, x = np.indices(np.array(f.shape) + 1) - 0.5
             ax.set_xlim(x.min(), x.max())
             ax.set_ylim(y.min(), y.max())
 
-            ax.pcolormesh(x, y, channel, **plotOpts)
+            pmap = ax.pcolormesh(x, y, channel, **plotOpts)
             ax.set_aspect('equal', 'box')
             ax.annotate(
                 '{:.0f}'.format((wlc - lambda0)/lambda0*2.99792e+5),
@@ -1016,10 +1023,11 @@ class gmosdc:
             if i / float((otherside-1) * side) < 1:
                 ax.set_xticklabels([])
             channelMaps += [channel]
+            pmaps += [pmap]
 
         plt.tight_layout()
         plt.show()
-        return channelMaps
+        return channelMaps, axes, pmaps
 
     def voronoi_binning(self, targetsnr=10.0, writefits=False,
                         outfile=None, clobber=False, writevortab=True,
