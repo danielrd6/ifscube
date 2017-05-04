@@ -930,10 +930,10 @@ class gmosdc:
 
         return
 
-    def channelmaps(self, channels=6, lambda0=None, velmin=None, velmax=None,
-                    continuum_width=300, continuum_opts=None,
-                    lowerThreshold=1e-16, plotOpts={},
-                    ):
+    def channelmaps(self, channels=6, lambda0=None, velmin=None,
+            velmax=None, continuum_width=300, logFlux=False,
+            continuum_opts=None, lowerThreshold=1e-16, plotOpts={},
+            ):
         """
         Creates velocity channel maps from a data cube.
 
@@ -994,6 +994,9 @@ class gmosdc:
             f = self.wlprojection(
                 wlc, fwhm=wlwidth, writefits=False, filtertype='box')\
                 - cont[int(round(cont_wl2pix(wlc)))]
+
+            if logFlux:
+                f = np.log10(f)
 
             mask = f < sigma
             channel = ma.array(f, mask=mask)
