@@ -303,7 +303,7 @@ class gmosdc:
                     print(
                         'Could not find a solution for {:d},{:d}.'
                         .format(i, j))
-                    return wl, s
+                    c[:, i, j] = np.nan
                 except ValueError:
                     c[:, i, j] = np.nan
             else:
