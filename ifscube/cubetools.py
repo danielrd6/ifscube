@@ -253,9 +253,6 @@ class gmosdc:
                         .format(i, j))
                     return wl, s
                 except ValueError:
-                    print(
-                        'Is this a spectrum full of nan?'
-                        )
                     c[:, i, j] = np.nan
             else:
                 c[:, i, j] = np.zeros(len(wl), dtype='float32')
@@ -1002,7 +999,7 @@ class gmosdc:
                 wlc, fwhm=wlwidth, writefits=False, filtertype='box')\
                 - cont[int(round(cont_wl2pix(wlc)))]
 
-            mask = f < sigma
+            mask = (f < sigma) | np.isnan(f)
             channel = ma.array(f, mask=mask)
             cp = continuum_opts
 
