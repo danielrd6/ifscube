@@ -34,6 +34,58 @@ class nanSolution:
         self.bestfit = np.array([np.nan for i in range(len(galaxy))])
 
 
+def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
+        """
+        Writes a projection of the data cube along the wavelength
+        coordinate, with the flux given by a given type of filter.
+
+        Parameters:
+        -----------
+        arr : np.ndarray
+          Array to projected.
+        wl : np.ndarray
+          Wavelength coordinates of the arr pixels.
+        wl0 : float
+          Central wavelength at the rest frame.
+        fwhm : float
+          Full width at half maximum. See 'filtertype'.
+        filtertype : string
+          Type of function to be multiplied by the spectrum to return
+          the argument for the integral.
+          'box'      = Box function that is zero everywhere and 1
+                       between wl0-fwhm/2 and wl0+fwhm/2.
+          'gaussian' = Normalized gaussian function with center at
+                       wl0 and sigma = fwhm/(2*sqrt(2*log(2)))
+
+        Returns:
+        --------
+        outim : numpy.ndarray
+          The integrated flux of the cube times the filter.
+        """
+
+        if filtertype == 'box':
+            arrfilt = np.array(
+                (wl >= wl0 - fwhm / 2.) & (wl <= wl0 + fwhm / 2.),
+                dtype='float')
+            arrfilt /= trapz(arrfilt, wl)
+        elif filtertype == 'gaussian':
+            s = fwhm / (2. * np.sqrt(2. * np.log(2.)))
+            arrfilt = 1. / np.sqrt(2 * np.pi) *\
+                np.exp(-(wl - wl0)**2 / 2. / s**2)
+        else:
+            raise ValueError(
+                'ERROR! Parameter filtertype "{:s}" not understood.'
+                .format(filtertype))
+
+        outim = np.zeros(arr.shape[1:], dtype='float32')
+        idx = np.column_stack([np.ravel(i) for i in np.indices(outim.shape)])
+
+        for i, j in idx:
+            outim[i, j] = trapz(arr[:, i, j] * arrfilt, wl)
+        
+        return outim
+
+
 def progress(x, xmax, steps=10):
     try:
         if x % (xmax / steps) == 0:
@@ -342,8 +394,8 @@ class gmosdc:
 
         return np.array([signal, noise])
 
-    def wlprojection(self, wl0, fwhm=10, filtertype='box', writefits=False,
-                     outimage='wlprojection.fits'):
+    def wlprojection(self, writefits=False, outimage='outimage.fits',
+            **kwargs):
         """
         Writes a projection of the data cube along the wavelength
         coordinate, with the flux given by a given type of filter.
@@ -369,24 +421,8 @@ class gmosdc:
         Nothing.
         """
 
-        if filtertype == 'box':
-            arrfilt = np.array(
-                (self.restwl >= wl0-fwhm/2.) & (self.restwl <= wl0+fwhm/2.),
-                dtype='float')
-            arrfilt /= trapz(arrfilt, self.restwl)
-        elif filtertype == 'gaussian':
-            s = fwhm / (2. * np.sqrt(2. * np.log(2.)))
-            arrfilt = 1. / np.sqrt(2 * np.pi) *\
-                np.exp(-(self.restwl - wl0) ** 2 / 2. / s**2)
-        else:
-            print(
-                'ERROR! Parameter filtertype "{:s}" not understood.'
-                .format(filtertype))
-
-        outim = np.zeros(np.shape(self.data)[1:], dtype='float32')
-
-        for i, j in self.spec_indices:
-            outim[i, j] = trapz(self.data[:, i, j]*arrfilt, self.restwl)
+        outim = wlprojection(
+            arr=self.data, wl=self.restwl, **kwargs)
 
         if writefits:
 
@@ -995,9 +1031,12 @@ class gmosdc:
             print(wl[(wl > wl0) & (wl < wl1)])
             wlc, wlwidth = np.average([wl0, wl1]), (wl1-wl0)
 
-            f = self.wlprojection(
-                wlc, fwhm=wlwidth, writefits=False, filtertype='box')\
-                - cont[int(round(cont_wl2pix(wlc)))]
+            f_obs = self.wlprojection(
+                wl0=wlc, fwhm=wlwidth, filtertype='box')
+            f_cont = wlprojection(
+                arr=self.cont, wl=contwl, wl0=wlc, fwhm=wlwidth,
+                filtertype='box')
+            f = f_obs - f_cont
 
             mask = (f < sigma) | np.isnan(f)
             channel = ma.array(f, mask=mask)
