@@ -291,7 +291,8 @@ class gmosdc:
         for k, h in enumerate(xy):
             i, j = h
             s = deepcopy(data[:, i, j])
-            if any(s[:20]) and any(s[-20:]):
+            if (any(s[:20]) and any(s[-20:])) or \
+                    (any(np.isnan(s[:20])) and any(np.isnan(s[-20:]))):
                 try:
                     cont = st.continuum(wl, s, **copts)
                     if self.binned:
@@ -307,7 +308,7 @@ class gmosdc:
                 except ValueError:
                     c[:, i, j] = np.nan
             else:
-                c[:, i, j] = np.zeros(len(wl), dtype='float32')
+                c[:, i, j] = np.nan
 
         self.cont = c
 
