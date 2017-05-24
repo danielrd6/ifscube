@@ -444,7 +444,7 @@ class gmosdc:
 
         return outim
 
-    def plotspec(self, x, y, noise_smooth=30):
+    def plotspec(self, x, y, noise_smooth=30, ax=None):
         """
         Plots the spectrum at coordinates x,y.
 
@@ -461,8 +461,10 @@ class gmosdc:
         """
 
         # fig = plt.figure(1)
-        plt.figure(1)
-        ax = plt.axes()
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+        
         try:
             if len(x) == 2 and len(y) == 2:
                 s = np.average(
@@ -935,9 +937,16 @@ class gmosdc:
         f = self.fit_func
         s = self.fitspec[:, y, x]
 
-        ax.plot(wl, c + f(wl, p))
-        ax.plot(wl, c)
-        ax.plot(wl, s)
+        norm_factor = np.int(np.log10(np.median(s)))
+
+        ax.plot(wl, (c + f(wl, p)) / 10. ** norm_factor )
+        ax.plot(wl, c / 10. ** norm_factor)
+        ax.plot(wl, s / 10. ** norm_factor)
+
+        ax.set_xlabel(r'Wavelength (${\rm \AA}$)')
+        ax.set_ylabel(
+            'Flux density ($10^{{{:d}}}\, {{\\rm erg\,s^{{-1}}\,cm^{{-2}}'\
+            '\,\AA^{{-1}}}}$)'.format(norm_factor))
 
         if self.fit_func == lprof.gauss:
             npars = 3
@@ -950,7 +959,8 @@ class gmosdc:
 
         if len(p) > npars:
             for i in np.arange(0, len(p), npars):
-                ax.plot(wl, c + f(wl, p[i: i+npars]), 'k--')
+                ax.plot(
+                    wl, (c + f(wl, p[i: i+npars])) / 10. ** norm_factor, 'k--')
 
         pars = (npars * '{:10s}' + '\n').format(*parnames)
         for i in np.arange(0, len(p), npars):
@@ -966,7 +976,7 @@ class gmosdc:
         if output == 'return':
             return pars
 
-        return
+        return ax
 
     def channelmaps(self, channels=6, lambda0=None, velmin=None,
             velmax=None, continuum_width=300, logFlux=False,
