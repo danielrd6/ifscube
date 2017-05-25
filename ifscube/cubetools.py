@@ -17,14 +17,6 @@ import ifscube.elprofile as lprof
 from numpy import ma
 import astropy.constants
 
-# Uncomment this next three lines out if you wish to use the pPXF and
-# Voronoi binning functions, which are essentially wrappers for Michele
-# Cappellari's implementations.
-
-# from voronoi_2d_binning import voronoi_2d_binning
-# import ppxf_util
-# import ppxf
-
 
 class nanSolution:
 
@@ -1102,7 +1094,13 @@ class gmosdc:
         --------
         Nothing.
         """
-
+        
+        try:
+            from voronoi_2d_binning import voronoi_2d_binning
+        except ImportError as e:
+            raise ImportError(
+                'Could not find the voronoi_2d_binning module. '
+                'Please add it to your PYTHONPATH.')
         try:
             x = np.shape(self.noise)
         except AttributeError:
@@ -1294,6 +1292,20 @@ class gmosdc:
         Python algorithm for penalized pixel fitting of stellar
         spectra.
         """
+
+        try:
+            import ppxf
+        except ImportError as e:
+            raise ImportError(
+                'Could not find the ppxf module. '
+                'Please add it to your PYTHONPATH.')
+
+        try:
+            import ppxf_util
+        except ImportError as e:
+            raise ImportError(
+                'Could not find the ppxf_util module. '
+                'Please add it to your PYTHONPATH.')
 
         w0, w1 = fitting_window
         fw = (self.wl >= w0) & (self.wl < w1)
