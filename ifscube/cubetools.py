@@ -1311,6 +1311,13 @@ class gmosdc:
         fw = (self.wl >= w0) & (self.wl < w1)
 
         baseCut = (base_wl > w0 - cushion) & (base_wl < w1 + cushion)
+        
+        if not np.any(baseCut):
+            raise RuntimeError(
+                'The interval defined by fitting_window lies outside '
+                'the range covered by base_wl. Please review your base '
+                'and/or fitting window.')
+
         base_spec = base_spec[:, baseCut]
         base_wl = base_wl[baseCut]
 
