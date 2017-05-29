@@ -16,6 +16,48 @@ from scipy import ndimage
 import ifscube.elprofile as lprof
 from numpy import ma
 import astropy.constants
+from scipy.ndimage import gaussian_filter
+
+
+def nan_to_nearest(d):
+    """
+    Replaces nan values with the valeu of the nearest pixel.
+
+    Parameters
+    ----------
+    d : numpy.ndarray or numpy.ma.core.MaskedArray
+      The array to have the nan values replaced. It d is a masked
+      array, the masked values will also be replaced. 
+
+    Returns
+    -------
+    g : same type as d
+      Output array.
+
+    Description
+    -----------
+    ...
+    """
+    x, y = [np.ravel(i) for i in np.indices(d.shape)]
+
+    if type(d) != np.ma.core.MaskedArray:
+        m1 = np.full_like(d, False, dtype='bool')
+        m2 = np.isnan(d)
+        d = ma.array(data=d, mask=(m1 | m2))
+
+    # Flatten arrays
+    dflat = np.ravel(d)
+
+    idx = np.where(dflat.mask)[0]
+    g = deepcopy(dflat)
+
+    for i in idx:
+        r = np.sqrt((x - x[i]) ** 2 + (y - y[i]) ** 2)[~dflat.mask]
+        g[i] = dflat[~dflat.mask][np.argsort(r)[0]]
+
+    g.mask = dflat.mask
+
+    return g.reshape(d.shape)
 
 
 class nanSolution:
@@ -1067,6 +1109,50 @@ class gmosdc:
         plt.tight_layout()
         plt.show()
         return channelMaps, axes, pmaps
+
+    def gaussian_smooth(self, sigma=2, writefits=False, outfile=None,
+                        clobber=False):
+        """
+        Performs a spatial gaussian convolution on the data cube.
+
+        Parameters
+        ----------
+        sigma : number
+          Sigma of the gaussian kernel.
+        """
+        
+        if writefits and outfile is None:
+            raise RuntimeError('Output file name not given.')
+        
+        gdata = np.zeros_like(self.data)
+        gvar = np.zeros_like(self.noise_cube)
+
+        i = 0
+        
+        while i < len(self.wl):
+            
+            tmp_data = nan_to_nearest(self.data[i])
+            tmp_var = nan_to_nearest(self.noise_cube[i]) ** 2           
+            
+            gdata[i] = gaussian_filter(tmp_data, sigma)
+            gvar[i] = np.sqrt(gaussian_filter(tmp_var, sigma))
+
+            i += 1
+
+        if writefits:
+
+            hdulist = pf.open(self.fitsfile)
+            hdr = hdulist[0].header
+
+            hdr['SPSMOOTH'] = ('Gaussian', 'Type of spatial smoothing.')
+            hdr['GSMTHSIG'] = (sigma, 'Sigma of the gaussian kernel')
+
+            hdulist[self.dataext].data = gdata
+            hdulist[self.var_ext].data = gvar
+            
+            hdulist.writeto(outfile)
+
+        return gdata, gvar
 
     def voronoi_binning(self, targetsnr=10.0, writefits=False,
                         outfile=None, clobber=False, writevortab=True,
