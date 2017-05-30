@@ -1195,6 +1195,28 @@ class gmosdc:
                 'method.')
             return
 
+        # Initializing the binned arrays as zeros.
+        try:
+            b_data = np.zeros(np.shape(self.data), dtype='float32')
+        except AttributeError as err:
+            err.args += (
+                'Could not access the data attribute of the gmosdc object.',)
+            raise err
+
+        try:
+            b_ncubes = np.zeros(np.shape(self.ncubes), dtype='float32')
+        except AttributeError as err:
+            err.args += (
+                'Could not access the ncubes attribute of the gmosdc object.',)
+            raise err
+
+        try:
+            b_noise = np.zeros(np.shape(self.noise_cube), dtype='float32')
+        except AttributeError as err:
+            err.args += (
+                'Could not access the noise_cube attribute of the gmosdc '
+                'object.',)            
+
         valid_spaxels = np.ravel(~np.isnan(self.signal))
 
         x = np.ravel(np.indices(np.shape(self.signal))[1])[valid_spaxels]
@@ -1214,10 +1236,6 @@ class gmosdc:
             voronoi_2d_binning(x, y, signal, noise, targetsnr, plot=1, quiet=0)
         v = np.column_stack([y, x, binNum])
 
-        # Initializing the binned arrays as zeros.
-        b_data = np.zeros(np.shape(self.data), dtype='float32')
-        b_ncubes = np.zeros(np.shape(self.ncubes), dtype='float32')
-        b_noise = np.zeros(np.shape(self.noise_cube), dtype='float32')
 
         # For every nan in the original cube, fill with nan the
         # binned cubes.
