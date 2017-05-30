@@ -27,7 +27,7 @@ def nan_to_nearest(d):
     ----------
     d : numpy.ndarray or numpy.ma.core.MaskedArray
       The array to have the nan values replaced. It d is a masked
-      array, the masked values will also be replaced. 
+      array, the masked values will also be replaced.
 
     Returns
     -------
@@ -116,7 +116,7 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
 
         for i, j in idx:
             outim[i, j] = trapz(arr[:, i, j] * arrfilt, wl)
-        
+
         return outim
 
 
@@ -248,13 +248,13 @@ class gmosdc:
             # The noise for each pixel in the cube
             self.noise_cube = hdulist[var_ext].data
 
-            # An image of the mean noise, collapsed over the 
+            # An image of the mean noise, collapsed over the
             # wavelength dimension.
             self.noise = np.nanmean(hdulist[var_ext].data, 0)
 
             # Image of the mean signal
             self.signal = np.nanmean(self.data, 0)
-            
+
             # Maybe this step is redundant, I have to check it later.
             # Guarantees that both noise and signal images have
             # the appropriate spaxels set to nan.
@@ -271,7 +271,7 @@ class gmosdc:
             # pixel. Additionaly, it may be useful to mask regions that
             # are present in only one observation, for greater
             # confidence.
-            self.ncubes = hdulist[ncubes_ext].data 
+            self.ncubes = hdulist[ncubes_ext].data
 
         try:
             if self.header['VORBIN']:
@@ -429,8 +429,8 @@ class gmosdc:
 
         return np.array([signal, noise])
 
-    def wlprojection(self, writefits=False, outimage='outimage.fits',
-            **kwargs):
+    def wlprojection(self, wl0, fwhm, filtertype='box', writefits=False,
+                     outimage='outimage.fits'):
         """
         Writes a projection of the data cube along the wavelength
         coordinate, with the flux given by a given type of filter.
@@ -457,7 +457,8 @@ class gmosdc:
         """
 
         outim = wlprojection(
-            arr=self.data, wl=self.restwl, **kwargs)
+            arr=self.data, wl=self.restwl, wl0=wl0, fwhm=fwhm,
+            filtertype=filtertype)
 
         if writefits:
 
@@ -498,7 +499,7 @@ class gmosdc:
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
-        
+
         try:
             if len(x) == 2 and len(y) == 2:
                 s = np.average(
@@ -519,12 +520,12 @@ class gmosdc:
         plt.show()
 
     def linefit(self, p0, function='gaussian', fitting_window=None,
-            writefits=False, outimage=None, variance=None,
-            constraints=(), bounds=None, inst_disp=1.0,
-            individual_spec=False, min_method='SLSQP',
-            minopts={'eps': 1e-3}, copts=None, refit=False,
-            update_bounds=False, bound_range=.1, spiral_loop=False,
-            spiral_center=None, fit_continuum=True, refit_radius=3):
+                writefits=False, outimage=None, variance=None,
+                constraints=(), bounds=None, inst_disp=1.0,
+                individual_spec=False, min_method='SLSQP',
+                minopts={'eps': 1e-3}, copts=None, refit=False,
+                update_bounds=False, bound_range=.1, spiral_loop=False,
+                spiral_center=None, fit_continuum=True, refit_radius=3):
 
         """
         Fits a spectral feature with a gaussian function and returns a
@@ -973,13 +974,13 @@ class gmosdc:
 
         norm_factor = np.int(np.log10(np.median(s)))
 
-        ax.plot(wl, (c + f(wl, p)) / 10. ** norm_factor )
+        ax.plot(wl, (c + f(wl, p)) / 10. ** norm_factor)
         ax.plot(wl, c / 10. ** norm_factor)
         ax.plot(wl, s / 10. ** norm_factor)
 
         ax.set_xlabel(r'Wavelength (${\rm \AA}$)')
         ax.set_ylabel(
-            'Flux density ($10^{{{:d}}}\, {{\\rm erg\,s^{{-1}}\,cm^{{-2}}'\
+            'Flux density ($10^{{{:d}}}\, {{\\rm erg\,s^{{-1}}\,cm^{{-2}}'
             '\,\AA^{{-1}}}}$)'.format(norm_factor))
 
         if self.fit_func == lprof.gauss:
@@ -1013,9 +1014,8 @@ class gmosdc:
         return ax
 
     def channelmaps(self, channels=6, lambda0=None, velmin=None,
-            velmax=None, continuum_width=300, logFlux=False,
-            continuum_opts=None, lowerThreshold=1e-16, plotOpts={},
-            ):
+                    velmax=None, continuum_width=300, logFlux=False,
+                    continuum_opts=None, lowerThreshold=1e-16, plotOpts={}):
         """
         Creates velocity channel maps from a data cube.
 
@@ -1059,11 +1059,11 @@ class gmosdc:
         cw = continuum_width
         fw = lambda0 + np.array([-cw / 2., cw / 2.])
 
-        cont = self.continuum(
+        self.cont = self.continuum(
             writefits=False, outimage=None, fitting_window=fw, copts=cp)
 
         contwl = self.wl[(self.wl > fw[0]) & (self.wl < fw[1])]
-        cont_wl2pix = interp1d(contwl, np.arange(len(contwl)))
+        # cont_wl2pix = interp1d(contwl, np.arange(len(contwl)))
         channelMaps = []
         axes = []
         pmaps = []
@@ -1085,7 +1085,6 @@ class gmosdc:
 
             mask = (f < sigma) | np.isnan(f)
             channel = ma.array(f, mask=mask)
-            cp = continuum_opts
 
             if logFlux:
                 channel = np.log10(channel)
@@ -1120,20 +1119,20 @@ class gmosdc:
         sigma : number
           Sigma of the gaussian kernel.
         """
-        
+
         if writefits and outfile is None:
             raise RuntimeError('Output file name not given.')
-        
+
         gdata = np.zeros_like(self.data)
         gvar = np.zeros_like(self.noise_cube)
 
         i = 0
-        
+
         while i < len(self.wl):
-            
+
             tmp_data = nan_to_nearest(self.data[i])
-            tmp_var = nan_to_nearest(self.noise_cube[i]) ** 2           
-            
+            tmp_var = nan_to_nearest(self.noise_cube[i]) ** 2
+
             gdata[i] = gaussian_filter(tmp_data, sigma)
             gvar[i] = np.sqrt(gaussian_filter(tmp_var, sigma))
 
@@ -1149,7 +1148,7 @@ class gmosdc:
 
             hdulist[self.dataext].data = gdata
             hdulist[self.var_ext].data = gvar
-            
+
             hdulist.writeto(outfile)
 
         return gdata, gvar
@@ -1180,10 +1179,10 @@ class gmosdc:
         --------
         Nothing.
         """
-        
+
         try:
             from voronoi_2d_binning import voronoi_2d_binning
-        except ImportError as e:
+        except ImportError:
             raise ImportError(
                 'Could not find the voronoi_2d_binning module. '
                 'Please add it to your PYTHONPATH.')
@@ -1215,7 +1214,7 @@ class gmosdc:
         except AttributeError as err:
             err.args += (
                 'Could not access the noise_cube attribute of the gmosdc '
-                'object.',)            
+                'object.',)
 
         valid_spaxels = np.ravel(~np.isnan(self.signal))
 
@@ -1236,7 +1235,6 @@ class gmosdc:
             voronoi_2d_binning(x, y, signal, noise, targetsnr, plot=1, quiet=0)
         v = np.column_stack([y, x, binNum])
 
-
         # For every nan in the original cube, fill with nan the
         # binned cubes.
         for i in [b_data, b_ncubes, b_noise]:
@@ -1247,7 +1245,7 @@ class gmosdc:
             samebin_coords = v[samebin, :2]
 
             for k in samebin_coords:
-                
+
                 # Storing the indexes in a variable to avoid typos in
                 # subsequent references to the same indexes.
                 #
@@ -1280,7 +1278,7 @@ class gmosdc:
                     self.noise_cube[unbinned_idx]), axis=1))
 
         if writefits:
-            
+
             # Starting with the original data cube
             hdulist = pf.open(self.fitsfile)
             hdr = self.header
@@ -1300,7 +1298,7 @@ class gmosdc:
             hdulist[self.dataext].data = b_data
             hdulist[self.var_ext].data = b_noise
             hdulist[self.ncubes_ext].data = b_ncubes
-            
+
             # Write a FITS table with the description of the
             # tesselation process.
             tbhdu = pf.BinTableHDU.from_columns(
@@ -1313,7 +1311,7 @@ class gmosdc:
             tbhdu_plus = pf.BinTableHDU.from_columns(
                 [
                     pf.Column(name='ubin', format='i8',
-                        array=np.unique(binNum)),
+                              array=np.unique(binNum)),
                     pf.Column(name='xNode', format='F16.8', array=xNode),
                     pf.Column(name='yNode', format='F16.8', array=yNode),
                     pf.Column(name='xBar', format='F16.8', array=xBar),
@@ -1399,14 +1397,14 @@ class gmosdc:
 
         try:
             import ppxf
-        except ImportError as e:
+        except ImportError:
             raise ImportError(
                 'Could not find the ppxf module. '
                 'Please add it to your PYTHONPATH.')
 
         try:
             import ppxf_util
-        except ImportError as e:
+        except ImportError:
             raise ImportError(
                 'Could not find the ppxf_util module. '
                 'Please add it to your PYTHONPATH.')
@@ -1415,7 +1413,7 @@ class gmosdc:
         fw = (self.wl >= w0) & (self.wl < w1)
 
         baseCut = (base_wl > w0 - cushion) & (base_wl < w1 + cushion)
-        
+
         if not np.any(baseCut):
             raise RuntimeError(
                 'The interval defined by fitting_window lies outside '
