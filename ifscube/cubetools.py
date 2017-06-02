@@ -1504,11 +1504,11 @@ class gmosdc:
 
         ppxf_sol = np.zeros(
             (4, np.shape(self.data)[1], np.shape(self.data)[2]),
-            dtype='float32')
+            dtype='float64')
         ppxf_spec = np.zeros(
             (len(galaxy), np.shape(self.data)[1], np.shape(self.data)[2]),
-            dtype='float32')
-        ppxf_model = np.zeros(np.shape(ppxf_spec), dtype='float32')
+            dtype='float64')
+        ppxf_model = np.zeros(np.shape(ppxf_spec), dtype='float64')
 
         nspec = len(xy)
 
@@ -1572,6 +1572,8 @@ class gmosdc:
             # Creates MEF output.
             h = pf.HDUList()
             h.append(pf.PrimaryHDU(header=hdr))
+            h[0].name = ''
+            print(h.info())
 
             # Creates the fitted spectrum extension
             hdr = pf.Header()
@@ -1579,7 +1581,8 @@ class gmosdc:
             hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
             hdr['CRVAL3'] = (self.wl[0], 'Reference value for wavelength')
             hdr['CD3_3'] = (np.average(np.diff(self.wl)), 'CD3_3')
-            h.append(pf.ImageHDU(data=self.ppxf_spec, header=hdr))
+            h.append(
+                pf.ImageHDU(data=self.ppxf_spec, header=hdr, name='SCI'))
 
             # Creates the residual spectrum extension
             hdr = pf.Header()
@@ -1587,24 +1590,34 @@ class gmosdc:
             hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
             hdr['CRVAL3'] = (self.ppxf_wl[0], 'Reference value for wavelength')
             hdr['CD3_3'] = (np.average(np.diff(self.ppxf_wl)), 'CD3_3')
-            h.append(pf.ImageHDU(data=self.ppxf_spec - self.ppxf_model,
-                     header=hdr))
+            h.append(
+                pf.ImageHDU(
+                    data=self.ppxf_spec - self.ppxf_model, header=hdr,
+                    name='RES'))
 
             # Creates the fitted model extension.
             hdr['object'] = 'model'
-            h.append(pf.ImageHDU(data=self.ppxf_model, header=hdr))
+            h.append(
+                pf.ImageHDU(
+                    data=self.ppxf_model, header=hdr, name='MODEL'))
 
             # Creates the solution extension.
             hdr['object'] = 'parameters'
-            h.append(pf.ImageHDU(data=self.ppxf_sol, header=hdr))
+            h.append(
+                pf.ImageHDU(
+                    data=self.ppxf_sol, header=hdr, name='SOL'))
 
             # Creates the wavelength extension.
             hdr['object'] = 'wavelength'
-            h.append(pf.ImageHDU(data=self.ppxf_wl, header=hdr))
+            h.append(
+                pf.ImageHDU(
+                    data=self.ppxf_wl, header=hdr, name='WAVELEN'))
 
             # Creates the goodpixels extension.
             hdr['object'] = 'goodpixels'
-            h.append(pf.ImageHDU(data=self.ppxf_goodpixels, header=hdr))
+            h.append(
+                pf.ImageHDU(
+                    data=self.ppxf_goodpixels, header=hdr, name='GOODPIX'))
 
             h.writeto(outimage)
 
