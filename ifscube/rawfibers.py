@@ -42,7 +42,7 @@ class cube:
         if data is None:
             data = np.sum(self.data[m], 1)
 
-        ax.scatter(x, y, c=data, cmap='inferno', s=120,
+        ax.scatter(x, y, c=data, cmap='inferno', s=250,
                    marker='H', edgecolor='none')
         ax.set_aspect('equal')
 
