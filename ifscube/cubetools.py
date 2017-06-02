@@ -910,36 +910,44 @@ class gmosdc:
         sigma_index = 2 + npars * component
 
         for i, j in xy:
-            if np.any(np.isnan(self.em_model[par_indexes, i, j])):
+
+            # Wavelength vector of the line fit
+            fwl = self.fitwl
+            # Rest wavelength vector of the whole data cube
+            rwl = self.restwl
+            # Center wavelength coordinate of the fit
+            cwl = self.em_model[center_index, i, j]
+            # Sigma of the fit
+            sig = self.em_model[sigma_index, i, j]
+            # Just a short alias for the sigma_factor parameter
+            sf = sigma_factor
+
+            nandata_flag = np.any(np.isnan(self.em_model[par_indexes, i, j]))
+            nullcwl_flag = cwl == 0
+
+            if nandata_flag or nullcwl_flag:
+
                 eqw_model[i, j] = np.nan
                 eqw_direct[i, j] = np.nan
+
             else:
-                cond = (self.fitwl > self.em_model[center_index, i, j] -
-                        sigma_factor * self.em_model[sigma_index, i, j]) &\
-                    (self.fitwl < self.em_model[center_index, i, j] +
-                     sigma_factor * self.em_model[sigma_index, i, j])
 
-                cond_data = (
-                    self.restwl > self.em_model[center_index, i, j] -
-                    sigma_factor * self.em_model[sigma_index, i, j]) & \
-                    (
-                        self.restwl < self.em_model[center_index, i, j] +
-                        sigma_factor * self.em_model[sigma_index, i, j])
+                cond = (fwl > cwl - sf * sig) & (fwl < cwl + sf * sig)
+                cond_data = (rwl > cwl - sf * sig) & (rwl < cwl + sf * sig)
 
-                fit = self.fit_func(self.fitwl[cond],
-                                    self.em_model[par_indexes, i, j])
+                fit = self.fit_func(
+                        fwl[cond], self.em_model[par_indexes, i, j])
 
                 cont = self.fitcont[cond, i, j]
                 cont_data = interp1d(
-                    self.fitwl,
-                    self.fitcont[:, i, j])(self.restwl[cond_data])
+                    fwl, self.fitcont[:, i, j])(rwl[cond_data])
 
                 eqw_model[i, j] = trapz(
-                    1. - (fit + cont) / cont, x=self.fitwl[cond])
+                    1. - (fit + cont) / cont, x=fwl[cond])
 
                 eqw_direct[i, j] = trapz(
                     1. - self.data[cond_data, i, j] / cont_data,
-                    x=self.restwl[cond_data])
+                    x=rwl[cond_data])
 
         return np.array([eqw_model, eqw_direct])
 
