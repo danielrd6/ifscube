@@ -24,5 +24,10 @@ setup(
     ext_modules=[ext1],
     classifiers=[
       'Programming Language :: Python :: 2.7'
-    ]
+    ],
+    install_requires=[
+        'numpy>=1.12.0',
+        'scipy>=0.18.1',
+        'matplotlib>=2.0.0',
+    ],
 )
