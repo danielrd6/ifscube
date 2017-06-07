@@ -22,7 +22,7 @@ class cube:
 
         self._filename = fitsfile
 
-    def imshow(self, data=None, ax=None):
+    def imshow(self, data=None, ax=None, **kwargs):
 
         if ax is None:
             fig = plt.figure(1)
@@ -43,7 +43,7 @@ class cube:
             data = np.sum(self.data[m], 1)
 
         ax.scatter(x, y, c=data, cmap='inferno', s=250,
-                   marker='H', edgecolor='none')
+                   marker='H', edgecolor='none', **kwargs)
         ax.set_aspect('equal')
 
         plt.show()
