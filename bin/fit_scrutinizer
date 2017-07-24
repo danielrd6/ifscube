@@ -11,7 +11,7 @@ import argparse
 import copy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import ifscube.cubetools as ct
-import Tkinter as Tk
+import tkinter as Tk
 
 
 class mclass:
@@ -41,7 +41,7 @@ class mclass:
         for i in ['Flux', 'Velocity', 'Sigma', 'h3', 'h4']:
             l_par.insert('end', i)
 
-        for i in range(cube.fit_info['components']):
+        for i in range(int(cube.fit_info['components'])):
             l_component.insert('end', i)
 
         self.fig = Figure(figsize=(6, 6))
@@ -171,7 +171,7 @@ class mclass:
 
         try:
             i, j = [int(np.floor(x) + 0.5) for x in (event.xdata, event.ydata)]
-            if np.any(np.array([i, j] < 0)):
+            if np.any(np.array([i, j]) < 0):
                 self.text.delete('1.0', 'end')
                 self.text.insert('insert', 'Index Error!')
                 return
