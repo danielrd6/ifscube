@@ -598,7 +598,7 @@ class gmosdc:
 
         plt.show()
 
-    def linefit(self, p0, function='gaussian', fitting_window=None,
+    def linefit(self, model, fitter, fitting_window=None,
                 writefits=False, outimage=None, variance=None,
                 constraints=(), bounds=None, inst_disp=1.0,
                 individual_spec=False, min_method='SLSQP',
@@ -699,17 +699,6 @@ class gmosdc:
         scipy.optimize.curve_fit, scipy.optimize.leastsq
         """
 
-        if function == 'gaussian':
-            fit_func = lprof.gauss
-            self.fit_func = lprof.gauss
-            npars_pc = 3
-        elif function == 'gauss_hermite':
-            fit_func = lprof.gausshermite
-            self.fit_func = lprof.gausshermite
-            npars_pc = 5
-        else:
-            raise NameError('Unknown function "{:s}".'.format(function))
-
         if fitting_window is not None:
             fw = (self.restwl > fitting_window[0]) &\
                  (self.restwl < fitting_window[1])
@@ -724,12 +713,11 @@ class gmosdc:
         copts['returns'] = 'function'
 
         wl = deepcopy(self.restwl[fw])
-        scale_factor = np.nanmean(self.data[fw, :, :])
-        data = deepcopy(self.data[fw, :, :]) / scale_factor
+        data = deepcopy(self.data[fw, :, :])
         fit_status = np.ones(np.shape(data)[1:], dtype='float32') * -1
 
         try:
-            vcube = (self.noise_cube[fw, :, :] ** 2) / (scale_factor ** 2)
+            vcube = self.noise_cube[fw, :, :] ** 2
         except AttributeError:
             vcube = np.ones(np.shape(data), dtype='float32')
 
@@ -745,9 +733,7 @@ class gmosdc:
             elif len(np.shape(variance)) == 3:
                 vcube = variance[fw, :, :]
 
-            vcube /= scale_factor ** 2
-
-        npars = len(p0)
+        npars = len(model.parameters)
         nan_solution = np.array([np.nan for i in range(npars+1)])
         sol = np.zeros(
             (npars+1, np.shape(self.data)[1], np.shape(self.data)[2]),
@@ -766,16 +752,6 @@ class gmosdc:
                 v[coords] for coords in ['ycoords', 'xcoords', 'binNum']])
         else:
             xy = self.spec_indices
-
-        # Scale factor for the flux. Needed to avoid problems with
-        # the minimization algorithm.
-        flux_sf = np.ones(npars, dtype='float32')
-        flux_sf[np.arange(0, npars, npars_pc)] *= scale_factor
-        p0 /= flux_sf
-        if bounds is not None:
-            bounds = np.array(bounds)
-            for i, j in enumerate(bounds):
-                j /= flux_sf[i]
 
         Y, X = np.indices(np.shape(data)[1:])
 
@@ -817,14 +793,12 @@ class gmosdc:
             if fit_continuum:
                 cont = st.continuum(wl, data[:, i, j], **copts)[1]
             else:
-                cont = self.cont[:, i, j]/scale_factor
+                cont = self.cont[:, i, j]
             s = data[:, i, j] - cont
 
             # Avoids fitting if the spectrum is null.
             try:
-                def res(x):
-                    return np.sum((s - fit_func(self.fitwl, x)) ** 2 / v)
-
+                
                 if refit and k != 0:
                     radsol = np.sqrt((Y - i)**2 + (X - j)**2)
                     nearsol = sol[:-1, (radsol < refit_radius) &
@@ -838,16 +812,16 @@ class gmosdc:
                         if update_bounds:
                             bounds = bound_updater(p0, bound_range)
 
-                r = minimize(res, x0=p0, method=min_method, bounds=bounds,
-                             constraints=constraints, options=minopts)
-                if r.status != 0:
-                    print(h, r.message, r.status)
+                r = fitter(model, wl, s)
+                if fitter.fit_info['ierr'] not in [1, 2, 3, 4]:
+                    print(
+                        h, fitter.fit_info['message'], fitter.fit_info['ierr'])
                 # Reduced chi squared of the fit.
-                chi2 = res(r['x'])
+                chi2 = np.sum(np.square(r(wl) - s))
                 nu = len(s)/inst_disp - npars - len(constraints) - 1
                 red_chi2 = chi2 / nu
-                p = np.append(r['x']*flux_sf, red_chi2)
-                fit_status[i, j] = r.status
+                p = np.append(r.parameters, red_chi2)
+                fit_status[i, j] = fitter.fit_info['ierr']
             except RuntimeError:
                 print(
                     'Optimal parameters not found for spectrum {:d},{:d}'
@@ -856,20 +830,18 @@ class gmosdc:
             if self.binned:
                 for l, m in vor[vor[:, 2] == binNum, :2]:
                     sol[:, l, m] = p
-                    self.fitcont[:, l, m] = cont * scale_factor
-                    self.fitspec[:, l, m] = (s + cont) * scale_factor
+                    self.fitcont[:, l, m] = cont
+                    self.fitspec[:, l, m] = (s + cont)
                     self.resultspec[:, l, m] = (
-                        cont+fit_func(self.fitwl, r['x'])) * scale_factor
+                        cont+fit_func(self.fitwl, r['x']))
             else:
                 sol[:, i, j] = p
-                self.fitcont[:, i, j] = cont*scale_factor
-                self.fitspec[:, i, j] = (s+cont)*scale_factor
-                self.resultspec[:, i, j] = (
-                    cont + fit_func(self.fitwl, r['x'])) * scale_factor
+                self.fitcont[:, i, j] = cont
+                self.fitspec[:, i, j] = s + cont
+                self.resultspec[:, i, j] = cont + r(wl)
 
         self.em_model = sol
         self.fit_status = fit_status
-        p0 *= flux_sf
 
         if writefits:
 
@@ -917,8 +889,7 @@ class gmosdc:
             h.writeto(outimage)
 
         if individual_spec:
-            return wl, s * scale_factor, cont * scale_factor,\
-                fit_func(wl, p[:-1]), r
+            return wl, s, cont, model(wl), r
         else:
             return sol
 
