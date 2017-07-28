@@ -928,7 +928,7 @@ class gmosdc:
             individual_spec=False, copts={}, refit=False,
             update_bounds=False, bound_range=.1, spiral_loop=False,
             spiral_center=None, fit_continuum=True, refit_radius=3,
-            goodfit_flags=(1, 2, 3, 4)):
+            goodfit_flags=(1, 2, 3, 4), minopts={}):
 
         """
         Fits a spectral feature with a gaussian function and returns a
@@ -1118,27 +1118,43 @@ class gmosdc:
             try:
                 
                 if refit and k != 0:
+
+                    # Create radius mask
                     radsol = np.sqrt((Y - i)**2 + (X - j)**2)
-                    nearsol = sol[:-1, (radsol < refit_radius) &
-                                  (fit_status in goodfit_flags)]
+                    radius_mask = (radsol < refit_radius)
+                    
+                    # Creates a good fit mask.
+                    goodfit_mask = np.zeros(fit_status.shape, dtype='bool')
+                    for flag in goodfit_flags:
+                        # Checks for each flag in goodfit_flags
+                        goodfit_mask |= fit_status == flag
+
+                    # nearsol cotains all good solutions within a given
+                    # radius from the current spaxel.
+                    nearsol = sol[:-1, radius_mask & goodfit_mask]
+                    
                     if np.shape(nearsol) == (5, 1):
                         model.parameters = deepcopy(nearsol.transpose())
                     elif np.any(nearsol):
                         model.parameters = deepcopy(
                                 np.average(nearsol.transpose(), 0))
-                        if update_bounds:
-                            bounds = bound_updater(p0, bound_range)
+                        # NOT IMPLEMENTED YET
+                        # if update_bounds:
+                        #     bounds = bound_updater(p0, bound_range)
 
-                r = fitter(model, wl, s)
+                r = fitter(model, wl, s, **minopts)
+                
                 if fitter.fit_info['ierr'] not in goodfit_flags:
                     print(
                         h, fitter.fit_info['message'], fitter.fit_info['ierr'])
                 # Reduced chi squared of the fit.
                 chi2 = np.sum(np.square(r(wl) - s))
-                nu = len(s)/inst_disp - npars - len(constraints) - 1
+                n_constraints = len(model.eqcons) + len(model.ineqcons)
+                nu = len(s)/inst_disp - npars - n_constraints - 1
                 red_chi2 = chi2 / nu
                 p = np.append(r.parameters, red_chi2)
                 fit_status[i, j] = fitter.fit_info['ierr']
+            
             except RuntimeError:
                 print(
                     'Optimal parameters not found for spectrum {:d},{:d}'
