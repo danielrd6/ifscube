@@ -928,7 +928,7 @@ class gmosdc:
             individual_spec=False, copts={}, refit=False,
             update_bounds=False, bound_range=.1, spiral_loop=False,
             spiral_center=None, fit_continuum=True, refit_radius=3,
-            goodfit_flags):
+            goodfit_flags=(1, 2, 3, 4)):
 
         """
         Fits a spectral feature with a gaussian function and returns a
