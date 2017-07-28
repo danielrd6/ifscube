@@ -598,13 +598,13 @@ class gmosdc:
 
         plt.show()
 
-    def linefit(self, model, fitter, fitting_window=None,
-                writefits=False, outimage=None, variance=None,
-                constraints=(), bounds=None, inst_disp=1.0,
-                individual_spec=False, min_method='SLSQP',
-                minopts={'eps': 1e-3}, copts=None, refit=False,
-                update_bounds=False, bound_range=.1, spiral_loop=False,
-                spiral_center=None, fit_continuum=True, refit_radius=3):
+    def linefit(
+            self, model, fitter, fitting_window=None, writefits=False,
+            outimage=None, variance=None, inst_disp=1.0,
+            individual_spec=False, copts={}, refit=False,
+            update_bounds=False, bound_range=.1, spiral_loop=False,
+            spiral_center=None, fit_continuum=True, refit_radius=3,
+            goodfit_flags):
 
         """
         Fits a spectral feature with a gaussian function and returns a
@@ -615,18 +615,10 @@ class gmosdc:
 
         Parameters
         ----------
-        p0 : iterable
-            Initial guess for the fitting funcion, consisting of a list
-            of 3N parameters for N components of **function**. In the
-            case of a gaussian fucntion, these parameters must be given
-            as [amplitude0, center0, sigma0, amplitude1, center1, ...].
-        function : string
-            The function to be fitted to the spectral features.
-            Available options and respective parameters are:
-                'gaussian' : amplitude, central wavelength in angstroms,
-                    sigma in angstroms
-                'gauss_hermite' : amplitude, central wavelength in
-                    angstroms, sigma in angstroms, h3 and h4
+        model : astropy.modeling.FittableModel 
+            Fittable model for the spectral features.
+        fitter : astropy.modeling.fitting object
+            Fitter to apply to the model and the data.
         fitting_window : iterable
             Lower and upper wavelength limits for the fitting
             algorithm. These limits should allow for a considerable
@@ -686,6 +678,9 @@ class gmosdc:
             the emission lines. Setting this option to False will
             cause the algorithm to look for self.cont, which should
             contain a data cube of continua.
+        goodfit_flags : tuple
+            Ierr flags from the fitter output that are to be accepted
+            as good fits.
 
         Returns
         -------
@@ -705,12 +700,11 @@ class gmosdc:
         else:
             fw = Ellipsis
 
-        if copts is None:
-            copts = {
-                'niterate': 5, 'degr': 4, 'upper_threshold': 2,
-                'lower_threshold': 2}
+        default_copts = dict(
+            niterate=5, degr=4, upper_threshold=2, lower_threshold=2)
 
-        copts['returns'] = 'function'
+        default_copts.update(copts)
+        copts.update(returns='function')
 
         wl = deepcopy(self.restwl[fw])
         data = deepcopy(self.data[fw, :, :])
@@ -802,18 +796,17 @@ class gmosdc:
                 if refit and k != 0:
                     radsol = np.sqrt((Y - i)**2 + (X - j)**2)
                     nearsol = sol[:-1, (radsol < refit_radius) &
-                                  (fit_status == 0)]
+                                  (fit_status in goodfit_flags)]
                     if np.shape(nearsol) == (5, 1):
-                        p0 = deepcopy(nearsol.transpose()/flux_sf)
+                        model.parameters = deepcopy(nearsol.transpose())
                     elif np.any(nearsol):
-                        p0 = deepcopy(
-                            np.average(nearsol.transpose(), 0) / flux_sf)
-
+                        model.parameters = deepcopy(
+                                np.average(nearsol.transpose(), 0))
                         if update_bounds:
                             bounds = bound_updater(p0, bound_range)
 
                 r = fitter(model, wl, s)
-                if fitter.fit_info['ierr'] not in [1, 2, 3, 4]:
+                if fitter.fit_info['ierr'] not in goodfit_flags:
                     print(
                         h, fitter.fit_info['message'], fitter.fit_info['ierr'])
                 # Reduced chi squared of the fit.
