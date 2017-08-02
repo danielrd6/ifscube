@@ -8,7 +8,11 @@ import numpy as np
 import astropy.io.fits as pf
 import ifscube.spectools as st
 import matplotlib.pyplot as plt
+<<<<<<< c375042e94352f4c48626f28f908c2ec3fd80a36
 from scipy.integrate import trapz, fixed_quad
+=======
+from scipy.integrate import trapz, fixed_quad, quad, quadrature, romberg
+>>>>>>> Added a w80 evaluation function, and copied the equivalent width function as a template for the new w80 method.
 from copy import deepcopy
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
@@ -61,11 +65,19 @@ def nan_to_nearest(d):
     return g.reshape(d.shape)
 
 
+<<<<<<< c375042e94352f4c48626f28f908c2ec3fd80a36
 def w80eval(wl, spec, wl0, **min_args):
 
     new_wl = wl - wl0
     f_norm = np.mean(spec)
 
+=======
+def w80eval(wl, spec, wl0, sigma, **min_args):
+
+    new_wl = wl - wl0
+    f_norm = np.mean(spec)
+    
+>>>>>>> Added a w80 evaluation function, and copied the equivalent width function as a template for the new w80 method.
     new_spec = deepcopy(spec) / f_norm
     new_spec[new_spec < 0] = 0
 
@@ -76,6 +88,10 @@ def w80eval(wl, spec, wl0, **min_args):
     for i in np.linspace(0, new_wl[-1]):
         if s(i) <= new_spec.max() / 2:
             hwhm = i
+<<<<<<< c375042e94352f4c48626f28f908c2ec3fd80a36
+=======
+            print(i)
+>>>>>>> Added a w80 evaluation function, and copied the equivalent width function as a template for the new w80 method.
             break
 
     def res(p):
@@ -995,8 +1011,13 @@ class gmosdc:
 
         return np.array([eqw_model, eqw_direct])
 
+<<<<<<< c375042e94352f4c48626f28f908c2ec3fd80a36
     def w80(self, component, sigma_factor=5):
 
+=======
+    def w80(self, component):
+        
+>>>>>>> Added a w80 evaluation function, and copied the equivalent width function as a template for the new w80 method.
         xy = self.spec_indices
         w80_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
         w80_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
@@ -1038,6 +1059,7 @@ class gmosdc:
                 cond_data = (rwl > cwl - sf * sig) & (rwl < cwl + sf * sig)
 
                 fit = self.fit_func(
+<<<<<<< c375042e94352f4c48626f28f908c2ec3fd80a36
                     fwl[cond], self.em_model[par_indexes, i, j])
 
                 cont_data = interp1d(
@@ -1048,6 +1070,20 @@ class gmosdc:
                 w80_direct[i, j] = w80eval(
                     rwl[cond_data], self.data[cond_data, i, j] - cont_data,
                     cwl)
+=======
+                        fwl[cond], self.em_model[par_indexes, i, j])
+
+                cont = self.fitcont[cond, i, j]
+                cont_data = interp1d(
+                    fwl, self.fitcont[:, i, j])(rwl[cond_data])
+
+                w80_model[i, j] = trapz(
+                    1. - (fit + cont) / cont, x=fwl[cond])
+
+                w80_direct[i, j] = trapz(
+                    1. - self.data[cond_data, i, j] / cont_data,
+                    x=rwl[cond_data])
+>>>>>>> Added a w80 evaluation function, and copied the equivalent width function as a template for the new w80 method.
 
         return np.array([w80_model, w80_direct])
 
