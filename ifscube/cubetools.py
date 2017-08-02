@@ -8,7 +8,7 @@ import numpy as np
 import astropy.io.fits as pf
 import ifscube.spectools as st
 import matplotlib.pyplot as plt
-from scipy.integrate import trapz
+from scipy.integrate import trapz, fixed_quad, quad, quadrature, romberg
 from copy import deepcopy
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
@@ -58,6 +58,34 @@ def nan_to_nearest(d):
     g.mask = dflat.mask
 
     return g.reshape(d.shape)
+
+
+def w80eval(wl, spec, wl0, sigma, **min_args):
+
+    new_wl = wl - wl0
+    f_norm = np.mean(spec)
+    
+    new_spec = deepcopy(spec) / f_norm
+    new_spec[new_spec < 0] = 0
+
+    s = interp1d(new_wl, new_spec, fill_value=0, bounds_error=False)
+    total_flux = trapz(new_spec, wl)
+    tf80 = 0.8 * total_flux
+
+    for i in np.linspace(0, new_wl[-1]):
+        if s(i) <= new_spec.max() / 2:
+            hwhm = i
+            print(i)
+            break
+
+    def res(p):
+        return np.square(fixed_quad(s, p[0], p[1], n=7)[0] - tf80)
+
+    r = minimize(res, x0=[-hwhm, hwhm], **min_args)
+
+    w80 = r.x[1] - r.x[0]
+
+    return w80
 
 
 class nanSolution:
@@ -966,6 +994,64 @@ class gmosdc:
                     x=rwl[cond_data])
 
         return np.array([eqw_model, eqw_direct])
+
+    def w80(self, component):
+        
+        xy = self.spec_indices
+        w80_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
+        w80_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
+
+        if self.fit_func == lprof.gauss:
+            npars = 3
+        if self.fit_func == lprof.gausshermite:
+            npars = 5
+
+        par_indexes = np.arange(npars) + npars * component
+
+        center_index = 1 + npars * component
+        sigma_index = 2 + npars * component
+
+        for i, j in xy:
+
+            # Wavelength vector of the line fit
+            fwl = self.fitwl
+            # Rest wavelength vector of the whole data cube
+            rwl = self.restwl
+            # Center wavelength coordinate of the fit
+            cwl = self.em_model[center_index, i, j]
+            # Sigma of the fit
+            sig = self.em_model[sigma_index, i, j]
+            # Just a short alias for the sigma_factor parameter
+            sf = sigma_factor
+
+            nandata_flag = np.any(np.isnan(self.em_model[par_indexes, i, j]))
+            nullcwl_flag = cwl == 0
+
+            if nandata_flag or nullcwl_flag:
+
+                w80_model[i, j] = np.nan
+                w80_direct[i, j] = np.nan
+
+            else:
+
+                cond = (fwl > cwl - sf * sig) & (fwl < cwl + sf * sig)
+                cond_data = (rwl > cwl - sf * sig) & (rwl < cwl + sf * sig)
+
+                fit = self.fit_func(
+                        fwl[cond], self.em_model[par_indexes, i, j])
+
+                cont = self.fitcont[cond, i, j]
+                cont_data = interp1d(
+                    fwl, self.fitcont[:, i, j])(rwl[cond_data])
+
+                w80_model[i, j] = trapz(
+                    1. - (fit + cont) / cont, x=fwl[cond])
+
+                w80_direct[i, j] = trapz(
+                    1. - self.data[cond_data, i, j] / cont_data,
+                    x=rwl[cond_data])
+
+        return np.array([w80_model, w80_direct])
 
     def plotfit(self, x, y, show=True, axis=None, output='stdout'):
         """
