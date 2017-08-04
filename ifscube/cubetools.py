@@ -8,12 +8,16 @@ import numpy as np
 import astropy.io.fits as pf
 import ifscube.spectools as st
 import matplotlib.pyplot as plt
+<<<<<<< 0c813b58766a505cc2ab06ac061d614c94b10123
 <<<<<<< b8de88c7ec359361c3eecd8741c1735991f22242
 <<<<<<< c375042e94352f4c48626f28f908c2ec3fd80a36
 from scipy.integrate import trapz, fixed_quad
 =======
 from scipy.integrate import trapz, fixed_quad, quad, quadrature, romberg
 >>>>>>> Added a w80 evaluation function, and copied the equivalent width function as a template for the new w80 method.
+=======
+from scipy.integrate import trapz, fixed_quad
+>>>>>>> Fixed minor bugs in the w80 method.
 =======
 from scipy.integrate import trapz, fixed_quad
 >>>>>>> Fixed minor bugs in the w80 method.
@@ -69,6 +73,7 @@ def nan_to_nearest(d):
     return g.reshape(d.shape)
 
 
+<<<<<<< 0c813b58766a505cc2ab06ac061d614c94b10123
 <<<<<<< 0531e6dd1101c615607a31ed59980685f30e7a09
 <<<<<<< b8de88c7ec359361c3eecd8741c1735991f22242
 <<<<<<< c375042e94352f4c48626f28f908c2ec3fd80a36
@@ -98,6 +103,13 @@ def w80eval(wl, spec, wl0, sigma, **min_args):
     f_norm = np.mean(spec)
     
 >>>>>>> Added a w80 evaluation function, and copied the equivalent width function as a template for the new w80 method.
+=======
+def w80eval(wl, spec, wl0, **min_args):
+
+    new_wl = wl - wl0
+    f_norm = np.mean(spec)
+
+>>>>>>> Fixed minor bugs in the w80 method.
     new_spec = deepcopy(spec) / f_norm
     new_spec[new_spec < 0] = 0
 
@@ -108,6 +120,7 @@ def w80eval(wl, spec, wl0, sigma, **min_args):
     for i in np.linspace(0, new_wl[-1]):
         if s(i) <= new_spec.max() / 2:
             hwhm = i
+<<<<<<< 0c813b58766a505cc2ab06ac061d614c94b10123
 <<<<<<< 0531e6dd1101c615607a31ed59980685f30e7a09
 <<<<<<< b8de88c7ec359361c3eecd8741c1735991f22242
 <<<<<<< c375042e94352f4c48626f28f908c2ec3fd80a36
@@ -119,6 +132,8 @@ def w80eval(wl, spec, wl0, sigma, **min_args):
 =======
             print(i)
 >>>>>>> Added a w80 evaluation function, and copied the equivalent width function as a template for the new w80 method.
+=======
+>>>>>>> Fixed minor bugs in the w80 method.
             break
 
     def res(p):
