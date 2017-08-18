@@ -29,5 +29,6 @@ setup(
         'numpy>=1.12.0',
         'scipy>=0.18.1',
         'matplotlib>=1.5',
+        'astropy>=1.5',
     ],
 )
