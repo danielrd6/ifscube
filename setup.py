@@ -30,5 +30,6 @@ setup(
         'scipy>=0.18.1',
         'matplotlib>=1.5',
         'astropy>=1.5',
+        'tkinter',
     ],
 )
