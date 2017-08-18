@@ -12,3 +12,4 @@ pipelines:
           - pip
         script: # Modify the commands below to build your repository.
           - pip install
+          - python ifscube/examples/example_cube_fit_gaussian.py
