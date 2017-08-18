@@ -485,7 +485,7 @@ class gmosdc:
 
         Parameters
         ----------
-        x,y : numbers or tuple
+        x,y : numbers or iterables
             If x and y are numbers plots the spectrum at the specific
             spaxel. If x and y are two element tuples plots the average
             between x[0],y[0] and x[1],y[1]
@@ -500,22 +500,38 @@ class gmosdc:
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
-        try:
-            if len(x) == 2 and len(y) == 2:
-                s = np.average(
+        if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
+            s = np.average(
                     np.average(self.data[:, y[0]:y[1], x[0]:x[1]], 1), 1)
-        except TypeError:
+        elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
+            s = np.average(self.data[:, y, x[0]:x[1]], 1)
+        elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
+            s = np.average(self.data[:, y[0]:y[1], x], 1)
+        else:
             s = self.data[:, y, x]
+
         ax.plot(self.restwl, s)
 
-        try:
-            n = ndimage.gaussian_filter1d(self.noise_cube[:, y, x],
-                                          noise_smooth)
+        if hasattr(self, 'noise_cube'):
+
+            if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
+                n = np.average(
+                    np.average(
+                        self.noise_cube[:, y[0]:y[1], x[0]:x[1]], 1
+                    ), 1
+                )
+            elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
+                n = np.average(self.noise_cube[:, y, x[0]:x[1]], 1)
+            elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
+                n = np.average(self.noise_cube[:, y[0]:y[1], x], 1)
+            else:
+                n = self.noise_cube[:, y, x]
+
+            n = ndimage.gaussian_filter1d(n, noise_smooth)
             sg = ndimage.gaussian_filter1d(s, noise_smooth)
+
             ax.fill_between(self.restwl, sg - n, sg + n, edgecolor='',
                             alpha=0.2, color='green')
-        except AttributeError:
-            pass
 
         plt.show()
 
