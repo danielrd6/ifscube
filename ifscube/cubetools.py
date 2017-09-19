@@ -1037,9 +1037,9 @@ class gmosdc:
 
         return ax
 
-    def channelmaps(self, channels=6, lambda0=None, velmin=None,
-                    velmax=None, continuum_width=300, logFlux=False,
-                    continuum_opts=None, lowerThreshold=1e-16, plotOpts={}):
+    def channelmaps(self, lambda0, velmin, velmax, channels=6,
+            continuum_width=300, logFlux=False, continuum_opts=None,
+            lowerThreshold=1e-16, plotOpts={}):
         """
         Creates velocity channel maps from a data cube.
 
@@ -1077,8 +1077,10 @@ class gmosdc:
         plt.clf()
 
         if continuum_opts is None:
-            continuum_opts = {'niterate': 3, 'degr': 5,
-                              'upper_threshold': 3, 'lower_threshold': 3}
+            continuum_opts = dict(
+                niterate=3, degr=5, upper_threshold=3, lower_threshold=3,
+                returns='function')
+
         cp = continuum_opts
         cw = continuum_width
         fw = lambda0 + np.array([-cw / 2., cw / 2.])
@@ -1129,8 +1131,8 @@ class gmosdc:
             channelMaps += [channel]
             pmaps += [pmap]
 
-        plt.tight_layout()
-        plt.show()
+        # plt.tight_layout()
+        # plt.show()
         return channelMaps, axes, pmaps
 
     def gaussian_smooth(self, sigma=2, writefits=False, outfile=None,
