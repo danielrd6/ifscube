@@ -1039,27 +1039,39 @@ class gmosdc:
 
     def channelmaps(self, lambda0, velmin, velmax, channels=6,
             continuum_width=300, logFlux=False, continuum_opts=None,
-            lowerThreshold=1e-16, plotOpts={}):
+            lowerThreshold=1e-16, plot_opts={}, fig_opts={},
+            wspace=None, hspace=None):
         """
         Creates velocity channel maps from a data cube.
 
         Parameters
         ----------
-            channels : integer
-                Number of channel maps to build
             lambda0 : number
-                Central wavelength of the desired spectral feature
+                Central wavelength of the desired spectral feature.
             vmin : number
-                Mininum velocity in kilometers per second
+                Mininum velocity in kilometers per second.
             vmax : number
-                Maximum velocity in kilometers per second
+                Maximum velocity in kilometers per second.
+            channels : integer
+                Number of channel maps to build.
             continuum_width : number
-                Width in wavelength for the continuum evaluation window
+                Width in wavelength units for the continuum evaluation
+                window.
             continuum_opts : dictionary
                 Dicitionary of options to be passed to the
-                spectools.continuum function
+                spectools.continuum function.
             lowerThreshold: number
-                Minimum flux for plotting.
+                Minimum emission flux for plotting, after subtraction
+                of the continuum level. Spaxels with flux values below
+                lowerThreshold will be masked in the channel maps.
+            plot_opts : dict
+                Dictionary of options to be passed to **pcolormesh**.
+            fig_opts : dict
+                Options passed to **pyplot.figure**.
+            wspace : number
+                Horizontal gap between channel maps.
+            hspace : number
+                Vertical gap between channel maps.
 
         Returns
         -------
@@ -1073,7 +1085,7 @@ class gmosdc:
 
         side = int(np.ceil(np.sqrt(channels)))  # columns
         otherside = int(np.ceil(channels / side))  # lines
-        fig = plt.figure()
+        fig = plt.figure(**fig_opts)
         plt.clf()
 
         if continuum_opts is None:
@@ -1119,11 +1131,11 @@ class gmosdc:
             ax.set_xlim(x.min(), x.max())
             ax.set_ylim(y.min(), y.max())
 
-            pmap = ax.pcolormesh(x, y, channel, **plotOpts)
-            ax.set_aspect('equal', 'box')
+            pmap = ax.pcolormesh(x, y, channel, **plot_opts)
+            ax.set_aspect('equal', 'datalim')
             ax.annotate(
                 '{:.0f}'.format((wlc - lambda0)/lambda0*2.99792e+5),
-                xy=(0.1, 0.8), xycoords='axes fraction', color='k')
+                xy=(0.1, 0.8), xycoords='axes fraction', color='w')
             if i % side != 0:
                 ax.set_yticklabels([])
             if i / float((otherside-1) * side) < 1:
@@ -1131,8 +1143,10 @@ class gmosdc:
             channelMaps += [channel]
             pmaps += [pmap]
 
-        # plt.tight_layout()
-        # plt.show()
+        fig.subplots_adjust(wspace=wspace, hspace=hspace)
+        
+        plt.show()
+        
         return channelMaps, axes, pmaps
 
     def gaussian_smooth(self, sigma=2, writefits=False, outfile=None,
