@@ -15,7 +15,8 @@ from scipy.interpolate import interp1d
 from scipy import ndimage
 import ifscube.elprofile as lprof
 from numpy import ma
-import astropy.constants
+from astropy import constants
+from astropy import units
 from scipy.ndimage import gaussian_filter
 
 
@@ -1078,8 +1079,13 @@ class gmosdc:
         """
 
         sigma = lowerThreshold
+        
         # Converting from velocities to wavelength
-        wlmin, wlmax = lambda0*(np.array([velmin, velmax])/2.99792e+5 + 1.)
+        wlmin, wlmax = lambda0 * (
+            np.array([velmin, velmax]) /
+            constants.c.to(units.km / units.s).value + 1.
+        )
+        
         wlstep = (wlmax - wlmin)/channels
         wl_limits = np.arange(wlmin, wlmax + wlstep, wlstep)
 
