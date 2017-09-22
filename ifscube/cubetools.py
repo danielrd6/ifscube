@@ -1041,7 +1041,7 @@ class gmosdc:
     def channelmaps(self, lambda0, velmin, velmax, channels=6,
             continuum_width=300, logFlux=False, continuum_opts=None,
             lowerThreshold=1e-16, plot_opts={}, fig_opts={},
-            wspace=None, hspace=None):
+            wspace=None, hspace=None, text_color='black'):
         """
         Creates velocity channel maps from a data cube.
 
@@ -1073,6 +1073,9 @@ class gmosdc:
                 Horizontal gap between channel maps.
             hspace : number
                 Vertical gap between channel maps.
+            text_color : matplotlib color
+                The color of the annotated text specifying the velocity
+                bin.
 
         Returns
         -------
@@ -1141,7 +1144,8 @@ class gmosdc:
             ax.set_aspect('equal', 'datalim')
             ax.annotate(
                 '{:.0f}'.format((wlc - lambda0)/lambda0*2.99792e+5),
-                xy=(0.1, 0.8), xycoords='axes fraction', color='w')
+                xy=(0.1, 0.8), xycoords='axes fraction', 
+                color=text_color)
             if i % side != 0:
                 ax.set_yticklabels([])
             if i / float((otherside-1) * side) < 1:
