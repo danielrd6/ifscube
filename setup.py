@@ -14,6 +14,7 @@ setup(
     name='ifscube',
     version=__version__,
     packages=['ifscube'],
+    package_data=packdata,
     scripts=['bin/fit_scrutinizer'],
     description="Fit emssision lines",
     author="Daniel Ruschel Dutra",
