@@ -62,6 +62,31 @@ def nan_to_nearest(d):
 
 
 def w80eval(wl, spec, wl0, sigma, **min_args):
+    """
+    Evaluates the W80 parameter of a given emission fature.
+
+    Parameters
+    ----------
+    wl : array-like
+      Wavelength vector.
+    spec : array-like
+      Flux vector.
+    wl0 : number
+      Central wavelength of the emission feature.
+    **min_args : dictionary
+      Options passed directly to the scipy.optimize.minimize.
+
+    Returns
+    -------
+    w80 : number
+      The resulting w80 parameter.
+
+    Description
+    -----------
+    W80 is the width in velocity space which encompasses 80% of the
+    light emitted in a given spectral feature. It is widely used as
+    a proxy for identifying outflows of ionized gas in active galaxies.
+    """
 
     new_wl = wl - wl0
     f_norm = np.mean(spec)
@@ -73,10 +98,12 @@ def w80eval(wl, spec, wl0, sigma, **min_args):
     total_flux = trapz(new_spec, wl)
     tf80 = 0.8 * total_flux
 
+    # In order to have a good initial guess the code will find the
+    # the Half-Width at Half Maximum (hwhm) of the specified 
+
     for i in np.linspace(0, new_wl[-1]):
         if s(i) <= new_spec.max() / 2:
             hwhm = i
-            print(i)
             break
 
     def res(p):
