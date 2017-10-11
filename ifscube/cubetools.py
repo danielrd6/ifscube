@@ -73,15 +73,19 @@ def nan_to_nearest(d):
     return g.reshape(d.shape)
 
 
+<<<<<<< HEAD
 <<<<<<< 0c813b58766a505cc2ab06ac061d614c94b10123
 <<<<<<< 0531e6dd1101c615607a31ed59980685f30e7a09
 <<<<<<< b8de88c7ec359361c3eecd8741c1735991f22242
 <<<<<<< c375042e94352f4c48626f28f908c2ec3fd80a36
+=======
+>>>>>>> d8df73ef885f8b962e4f726bcd2f053c35bd0463
 def w80eval(wl, spec, wl0, **min_args):
 
     new_wl = wl - wl0
     f_norm = np.mean(spec)
 
+<<<<<<< HEAD
 =======
 def w80eval(wl, spec, wl0, sigma, **min_args):
 
@@ -110,6 +114,8 @@ def w80eval(wl, spec, wl0, **min_args):
     f_norm = np.mean(spec)
 
 >>>>>>> Fixed minor bugs in the w80 method.
+=======
+>>>>>>> d8df73ef885f8b962e4f726bcd2f053c35bd0463
     new_spec = deepcopy(spec) / f_norm
     new_spec[new_spec < 0] = 0
 
@@ -120,6 +126,7 @@ def w80eval(wl, spec, wl0, **min_args):
     for i in np.linspace(0, new_wl[-1]):
         if s(i) <= new_spec.max() / 2:
             hwhm = i
+<<<<<<< HEAD
 <<<<<<< 0c813b58766a505cc2ab06ac061d614c94b10123
 <<<<<<< 0531e6dd1101c615607a31ed59980685f30e7a09
 <<<<<<< b8de88c7ec359361c3eecd8741c1735991f22242
@@ -134,6 +141,8 @@ def w80eval(wl, spec, wl0, **min_args):
 >>>>>>> Added a w80 evaluation function, and copied the equivalent width function as a template for the new w80 method.
 =======
 >>>>>>> Fixed minor bugs in the w80 method.
+=======
+>>>>>>> d8df73ef885f8b962e4f726bcd2f053c35bd0463
             break
 
     def res(p):
@@ -1053,6 +1062,7 @@ class gmosdc:
 
         return np.array([eqw_model, eqw_direct])
 
+<<<<<<< HEAD
 <<<<<<< b8de88c7ec359361c3eecd8741c1735991f22242
 <<<<<<< c375042e94352f4c48626f28f908c2ec3fd80a36
     def w80(self, component, sigma_factor=5):
@@ -1065,6 +1075,10 @@ class gmosdc:
     def w80(self, component, sigma_factor=5):
 
 >>>>>>> Fixed minor bugs in the w80 method.
+=======
+    def w80(self, component, sigma_factor=5):
+
+>>>>>>> d8df73ef885f8b962e4f726bcd2f053c35bd0463
         xy = self.spec_indices
         w80_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
         w80_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
@@ -1106,6 +1120,7 @@ class gmosdc:
                 cond_data = (rwl > cwl - sf * sig) & (rwl < cwl + sf * sig)
 
                 fit = self.fit_func(
+<<<<<<< HEAD
 <<<<<<< b8de88c7ec359361c3eecd8741c1735991f22242
 <<<<<<< c375042e94352f4c48626f28f908c2ec3fd80a36
                     fwl[cond], self.em_model[par_indexes, i, j])
@@ -1123,12 +1138,16 @@ class gmosdc:
 =======
                     fwl[cond], self.em_model[par_indexes, i, j])
 >>>>>>> Fixed minor bugs in the w80 method.
+=======
+                    fwl[cond], self.em_model[par_indexes, i, j])
+>>>>>>> d8df73ef885f8b962e4f726bcd2f053c35bd0463
 
                 cont_data = interp1d(
                     fwl, self.fitcont[:, i, j])(rwl[cond_data])
 
                 w80_model[i, j] = w80eval(fwl[cond], fit, cwl)
 
+<<<<<<< HEAD
 <<<<<<< b8de88c7ec359361c3eecd8741c1735991f22242
                 w80_direct[i, j] = trapz(
                     1. - self.data[cond_data, i, j] / cont_data,
@@ -1139,6 +1158,11 @@ class gmosdc:
                     rwl[cond_data], self.data[cond_data, i, j] - cont_data,
                     cwl)
 >>>>>>> Fixed minor bugs in the w80 method.
+=======
+                w80_direct[i, j] = w80eval(
+                    rwl[cond_data], self.data[cond_data, i, j] - cont_data,
+                    cwl)
+>>>>>>> d8df73ef885f8b962e4f726bcd2f053c35bd0463
 
         return np.array([w80_model, w80_direct])
 
