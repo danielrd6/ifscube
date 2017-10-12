@@ -87,8 +87,17 @@ def w80eval(wl, spec, wl0, sigma, **min_args):
     light emitted in a given spectral feature. It is widely used as
     a proxy for identifying outflows of ionized gas in active galaxies.
     """
-
-    new_wl = wl - wl0
+    
+    # First we begin by transforming from wavelength space to velocity
+    # space.
+    
+    # new_wl = wl - wl0
+    
+    velocity = (wl * units.angstrom).to(
+        units.km / u.s, equivalencies=units.doppler_relativistic(
+            wl0 * units.wavelength)
+        )
+    
     f_norm = np.mean(spec)
     
     new_spec = deepcopy(spec) / f_norm
