@@ -95,8 +95,8 @@ def w80eval(wl, spec, wl0, sigma, **min_args):
     
     velocity = (wl * units.angstrom).to(
         units.km / u.s, equivalencies=units.doppler_relativistic(
-            wl0 * units.wavelength)
-        )
+            wl0 * units.angstrom)
+        ) 
     
     f_norm = np.mean(spec)
     
