@@ -61,7 +61,7 @@ def nan_to_nearest(d):
     return g.reshape(d.shape)
 
 
-def w80eval(wl, spec, wl0, sigma, **min_args):
+def w80eval(wl, spec, wl0, **min_args):
     """
     Evaluates the W80 parameter of a given emission fature.
 
@@ -91,26 +91,24 @@ def w80eval(wl, spec, wl0, sigma, **min_args):
     # First we begin by transforming from wavelength space to velocity
     # space.
     
-    # new_wl = wl - wl0
-    
     velocity = (wl * units.angstrom).to(
-        units.km / u.s, equivalencies=units.doppler_relativistic(
-            wl0 * units.angstrom)
-        ) 
+        units.km / units.s,
+        equivalencies=units.doppler_relativistic(wl0 * units.angstrom),
+    ) 
     
     f_norm = np.mean(spec)
     
     new_spec = deepcopy(spec) / f_norm
     new_spec[new_spec < 0] = 0
 
-    s = interp1d(new_wl, new_spec, fill_value=0, bounds_error=False)
-    total_flux = trapz(new_spec, wl)
+    s = interp1d(velocity, new_spec, fill_value=0, bounds_error=False)
+    total_flux = trapz(new_spec, velocity.value)
     tf80 = 0.8 * total_flux
 
     # In order to have a good initial guess the code will find the
     # the Half-Width at Half Maximum (hwhm) of the specified 
 
-    for i in np.linspace(0, new_wl[-1]):
+    for i in np.linspace(0, velocity[-1]):
         if s(i) <= new_spec.max() / 2:
             hwhm = i
             break
@@ -118,7 +116,7 @@ def w80eval(wl, spec, wl0, sigma, **min_args):
     def res(p):
         return np.square(fixed_quad(s, p[0], p[1], n=7)[0] - tf80)
 
-    r = minimize(res, x0=[-hwhm, hwhm], **min_args)
+    r = minimize(res, x0=[-hwhm.value, hwhm.value], **min_args)
 
     w80 = r.x[1] - r.x[0]
 
@@ -1033,6 +1031,7 @@ class gmosdc:
         return np.array([eqw_model, eqw_direct])
 
     def w80(self, component, sigma_factor=5):
+        
         xy = self.spec_indices
         w80_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
         w80_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
@@ -1083,8 +1082,8 @@ class gmosdc:
                 w80_model[i, j] = w80eval(fwl[cond], fit, cwl)
 
                 w80_direct[i, j] = w80eval(
-                    rwl[cond_data], self.data[cond_data, i, j] - cont_data,
-                    cwl)
+                    rwl[cond_data], self.data[cond_data, i, j] - cont_data, cwl
+                )
 
         return np.array([w80_model, w80_direct])
 
