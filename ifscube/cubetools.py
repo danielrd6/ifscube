@@ -8,7 +8,7 @@ import numpy as np
 import astropy.io.fits as pf
 import ifscube.spectools as st
 import matplotlib.pyplot as plt
-from scipy.integrate import trapz, fixed_quad, quad, quadrature, romberg
+from scipy.integrate import trapz, fixed_quad
 from copy import deepcopy
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
@@ -87,15 +87,15 @@ def w80eval(wl, spec, wl0, **min_args):
     light emitted in a given spectral feature. It is widely used as
     a proxy for identifying outflows of ionized gas in active galaxies.
     """
-    
+
     # First we begin by transforming from wavelength space to velocity
     # space.
-    
+
     velocity = (wl * units.angstrom).to(
         units.km / units.s,
         equivalencies=units.doppler_relativistic(wl0 * units.angstrom),
-    ) 
-    
+    )
+
     f_norm = np.mean(spec)
     
     new_spec = deepcopy(spec) / f_norm
@@ -1030,8 +1030,8 @@ class gmosdc:
 
         return np.array([eqw_model, eqw_direct])
 
-    def w80(self, component, sigma_factor=5):
-        
+    def w80(self, component, sigma_factor=5, verbose=False):
+
         xy = self.spec_indices
         w80_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
         w80_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
@@ -1047,6 +1047,9 @@ class gmosdc:
         sigma_index = 2 + npars * component
 
         for i, j in xy:
+
+            if verbose:
+                print(i, j)
 
             # Wavelength vector of the line fit
             fwl = self.fitwl
