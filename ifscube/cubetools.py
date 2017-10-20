@@ -97,7 +97,7 @@ def w80eval(wl, spec, wl0, **min_args):
     )
 
     f_norm = np.mean(spec)
-    
+
     new_spec = deepcopy(spec) / f_norm
     new_spec[new_spec < 0] = 0
 
@@ -106,7 +106,7 @@ def w80eval(wl, spec, wl0, **min_args):
     tf80 = 0.8 * total_flux
 
     # In order to have a good initial guess the code will find the
-    # the Half-Width at Half Maximum (hwhm) of the specified 
+    # the Half-Width at Half Maximum (hwhm) of the specified
 
     for i in np.linspace(0, velocity[-1]):
         if s(i) <= new_spec.max() / 2:
@@ -1078,7 +1078,7 @@ class gmosdc:
                 fit = self.fit_func(
                     fwl[cond], self.em_model[par_indexes, i, j])
 
-                cont = self.fitcont[cond, i, j]
+                # cont = self.fitcont[cond, i, j]
                 cont_data = interp1d(
                     fwl, self.fitcont[:, i, j])(rwl[cond_data])
 
@@ -1160,7 +1160,8 @@ class gmosdc:
 
         return ax
 
-    def channelmaps(self, lambda0, velmin, velmax, channels=6,
+    def channelmaps(
+            self, lambda0, velmin, velmax, channels=6,
             continuum_width=300, logFlux=False, continuum_opts=None,
             lowerThreshold=1e-16, plot_opts={}, fig_opts={},
             wspace=None, hspace=None, text_color='black'):
@@ -1204,13 +1205,13 @@ class gmosdc:
         """
 
         sigma = lowerThreshold
-        
+
         # Converting from velocities to wavelength
         wlmin, wlmax = lambda0 * (
             np.array([velmin, velmax]) /
             constants.c.to(units.km / units.s).value + 1.
         )
-        
+
         wlstep = (wlmax - wlmin)/channels
         wl_limits = np.arange(wlmin, wlmax + wlstep, wlstep)
 
@@ -1266,7 +1267,7 @@ class gmosdc:
             ax.set_aspect('equal', 'datalim')
             ax.annotate(
                 '{:.0f}'.format((wlc - lambda0)/lambda0*2.99792e+5),
-                xy=(0.1, 0.8), xycoords='axes fraction', 
+                xy=(0.1, 0.8), xycoords='axes fraction',
                 color=text_color)
             if i % side != 0:
                 ax.set_yticklabels([])
@@ -1276,9 +1277,9 @@ class gmosdc:
             pmaps += [pmap]
 
         fig.subplots_adjust(wspace=wspace, hspace=hspace)
-        
+
         plt.show()
-        
+
         return channelMaps, axes, pmaps
 
     def gaussian_smooth(self, sigma=2, writefits=False, outfile=None,
@@ -1645,7 +1646,7 @@ class gmosdc:
             # Normalizes templates
             templates[:, j] = sspNew/np.median(sspNew)
 
-        c = astropy.constants.c.value * 1.e-3
+        c = constants.c.value * 1.e-3
         dv = (logLam2[0] - logLam1[0]) * c  # km/s
         # z = np.exp(vel/c) - 1
 
