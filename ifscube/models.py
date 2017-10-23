@@ -1,4 +1,4 @@
-from astropy.modeling import Fittable1DModel, Parameter
+from astropy.modeling import Fittable1DModel, Fittable2DModel, Parameter
 import numpy as np
 
 
@@ -27,11 +27,11 @@ class GaussHermite1D(Fittable1DModel):
     inputs = ('x',)
     outputs = ('y',)
 
-    amplitude = Parameter()
-    mean = Parameter()
-    stddev = Parameter()
-    h3 = Parameter()
-    h4 = Parameter()
+    amplitude = Parameter(default=1)
+    mean = Parameter(default=0)
+    stddev = Parameter(default=1)
+    h3 = Parameter(default=0)
+    h4 = Parameter(default=0)
 
     @staticmethod
     def evaluate(x, amplitude, mean, stddev, h3, h4):
@@ -86,3 +86,56 @@ class GaussHermite1D(Fittable1DModel):
     #
 
     #     return [d_a, d_x0]
+
+class DiskRotation(Fittable2DModel):
+
+    """
+    Observed radial velocity according to Bertola et al 1991.
+
+    Parameters
+    ----------
+    amplitude : float
+        Integrated flux of the profile.
+    c_0 : float
+        Concentration index.
+    p : float
+        Velocity curve exponent. 
+    phi_0 : float
+        Position angle of the line of nodes. 
+    theta : float
+        Inclination of the disk (theta = 0 for a face-on disk).
+
+    Description
+    -----------
+    This model returns a two-dimensional velocity field of observed
+    radial velocities based on a rotation curve equal to
+
+                           A * r
+    v_c(r) = -------------------------------.
+              (r ** 2 + c_0 ** 2) ** (p / 2)
+
+    This equation was taken from Bertola et al. 1991 (ApJ, 373, 369B).
+    """
+
+    inputs = ('r', 'phi',)
+    outputs = ('v',)
+
+    amplitude = Parameter(default=100)
+    c_0 = Parameter(default=1)
+    p = Parameter(default=1)
+    phi_0 = Parameter(default=0)
+    theta = Parameter(default=0)
+    v_sys = Parameter(default=0)
+
+    @staticmethod
+    def evaluate(r, phi, amplitude, c_0, p, phi_0, theta, v_sys):
+
+        cop = np.cos(phi - phi_0)
+        sip = np.sin(phi - phi_0)
+        cot = np.cos(theta)
+        sit = np.sin(theta)
+        
+        d = amplitude * r * cop * sit * cot**p
+        n = r**2 * (sip**2 + cot**2 * cop**2) + c_0**2 * cot**2
+        
+        return v_sys + d / n**(p / 2)
