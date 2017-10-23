@@ -1246,8 +1246,9 @@ class gmosdc:
             print(wl[(wl > wl0) & (wl < wl1)])
             wlc, wlwidth = np.average([wl0, wl1]), (wl1-wl0)
 
-            f_obs = self.wlprojection(
-                wl0=wlc, fwhm=wlwidth, filtertype='box')
+            f_obs = wlprojection(
+                arr=self.data, wl=self.restwl, wl0=wlc, fwhm=wlwidth,
+                filtertype='box')
             f_cont = wlprojection(
                 arr=self.cont, wl=contwl, wl0=wlc, fwhm=wlwidth,
                 filtertype='box')
