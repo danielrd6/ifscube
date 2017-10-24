@@ -105,8 +105,8 @@ def w80eval(wl, spec, wl0, **min_args):
     total_flux = trapz(new_spec, velocity.value)
     tf80 = 0.8 * total_flux
 
-    # In order to have a good initial guess the code will find the
-    # the Half-Width at Half Maximum (hwhm) of the specified
+    # In order to have a good initial guess, the code will find the
+    # the Half-Width at Half Maximum (hwhm) of the specified feature.
 
     for i in np.linspace(0, velocity[-1]):
         if s(i) <= new_spec.max() / 2:
