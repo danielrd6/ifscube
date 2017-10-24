@@ -104,6 +104,9 @@ def w80eval(wl, spec, wl0, **min_args):
     s = interp1d(velocity, new_spec, fill_value=0, bounds_error=False)
     total_flux = trapz(new_spec, velocity.value)
     tf80 = 0.8 * total_flux
+    
+    def res(p):
+        return np.square(fixed_quad(s, p[0], p[1], n=7)[0] - tf80)
 
     # In order to have a good initial guess, the code will find the
     # the Half-Width at Half Maximum (hwhm) of the specified feature.
@@ -113,12 +116,20 @@ def w80eval(wl, spec, wl0, **min_args):
             hwhm = i
             break
 
-    def res(p):
-        return np.square(fixed_quad(s, p[0], p[1], n=7)[0] - tf80)
-
-    r = minimize(res, x0=[-hwhm.value, hwhm.value], **min_args)
-
-    w80 = r.x[1] - r.x[0]
+    # In some cases, when the spectral feature has a very low
+    # amplitude, the algorithm might have trouble finding the half
+    # width at half maximum (hwhm), which is used as an initial guess
+    # for the w80. In such cases the loop above will reach the end of
+    # the spectrum without finding a value below half the amplitude of
+    # the spectral feature, and consequently the *hwhm* variable will
+    # not be set.  This next conditional expression sets w80 to
+    # numpy.nan when such events occur.
+    
+    if 'hwhm' in locals(): 
+        r = minimize(res, x0=[-hwhm.value, hwhm.value], **min_args)
+        w80 = r.x[1] - r.x[0]
+    else:
+        w80 = np.nan
 
     return w80
 
