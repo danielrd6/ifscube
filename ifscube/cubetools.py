@@ -61,7 +61,7 @@ def nan_to_nearest(d):
     return g.reshape(d.shape)
 
 
-def w80eval(wl, spec, wl0, **min_args):
+def w80eval(wl, spec, wl0, plot=False, **min_args):
     """
     Evaluates the W80 parameter of a given emission fature.
 
@@ -130,6 +130,25 @@ def w80eval(wl, spec, wl0, **min_args):
         w80 = r.x[1] - r.x[0]
     else:
         w80 = np.nan
+
+    # Plotting the spectrum and w80 fit.
+
+    if plot and (w80 is not np.nan):
+
+        # Create figure and axes.
+        fig = plt.figure(1)
+        plt.clf()
+        ax = fig.add_subplot(111)
+
+        # Plot the spectrum.
+        ax.plot(velocity, s(velocity))
+
+        # Draw w80 lines.
+        ax.axvline(r.x[0])
+        ax.axvline(r.x[1])
+
+        # Show plot.
+        plt.show()
 
     return w80
 
@@ -1041,9 +1060,17 @@ class gmosdc:
 
         return np.array([eqw_model, eqw_direct])
 
-    def w80(self, component, sigma_factor=5, verbose=False):
+    def w80(self, component, sigma_factor=5, individual_spec=False,
+            verbose=False):
 
-        xy = self.spec_indices
+        if individual_spec:
+            # The reflaction of the *individual_spec* iterable puts the
+            # horizontal coordinate first, and the vertical coordinate
+            # second.
+            xy = [individual_spec[::-1]]
+        else:
+            xy = self.spec_indices
+        
         w80_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
         w80_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
 
@@ -1093,10 +1120,14 @@ class gmosdc:
                 cont_data = interp1d(
                     fwl, self.fitcont[:, i, j])(rwl[cond_data])
 
-                w80_model[i, j] = w80eval(fwl[cond], fit, cwl)
+                # Plots the fit only if *individual_spec* is set.
+                make_plot = len(xy) == 1
+
+                w80_model[i, j] = w80eval(fwl[cond], fit, cwl, plot=make_plot)
 
                 w80_direct[i, j] = w80eval(
-                    rwl[cond_data], self.data[cond_data, i, j] - cont_data, cwl
+                    rwl[cond_data], self.data[cond_data, i, j] - cont_data,
+                    cwl, plot=make_plot,
                 )
 
         return np.array([w80_model, w80_direct])
