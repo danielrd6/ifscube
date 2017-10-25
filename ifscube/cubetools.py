@@ -147,6 +147,15 @@ def w80eval(wl, spec, wl0, plot=False, **min_args):
         ax.axvline(r.x[0])
         ax.axvline(r.x[1])
 
+        # Draw baseline
+        ax.axhline(0, ls='dashed', color='k')
+
+        # Labels.
+        ax.set_xlabel(r'Velocity (km/s)')
+        ax.set_ylabel(r'Normalized flux units')
+
+        ax.minorticks_on()
+
         # Show plot.
         plt.show()
 
