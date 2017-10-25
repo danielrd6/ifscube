@@ -18,6 +18,7 @@ from numpy import ma
 from astropy import constants
 from astropy import units
 from scipy.ndimage import gaussian_filter
+import ifscube.plots as ifsplots
 
 
 def nan_to_nearest(d):
@@ -61,7 +62,7 @@ def nan_to_nearest(d):
     return g.reshape(d.shape)
 
 
-def w80eval(wl, spec, wl0, plot=False, **min_args):
+def w80eval(wl, spec, wl0, **min_args):
     """
     Evaluates the W80 parameter of a given emission fature.
 
@@ -131,35 +132,7 @@ def w80eval(wl, spec, wl0, plot=False, **min_args):
     else:
         w80 = np.nan
 
-    # Plotting the spectrum and w80 fit.
-
-    if plot and (w80 is not np.nan):
-
-        # Create figure and axes.
-        fig = plt.figure(1)
-        plt.clf()
-        ax = fig.add_subplot(111)
-
-        # Plot the spectrum.
-        ax.plot(velocity, s(velocity))
-
-        # Draw w80 lines.
-        ax.axvline(r.x[0])
-        ax.axvline(r.x[1])
-
-        # Draw baseline
-        ax.axhline(0, ls='dashed', color='k')
-
-        # Labels.
-        ax.set_xlabel(r'Velocity (km/s)')
-        ax.set_ylabel(r'Normalized flux units')
-
-        ax.minorticks_on()
-
-        # Show plot.
-        plt.show()
-
-    return w80
+    return w80, r.x[0], r.x[1], velocity, s(velocity)
 
 
 class nanSolution:
@@ -1129,15 +1102,24 @@ class gmosdc:
                 cont_data = interp1d(
                     fwl, self.fitcont[:, i, j])(rwl[cond_data])
 
-                # Plots the fit only if *individual_spec* is set.
-                make_plot = len(xy) == 1
+                w80_model[i, j], m0, m1, mv, ms = w80eval(fwl[cond], fit, cwl)
 
-                w80_model[i, j] = w80eval(fwl[cond], fit, cwl, plot=make_plot)
-
-                w80_direct[i, j] = w80eval(
-                    rwl[cond_data], self.data[cond_data, i, j] - cont_data,
-                    cwl, plot=make_plot,
+                w80_direct[i, j], d0, d1, dv, ds = w80eval(
+                    rwl[cond_data], self.data[cond_data, i, j] - cont_data, cwl
                 )
+
+                # Plots the fit when evaluating only one spectrum.
+                if len(xy) == 1:
+                    
+                    print('W80 model: {:.2f} km/s'.format(w80_model[i, j]))
+                    print('W80 direct: {:.2f} km/s'.format(w80_direct[i, j]))
+
+                    p = [
+                            [m0, m1, mv, ms],
+                            [d0, d1, dv, ds],
+                    ]
+                    
+                    ifsplots.w80(p)
 
         return np.array([w80_model, w80_direct])
 
