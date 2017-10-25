@@ -105,7 +105,7 @@ def w80eval(wl, spec, wl0, **min_args):
     s = interp1d(velocity, new_spec, fill_value=0, bounds_error=False)
     total_flux = trapz(new_spec, velocity.value)
     tf80 = 0.8 * total_flux
-    
+
     def res(p):
         return np.square(fixed_quad(s, p[0], p[1], n=7)[0] - tf80)
 
@@ -125,8 +125,8 @@ def w80eval(wl, spec, wl0, **min_args):
     # the spectral feature, and consequently the *hwhm* variable will
     # not be set.  This next conditional expression sets w80 to
     # numpy.nan when such events occur.
-    
-    if 'hwhm' in locals(): 
+
+    if 'hwhm' in locals():
         r = minimize(res, x0=[-hwhm.value, hwhm.value], **min_args)
         w80 = r.x[1] - r.x[0]
     else:
@@ -616,7 +616,8 @@ class gmosdc:
                 individual_spec=False, min_method='SLSQP',
                 minopts={'eps': 1e-3}, copts=None, refit=False,
                 update_bounds=False, bound_range=.1, spiral_loop=False,
-                spiral_center=None, fit_continuum=True, refit_radius=3):
+                spiral_center=None, fit_continuum=True, refit_radius=3,
+                sig_threshold=0):
 
         """
         Fits a spectral feature with a gaussian function and returns a
@@ -865,6 +866,27 @@ class gmosdc:
                     'Optimal parameters not found for spectrum {:d},{:d}'
                     .format(int(i), int(j)))
                 p = nan_solution
+
+            # Sets p to nan if the flux is smaller than the average
+            # noise level.
+
+            # mean noise level
+            mnl = np.sqrt(np.sum(np.square(v * scale_factor)) / v.size)
+
+            # The first argument of the gauss_hermite function is the
+            # integrated flux, and not the amplitude. Therefore it is necessary
+            # to make some sort of approximation for the flux of the noise,
+            # were it to have a quasi-gaussian shape. This is not needed for
+            # the gaussian function.
+            if function == 'gauss_hermite':
+                mnl_flux = mnl * p[2] * np.sqrt(2. * np.pi)
+            elif function == 'gaussian':
+                mnl_flux = mnl
+
+            if p[0] < mnl_flux * sig_threshold:
+                p = nan_solution
+                fit_status[i, j] = 99
+
             if self.binned:
                 for l, m in vor[vor[:, 2] == binNum, :2]:
                     sol[:, l, m] = p
@@ -1052,7 +1074,7 @@ class gmosdc:
             xy = [individual_spec[::-1]]
         else:
             xy = self.spec_indices
-        
+
         w80_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
         w80_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
 
@@ -1110,7 +1132,7 @@ class gmosdc:
 
                 # Plots the fit when evaluating only one spectrum.
                 if len(xy) == 1:
-                    
+
                     print('W80 model: {:.2f} km/s'.format(w80_model[i, j]))
                     print('W80 direct: {:.2f} km/s'.format(w80_direct[i, j]))
 
@@ -1118,7 +1140,7 @@ class gmosdc:
                             [m0, m1, mv, ms],
                             [d0, d1, dv, ds],
                     ]
-                    
+
                     ifsplots.w80(p)
 
         return np.array([w80_model, w80_direct])
