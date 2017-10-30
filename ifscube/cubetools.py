@@ -1653,7 +1653,8 @@ class gmosdc:
         base_wl = base_wl[baseCut]
 
         lamRange1 = self.restwl[fw][[0, -1]]
-        centerSpaxel = np.array(np.shape(self.data[0])) / 2
+        centerSpaxel = np.array(
+            [int(i / 2) for i in np.shape(self.data[0])], dtype='int')
         gal_lin = deepcopy(self.data[fw, centerSpaxel[0], centerSpaxel[1]])
 
         galaxy, logLam1, velscale = ppxf_util.log_rebin(
