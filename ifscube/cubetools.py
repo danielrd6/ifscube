@@ -100,7 +100,7 @@ def w80eval(wl, spec, wl0, **min_args):
     f_norm = np.mean(spec)
 
     new_spec = deepcopy(spec) / f_norm
-    new_spec[new_spec < 0] = 0
+    # new_spec[new_spec < 0] = 0
 
     s = interp1d(velocity, new_spec, fill_value=0, bounds_error=False)
     total_flux = trapz(new_spec, velocity.value)
@@ -1639,7 +1639,7 @@ class gmosdc:
                 'Please add it to your PYTHONPATH.')
 
         w0, w1 = fitting_window
-        fw = (self.wl >= w0) & (self.wl < w1)
+        fw = (self.restwl >= w0) & (self.restwl < w1)
 
         baseCut = (base_wl > w0 - cushion) & (base_wl < w1 + cushion)
 
@@ -1652,7 +1652,7 @@ class gmosdc:
         base_spec = base_spec[:, baseCut]
         base_wl = base_wl[baseCut]
 
-        lamRange1 = self.wl[fw][[0, -1]]
+        lamRange1 = self.restwl[fw][[0, -1]]
         centerSpaxel = np.array(np.shape(self.data[0])) / 2
         gal_lin = deepcopy(self.data[fw, centerSpaxel[0], centerSpaxel[1]])
 
@@ -1800,8 +1800,8 @@ class gmosdc:
             hdr = pf.Header()
             hdr['object'] = ('spectrum', 'Data in this extension')
             hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
-            hdr['CRVAL3'] = (self.wl[0], 'Reference value for wavelength')
-            hdr['CD3_3'] = (np.average(np.diff(self.wl)), 'CD3_3')
+            hdr['CRVAL3'] = (self.restwl[0], 'Reference value for wavelength')
+            hdr['CD3_3'] = (np.average(np.diff(self.restwl)), 'CD3_3')
             h.append(
                 pf.ImageHDU(data=self.ppxf_spec, header=hdr, name='SCI'))
 
