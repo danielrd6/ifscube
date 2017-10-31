@@ -1517,6 +1517,63 @@ class gmosdc:
             return pars
 
         return ax
+    
+    def plotfit_model(self, x, y, model, show=True, axis=None,
+                      output='stdout'):
+        """
+        Plots the spectrum and features just fitted.
+
+        Parameters
+        ----------
+        x : number
+            Horizontal coordinate of the desired spaxel.
+        y : number
+            Vertical coordinate of the desired spaxel.
+
+        Returns
+        -------
+        Nothing.
+        """
+
+        if axis is None:
+            fig = plt.figure(1)
+            plt.clf()
+            ax = fig.add_subplot(111)
+        else:
+            ax = axis
+
+        p = self.em_model[:-1, y, x]
+        c = self.fitcont[:, y, x]
+        wl = self.fitwl
+        f = model 
+        s = self.fitspec[:, y, x]
+
+        norm_factor = np.int(np.log10(np.median(s)))
+
+        ax.plot(wl, (c + f(wl)) / 10. ** norm_factor)
+        ax.plot(wl, c / 10. ** norm_factor)
+        ax.plot(wl, s / 10. ** norm_factor)
+
+        ax.set_xlabel(r'Wavelength (${\rm \AA}$)')
+        ax.set_ylabel(
+            'Flux density ($10^{{{:d}}}\, {{\\rm erg\,s^{{-1}}\,cm^{{-2}}'
+            '\,\AA^{{-1}}}}$)'.format(norm_factor))
+
+        if model.n_submodels() > 1:
+            for submodel in model:
+                ax.plot(
+                    wl, (c + submodel(wl)) / 10. ** norm_factor, 'k--')
+        if show:
+            plt.show()
+
+        if output == 'stdout':
+            for i, j in enumerate(model.param_names):
+                print(j, model.parameters[i])
+
+        if output == 'return':
+            return pars
+
+        return ax
 
     def channelmaps(
             self, lambda0, velmin, velmax, channels=6,
