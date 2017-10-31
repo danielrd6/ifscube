@@ -1097,7 +1097,7 @@ class gmosdc:
 
         return np.array([w80_model, w80_direct])
 
-    def plotfit(self, x, y, model, show=True, axis=None,
+    def plotfit(self, x, y, show=True, axis=None,
                       output='stdout'):
         """
         Plots the spectrum and features just fitted.
@@ -1124,12 +1124,13 @@ class gmosdc:
         p = self.em_model[:-1, y, x]
         c = self.fitcont[:, y, x]
         wl = self.fitwl
-        f = model 
+        model = deepcopy(self.fit_func)
+        model.parameters = p
         s = self.fitspec[:, y, x]
 
         norm_factor = np.int(np.log10(np.median(s)))
 
-        ax.plot(wl, (c + f(wl)) / 10. ** norm_factor)
+        ax.plot(wl, (c + model(wl)) / 10. ** norm_factor)
         ax.plot(wl, c / 10. ** norm_factor)
         ax.plot(wl, s / 10. ** norm_factor)
 
