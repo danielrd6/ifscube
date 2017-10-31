@@ -11,17 +11,23 @@ import argparse
 import copy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import ifscube.cubetools as ct
+import ifscube.cubetools_astropy as cta
 import tkinter as Tk
+import dill as pickle
 
 
 class mclass:
 
-    def __init__(self,  window, datacube, fitfile, fitstatus_mask):
+    def __init__(self,  window, datacube, fitfile, fitstatus_mask,
+                 astropy=False):
 
         self.fitstatus_mask = fitstatus_mask
 
-        cube = ct.gmosdc(datacube)
-        cube.loadfit(fitfile)
+        if astropy:
+            with open(fitfile, 'rb') as f:
+                cube = pickle.load(f)
+        else:
+            cube = ct.gmosdc(datacube)
 
         self.window = window
         self.buttonPlot = Tk.Button(
@@ -205,9 +211,14 @@ if __name__ == '__main__':
         'fitfile', type=str, help='Result of the fit')
     parser.add_argument(
         '--fitstatus_mask', type=bool, help='Apply fit status mask.')
+    parser.add_argument(
+        '-a', '--astropy', action='store_true',
+        help='Fitfile refers to an astropy modeling fit.')
     args = parser.parse_args()
 
     window = Tk.Tk()
     window.title('IFSCUBE Fit Scrutinizer')
-    start = mclass(window, args.datacube, args.fitfile, args.fitstatus_mask)
+    start = mclass(
+        window, args.datacube, args.fitfile, args.fitstatus_mask,
+        astropy=args.astropy)
     window.mainloop()
