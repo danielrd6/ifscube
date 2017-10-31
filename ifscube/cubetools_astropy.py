@@ -956,6 +956,309 @@ class gmosdc:
         else:
             return sol
 
+    def linefit_model(
+            self, model, fitter, fitting_window=None, writefits=False,
+            outimage=None, variance=None, inst_disp=1.0,
+            individual_spec=False, copts={}, refit=False,
+            update_bounds=False, bound_range=.1, spiral_loop=False,
+            spiral_center=None, fit_continuum=True, refit_radius=3,
+            goodfit_flags=(1, 2, 3, 4), minopts={}):
+
+        """
+        Fits a spectral feature with a gaussian function and returns a
+        map of measured properties. This is a wrapper for the scipy
+        minimize function that basically iterates over the cube,
+        has a formula for the reduced chi squared, and applies
+        an internal scale factor to the flux.
+
+        Parameters
+        ----------
+        model : astropy.modeling.FittableModel 
+            Fittable model for the spectral features.
+        fitter : astropy.modeling.fitting object
+            Fitter to apply to the model and the data.
+        fitting_window : iterable
+            Lower and upper wavelength limits for the fitting
+            algorithm. These limits should allow for a considerable
+            portion of continuum besides the desired spectral features.
+        writefits : boolean
+            Writes the results in a FITS file.
+        outimage : string
+            Name of the FITS file in which to write the results.
+        variance : float, 1D, 2D or 3D array
+            The variance of the flux measurments. It can be given
+            in one of four formats. If variance is a float it is
+            applied as a contant to the whole spectrum. If given as 1D
+            array it assumed to be a spectrum that will be applied to
+            the whole cube. As 2D array, each spaxel will be applied
+            equally to all wavelenths. Finally the 3D array must
+            represent the variance for each elemente of the data cube.
+            It defaults to None, in which case it does not affect the
+            minimization algorithm, and the returned Chi2 will be in
+            fact just the fit residuals.
+        inst_disp : number
+            Instrumental dispersion in pixel units. This argument is
+            used to evaluate the reduced chi squared. If let to default
+            it is assumed that each wavelength coordinate is a degree
+            of freedom. The physically sound way to do it is to use the
+            number of dispersion elements in a spectrum as the degrees
+            of freedom.
+        bounds : sequence
+            Bounds for the fitting algorithm, given as a list of
+            [xmin, xmax] pairs for each x parameter.
+        constraints : dict or sequence of dicts
+            See scipy.optimize.minimize
+        min_method : string
+            Minimization method. See scipy.optimize.minimize.
+        minopts : dict
+            Dictionary of options to be passed to the minimization
+            routine. See scipy.optimize.minimize.
+        individual_spec : False or x,y pair
+            Pixel coordinates for the spectrum you wish to fit
+            individually.
+        copts : dict
+            Arguments to be passed to the spectools.continuum function.
+        refit : boolean
+            Use parameters from nearby sucessful fits as the initial
+            guess for the next fit.
+        update_bounds : boolean
+            If using refit, update the bounds for the next fit.
+        bound_range : number
+            Fractional difference for updating the bounds when using refit.
+        spiral_loop : boolean
+            Begins the fitting with the central spaxel and continues
+            spiraling outwards.
+        spiral_center : iterable
+            Central coordinates for the beginning of the spiral given
+            as a list of two coordinates [x0, y0]
+        fit_continuum : boolean
+            If True fits the continuum just before attempting to fit
+            the emission lines. Setting this option to False will
+            cause the algorithm to look for self.cont, which should
+            contain a data cube of continua.
+        goodfit_flags : tuple
+            Ierr flags from the fitter output that are to be accepted
+            as good fits.
+
+        Returns
+        -------
+        sol : numpy.ndarray
+            A data cube with the solution for each spectrum occupying
+            the respective position in the image, and each position in
+            the first axis giving the different parameters of the fit.
+
+        See also
+        --------
+        scipy.optimize.curve_fit, scipy.optimize.leastsq
+        """
+
+        if fitting_window is not None:
+            fw = (self.restwl > fitting_window[0]) &\
+                 (self.restwl < fitting_window[1])
+        else:
+            fw = Ellipsis
+
+        default_copts = dict(
+            niterate=5, degr=4, upper_threshold=2, lower_threshold=2)
+
+        default_copts.update(copts)
+        copts.update(returns='function')
+
+        wl = deepcopy(self.restwl[fw])
+        data = deepcopy(self.data[fw, :, :])
+        fit_status = np.ones(np.shape(data)[1:], dtype='float32') * -1
+
+        try:
+            vcube = self.noise_cube[fw, :, :] ** 2
+        except AttributeError:
+            vcube = np.ones(np.shape(data), dtype='float32')
+
+        if variance is not None:
+            if len(np.shape(variance)) == 0:
+                vcube *= variance
+            elif len(np.shape(variance)) == 1:
+                for i, j in self.spec_indices:
+                    vcube[:, i, j] = variance
+            elif len(np.shape(variance)) == 2:
+                for i, j in enumerate(vcube):
+                    vcube[i] = variance
+            elif len(np.shape(variance)) == 3:
+                vcube = variance[fw, :, :]
+
+        npars = len(model.parameters)
+        nan_solution = np.array([np.nan for i in range(npars+1)])
+        sol = np.zeros(
+            (npars+1, np.shape(self.data)[1], np.shape(self.data)[2]),
+            dtype='float32')
+        self.fitcont = np.zeros(np.shape(data), dtype='float32')
+        self.fitwl = wl
+        self.fitspec = np.zeros(np.shape(data), dtype='float32')
+        self.resultspec = np.zeros(np.shape(data), dtype='float32')
+
+        if self.binned:
+            v = self.voronoi_tab
+            xy = np.column_stack([
+                v[np.unique(v['binNum'], return_index=True)[1]][coords]
+                for coords in ['ycoords', 'xcoords']])
+            vor = np.column_stack([
+                v[coords] for coords in ['ycoords', 'xcoords', 'binNum']])
+        else:
+            xy = self.spec_indices
+
+        Y, X = np.indices(np.shape(data)[1:])
+
+        if individual_spec:
+            xy = [individual_spec[::-1]]
+        elif spiral_loop:
+            if self.binned:
+                y, x = xy[:, 0], xy[:, 1]
+            else:
+                y, x = self.spec_indices[:, 0], self.spec_indices[:, 1]
+            if spiral_center is None:
+                r = np.sqrt((x - x.max() / 2.) ** 2 + (y - y.max() / 2.) ** 2)
+            else:
+                r = np.sqrt(
+                    (x - spiral_center[0]) ** 2 + (y - spiral_center[1]) ** 2)
+            t = np.arctan2(y - y.max()/2., x - x.max()/2.)
+            t[t < 0] += 2 * np.pi
+
+            b = np.array([
+                (np.ravel(r)[i], np.ravel(t)[i]) for i in
+                range(len(np.ravel(r)))], dtype=[
+                    ('radius', 'f8'), ('angle', 'f8')])
+
+            s = np.argsort(b, axis=0, order=['radius', 'angle'])
+            xy = np.column_stack([np.ravel(y)[s], np.ravel(x)[s]])
+
+        nspec = len(xy)
+        for k, h in enumerate(xy):
+            progress(k, nspec, 10)
+            i, j = h
+            if self.binned:
+                binNum = vor[(vor[:, 0] == i) & (vor[:, 1] == j), 2]
+            if (~np.any(data[:20, i, j])) or\
+                    ~np.any(data[-20:, i, j]) or\
+                    np.any(np.isnan(data[:, i, j])):
+                sol[:, i, j] = nan_solution
+                continue
+            v = vcube[:, i, j]
+            if fit_continuum:
+                cont = st.continuum(wl, data[:, i, j], **copts)[1]
+            else:
+                cont = self.cont[:, i, j]
+            s = data[:, i, j] - cont
+
+            # Avoids fitting if the spectrum is null.
+            try:
+                
+                if refit and k != 0:
+
+                    # Create radius mask
+                    radsol = np.sqrt((Y - i)**2 + (X - j)**2)
+                    radius_mask = (radsol < refit_radius)
+                    
+                    # Creates a good fit mask.
+                    goodfit_mask = np.zeros(fit_status.shape, dtype='bool')
+                    for flag in goodfit_flags:
+                        # Checks for each flag in goodfit_flags
+                        goodfit_mask |= fit_status == flag
+
+                    # nearsol cotains all good solutions within a given
+                    # radius from the current spaxel.
+                    nearsol = sol[:-1, radius_mask & goodfit_mask]
+                    
+                    if np.shape(nearsol) == (5, 1):
+                        model.parameters = deepcopy(nearsol.transpose())
+                    elif np.any(nearsol):
+                        model.parameters = deepcopy(
+                                np.average(nearsol.transpose(), 0))
+                        # NOT IMPLEMENTED YET
+                        # if update_bounds:
+                        #     bounds = bound_updater(p0, bound_range)
+
+                r = fitter(model, wl, s, **minopts)
+                
+                if fitter.fit_info['ierr'] not in goodfit_flags:
+                    print(
+                        h, fitter.fit_info['message'], fitter.fit_info['ierr'])
+                # Reduced chi squared of the fit.
+                chi2 = np.sum(np.square(r(wl) - s))
+                n_constraints = len(model.eqcons) + len(model.ineqcons)
+                nu = len(s)/inst_disp - npars - n_constraints - 1
+                red_chi2 = chi2 / nu
+                p = np.append(r.parameters, red_chi2)
+                fit_status[i, j] = fitter.fit_info['ierr']
+            
+            except RuntimeError:
+                print(
+                    'Optimal parameters not found for spectrum {:d},{:d}'
+                    .format(int(i), int(j)))
+                p = nan_solution
+            if self.binned:
+                for l, m in vor[vor[:, 2] == binNum, :2]:
+                    sol[:, l, m] = p
+                    self.fitcont[:, l, m] = cont
+                    self.fitspec[:, l, m] = (s + cont)
+                    self.resultspec[:, l, m] = (cont + r(wl))
+            else:
+                sol[:, i, j] = p
+                self.fitcont[:, i, j] = cont
+                self.fitspec[:, i, j] = s + cont
+                self.resultspec[:, i, j] = cont + r(wl)
+
+        self.em_model = sol
+        self.fit_status = fit_status
+
+        if writefits:
+
+            # Basic tests and first header
+            if outimage is None:
+                outimage = self.fitsfile.replace('.fits',
+                                                 '_linefit.fits')
+            hdr = deepcopy(self.header_data)
+            try:
+                hdr['REDSHIFT'] = self.redshift
+            except KeyError:
+                hdr['REDSHIFT'] = (self.redshift,
+                                   'Redshift used in GMOSDC')
+
+            # Creates MEF output.
+            h = pf.HDUList()
+            h.append(pf.PrimaryHDU(header=hdr))
+
+            # Creates the fitted spectrum extension
+            hdr = pf.Header()
+            hdr['object'] = ('spectrum', 'Data in this extension')
+            hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
+            hdr['CRVAL3'] = (wl[0], 'Reference value for wavelength')
+            hdr['CD3_3'] = (np.average(np.diff(wl)), 'CD3_3')
+            h.append(pf.ImageHDU(data=self.fitspec, header=hdr))
+
+            # Creates the fitted continuum extension.
+            hdr['object'] = 'continuum'
+            h.append(pf.ImageHDU(data=self.fitcont, header=hdr))
+
+            # Creates the fitted function extension.
+            hdr['object'] = 'fit'
+            h.append(pf.ImageHDU(data=self.resultspec, header=hdr))
+
+            # Creates the solution extension.
+            hdr['object'] = 'parameters'
+            hdr['function'] = (function, 'Fitted function')
+            hdr['nfunc'] = (len(p)/3, 'Number of functions')
+            h.append(pf.ImageHDU(data=sol, header=hdr))
+
+            # Creates the minimize's exit status extension
+            hdr['object'] = 'status'
+            h.append(pf.ImageHDU(data=fit_status, header=hdr))
+
+            h.writeto(outimage)
+
+        if individual_spec:
+            return wl, s, cont, model(wl), r
+        else:
+            return sol
+
     def loadfit(self, fname):
         """
         Loads the result of a previous fit, and put it in the
@@ -1215,6 +1518,63 @@ class gmosdc:
 
         return ax
     
+    def plotfit_model(self, x, y, model, show=True, axis=None,
+                      output='stdout'):
+        """
+        Plots the spectrum and features just fitted.
+
+        Parameters
+        ----------
+        x : number
+            Horizontal coordinate of the desired spaxel.
+        y : number
+            Vertical coordinate of the desired spaxel.
+
+        Returns
+        -------
+        Nothing.
+        """
+
+        if axis is None:
+            fig = plt.figure(1)
+            plt.clf()
+            ax = fig.add_subplot(111)
+        else:
+            ax = axis
+
+        p = self.em_model[:-1, y, x]
+        c = self.fitcont[:, y, x]
+        wl = self.fitwl
+        f = model 
+        s = self.fitspec[:, y, x]
+
+        norm_factor = np.int(np.log10(np.median(s)))
+
+        ax.plot(wl, (c + f(wl)) / 10. ** norm_factor)
+        ax.plot(wl, c / 10. ** norm_factor)
+        ax.plot(wl, s / 10. ** norm_factor)
+
+        ax.set_xlabel(r'Wavelength (${\rm \AA}$)')
+        ax.set_ylabel(
+            'Flux density ($10^{{{:d}}}\, {{\\rm erg\,s^{{-1}}\,cm^{{-2}}'
+            '\,\AA^{{-1}}}}$)'.format(norm_factor))
+
+        if model.n_submodels() > 1:
+            for submodel in model:
+                ax.plot(
+                    wl, (c + submodel(wl)) / 10. ** norm_factor, 'k--')
+        if show:
+            plt.show()
+
+        if output == 'stdout':
+            for i, j in enumerate(model.param_names):
+                print(j, model.parameters[i])
+
+        if output == 'return':
+            return pars
+
+        return ax
+
     def channelmaps(
             self, lambda0, velmin, velmax, channels=6,
             continuum_width=300, logFlux=False, continuum_opts=None,
