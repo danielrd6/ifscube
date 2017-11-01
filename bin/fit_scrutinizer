@@ -47,7 +47,7 @@ class mclass:
         for i in ['Flux', 'Velocity', 'Sigma', 'h3', 'h4']:
             l_par.insert('end', i)
 
-        for i in range(int(cube.fit_info['components'])):
+        for i in range(len(cube.fit_func._submodels)):
             l_component.insert('end', i)
 
         self.fig = Figure(figsize=(6, 6))
@@ -117,8 +117,15 @@ class mclass:
 
     def getim(self, fitstatus_mask=True):
 
-        npars, ncomps = [
-            self.cube.fit_info[i] for i in ('parameters', 'components')]
+        try:
+            ncomps = len(self.cube.fit_func._submodels)
+        except AttributeError:
+            ncomps = 1
+
+        if ncomps > 1:
+            npars = len(self.cube.fit_func[0].parameters)
+        else:
+            npars = len(self.cube.fit_func.parameters)
 
         par = self.l_par.curselection()[0]
         comp = self.l_component.curselection()[0]
