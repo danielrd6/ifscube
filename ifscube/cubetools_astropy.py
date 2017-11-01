@@ -1100,8 +1100,7 @@ class gmosdc:
 
         return np.array([w80_model, w80_direct])
 
-    def plotfit(self, x, y, show=True, axis=None,
-                      output='stdout'):
+    def plotfit(self, x, y, show=True, axis=None, output='stdout'):
         """
         Plots the spectrum and features just fitted.
 
