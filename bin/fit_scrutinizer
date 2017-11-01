@@ -18,16 +18,22 @@ import dill as pickle
 
 class mclass:
 
-    def __init__(self,  window, datacube, fitfile, fitstatus_mask,
-                 astropy=False):
+    def __init__(self, window, args):
 
-        self.fitstatus_mask = fitstatus_mask
+        self.fitstatus_mask = args.fitstatus_mask
 
-        if astropy:
-            with open(fitfile, 'rb') as f:
+        if args.astropy:
+            with open(args.fitfile, 'rb') as f:
                 cube = pickle.load(f)
         else:
-            cube = ct.gmosdc(datacube)
+            if args.datacube == None:
+                raise RuntimeError(
+                    'Astropy option -a not set and no data cube file provided.'
+                    ' If this is not an astropy.modeling fit you '
+                    'should provide a data cube file using the -d or '
+                    '--datacube option.'
+                )
+            cube = ct.gmosdc(args.datacube)
 
         self.window = window
         self.buttonPlot = Tk.Button(
@@ -213,11 +219,11 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        'datacube', type=str, help='The original data cube.')
+        '-d', '--datacube', type=str, help='The original data cube.')
     parser.add_argument(
-        'fitfile', type=str, help='Result of the fit')
+        '-f', '--fitfile', type=str, help='Result of the fit')
     parser.add_argument(
-        '--fitstatus_mask', type=bool, help='Apply fit status mask.')
+        '-m', '--fitstatus_mask', type=bool, help='Apply fit status mask.')
     parser.add_argument(
         '-a', '--astropy', action='store_true',
         help='Fitfile refers to an astropy modeling fit.')
@@ -225,7 +231,5 @@ if __name__ == '__main__':
 
     window = Tk.Tk()
     window.title('IFSCUBE Fit Scrutinizer')
-    start = mclass(
-        window, args.datacube, args.fitfile, args.fitstatus_mask,
-        astropy=args.astropy)
+    start = mclass(window, args)
     window.mainloop()
