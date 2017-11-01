@@ -26,6 +26,7 @@ class mclass:
             with open(args.fitfile, 'rb') as f:
                 cube = pickle.load(f)
         else:
+
             if args.datacube == None:
                 raise RuntimeError(
                     'Astropy option -a not set and no data cube file provided.'
@@ -33,6 +34,7 @@ class mclass:
                     'should provide a data cube file using the -d or '
                     '--datacube option.'
                 )
+
             cube = ct.gmosdc(args.datacube)
 
         self.window = window
