@@ -616,7 +616,7 @@ class gmosdc:
             individual_spec=False, copts={}, refit=False,
             update_bounds=False, bound_range=.1, spiral_loop=False,
             spiral_center=None, fit_continuum=True, refit_radius=3,
-            goodfit_flags=(1, 2, 3, 4), minopts={}):
+            goodfit_flags=(1, 2, 3, 4), minopts={}, sig_threshold=0):
 
         """
         Fits a spectral feature with a gaussian function and returns a
@@ -849,6 +849,30 @@ class gmosdc:
                     'Optimal parameters not found for spectrum {:d},{:d}'
                     .format(int(i), int(j)))
                 p = nan_solution
+
+            # Sets p to nan if the flux is smaller than the average
+            # noise level.
+
+            # mean noise level
+            mnl = np.sqrt(np.sum(v) / v.size)
+
+            # The first argument of the gauss_hermite function is the
+            # integrated flux, and not the amplitude. Therefore it is necessary
+            # to make some sort of approximation for the flux of the noise,
+            # were it to have a quasi-gaussian shape. This is not needed for
+            # the gaussian function.
+            #
+            # The next line has to be the most convoluted way of checking if a
+            # substring is in any string of a given tuple.
+            if any([True if 'h3' in i else False for i in  model.param_names]):
+                mnl_flux = mnl * p[2] * np.sqrt(2. * np.pi)
+            elif function == 'gaussian':
+                mnl_flux = mnl
+
+            if p[0] < mnl_flux * sig_threshold:
+                p = nan_solution
+                fit_status[i, j] = 99
+
             if self.binned:
                 for l, m in vor[vor[:, 2] == binNum, :2]:
                     sol[:, l, m] = p
