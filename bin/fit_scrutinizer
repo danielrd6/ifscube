@@ -58,6 +58,8 @@ class mclass:
 
         if args.astropy:
             n_components = len(cube.fit_func._submodels)
+        else:
+            n_components = int(cube.fit_info['components'])
 
         for i in range(n_components):
             l_component.insert('end', i)
