@@ -36,6 +36,7 @@ class mclass:
                 )
 
             cube = ct.gmosdc(args.datacube)
+            cube.loadfit(args.fitfile)
 
         self.window = window
         self.buttonPlot = Tk.Button(
@@ -55,7 +56,10 @@ class mclass:
         for i in ['Flux', 'Velocity', 'Sigma', 'h3', 'h4']:
             l_par.insert('end', i)
 
-        for i in range(len(cube.fit_func._submodels)):
+        if args.astropy:
+            n_components = len(cube.fit_func._submodels)
+
+        for i in range(n_components):
             l_component.insert('end', i)
 
         self.fig = Figure(figsize=(6, 6))
