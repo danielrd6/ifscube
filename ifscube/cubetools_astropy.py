@@ -1139,7 +1139,7 @@ class gmosdc:
             'Flux density ($10^{{{:d}}}\, {{\\rm erg\,s^{{-1}}\,cm^{{-2}}'
             '\,\AA^{{-1}}}}$)'.format(norm_factor))
 
-        if model.n_submodels() > 1:
+        if len(model._submodels) > 1:
             for submodel in model:
                 ax.plot(
                     wl, (c + submodel(wl)) / 10. ** norm_factor, 'k--')
@@ -1151,7 +1151,7 @@ class gmosdc:
                 print(j, model.parameters[i])
 
         if output == 'return':
-            return pars
+            return model.parameters 
 
         return ax
 
