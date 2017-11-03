@@ -21,8 +21,9 @@ class mclass:
     def __init__(self, window, args):
 
         self.fitstatus_mask = args.fitstatus_mask
+        self.astropy = args.astropy
 
-        if args.astropy:
+        if self.astropy:
             with open(args.fitfile, 'rb') as f:
                 cube = pickle.load(f)
         else:
