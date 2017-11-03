@@ -130,7 +130,7 @@ class mclass:
         self.connect_id = self.canvas.mpl_connect(
             'motion_notify_event', self.onclick)
 
-    def getim(self, fitstatus_mask=True):
+    def getim_astropy(self, fitstatus_mask=True):
 
         try:
             ncomps = len(self.cube.fit_func._submodels)
@@ -180,7 +180,10 @@ class mclass:
         a.cla()
         self.cax.cla()
 
-        d, cm = self.getim()
+        if self.astropy:
+            d, cm = self.getim_astropy()
+        else:
+            d, cm = self.getim()
 
         if cm == 'Spectral_r':
             im = a.pcolormesh(d, cmap=cm, vmin=-abs(d.max()), vmax=d.max())
