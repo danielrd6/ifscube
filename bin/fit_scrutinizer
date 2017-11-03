@@ -58,9 +58,22 @@ class mclass:
             l_par.insert('end', i)
 
         if args.astropy:
-            n_components = len(cube.fit_func._submodels)
+            try:
+                n_components = len(cube.fit_func._submodels)
+            except AttributeError:
+                n_components = 1
+
+            if n_components > 1:
+                n_parameters = len(cube.fit_func[0].parameters)
+            else:
+                n_parameters = len(cube.fit_func.parameters)
+
         else:
-            n_components = int(cube.fit_info['components'])
+            n_components, n_parameters = [
+                int(cube.fit_info[i]) for i in ['components', 'parameters']]
+
+        self.n_components = n_components
+        self.n_parameters = n_parameters
 
         for i in range(n_components):
             l_component.insert('end', i)
@@ -130,17 +143,10 @@ class mclass:
         self.connect_id = self.canvas.mpl_connect(
             'motion_notify_event', self.onclick)
 
-    def getim_astropy(self, fitstatus_mask=True):
-
-        try:
-            ncomps = len(self.cube.fit_func._submodels)
-        except AttributeError:
-            ncomps = 1
-
-        if ncomps > 1:
-            npars = len(self.cube.fit_func[0].parameters)
-        else:
-            npars = len(self.cube.fit_func.parameters)
+    def getim(self, fitstatus_mask=True):
+        
+        ncomps = self.n_components
+        npars = self.n_parameters
 
         par = self.l_par.curselection()[0]
         comp = self.l_component.curselection()[0]
@@ -180,10 +186,7 @@ class mclass:
         a.cla()
         self.cax.cla()
 
-        if self.astropy:
-            d, cm = self.getim_astropy()
-        else:
-            d, cm = self.getim()
+        d, cm = self.getim()
 
         if cm == 'Spectral_r':
             im = a.pcolormesh(d, cmap=cm, vmin=-abs(d.max()), vmax=d.max())
