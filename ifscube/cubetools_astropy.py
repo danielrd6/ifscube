@@ -14,6 +14,7 @@ from scipy.optimize import minimize
 from scipy.interpolate import interp1d
 from scipy import ndimage
 import ifscube.elprofile as lprof
+import spectools
 from numpy import ma
 from astropy import constants
 from astropy import units
@@ -60,79 +61,6 @@ def nan_to_nearest(d):
     g.mask = dflat.mask
 
     return g.reshape(d.shape)
-
-
-def w80eval(wl, spec, wl0, **min_args):
-    """
-    Evaluates the W80 parameter of a given emission fature.
-
-    Parameters
-    ----------
-    wl : array-like
-      Wavelength vector.
-    spec : array-like
-      Flux vector.
-    wl0 : number
-      Central wavelength of the emission feature.
-    **min_args : dictionary
-      Options passed directly to the scipy.optimize.minimize.
-
-    Returns
-    -------
-    w80 : number
-      The resulting w80 parameter.
-
-    Description
-    -----------
-    W80 is the width in velocity space which encompasses 80% of the
-    light emitted in a given spectral feature. It is widely used as
-    a proxy for identifying outflows of ionized gas in active galaxies.
-    """
-
-    # First we begin by transforming from wavelength space to velocity
-    # space.
-
-    velocity = (wl * units.angstrom).to(
-        units.km / units.s,
-        equivalencies=units.doppler_relativistic(wl0 * units.angstrom),
-    )
-
-    f_norm = np.mean(spec)
-
-    new_spec = deepcopy(spec) / f_norm
-    # new_spec[new_spec < 0] = 0
-
-    s = interp1d(velocity, new_spec, fill_value=0, bounds_error=False)
-    total_flux = trapz(new_spec, velocity.value)
-    tf80 = 0.8 * total_flux
-
-    def res(p):
-        return np.square(fixed_quad(s, p[0], p[1], n=7)[0] - tf80)
-
-    # In order to have a good initial guess, the code will find the
-    # the Half-Width at Half Maximum (hwhm) of the specified feature.
-
-    for i in np.linspace(0, velocity[-1]):
-        if s(i) <= new_spec.max() / 2:
-            hwhm = i
-            break
-
-    # In some cases, when the spectral feature has a very low
-    # amplitude, the algorithm might have trouble finding the half
-    # width at half maximum (hwhm), which is used as an initial guess
-    # for the w80. In such cases the loop above will reach the end of
-    # the spectrum without finding a value below half the amplitude of
-    # the spectral feature, and consequently the *hwhm* variable will
-    # not be set.  This next conditional expression sets w80 to
-    # numpy.nan when such events occur.
-
-    if 'hwhm' in locals():
-        r = minimize(res, x0=[-hwhm.value, hwhm.value], **min_args)
-        w80 = r.x[1] - r.x[0]
-    else:
-        w80 = np.nan
-
-    return w80, r.x[0], r.x[1], velocity, s(velocity)
 
 
 class nanSolution:
@@ -1101,10 +1029,10 @@ class gmosdc:
                     fwl, self.fitcont[:, i, j])(rwl[cond_data])
                 spec = self.data[cond_data, i, j] - cont_data
 
-                w80_model[i, j], m0, m1, mv, ms = w80eval(
+                w80_model[i, j], m0, m1, mv, ms = spectools.w80eval(
                     fwl[cond], fit_spec, cwl)
                 
-                w80_direct[i, j], d0, d1, dv, ds = w80eval(
+                w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(
                     rwl[cond_data], spec, cwl,
                     # rwl[cond_data][np.where(spec == spec.max())[0][0]],
                 )
