@@ -12,7 +12,7 @@ points.
 import copy
 import astropy.io.fits as pf
 import numpy as np
-from scipy.integrate import trapz, quad
+from scipy.integrate import trapz, quad, fixed_quad
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import interp1d, UnivariateSpline
 from scipy.optimize import curve_fit, minimize
@@ -678,7 +678,7 @@ def w80eval(wl, spec, wl0, **min_args):
 
     f_norm = np.mean(spec)
 
-    new_spec = deepcopy(spec) / f_norm
+    new_spec = copy.deepcopy(spec) / f_norm
     # new_spec[new_spec < 0] = 0
 
     s = interp1d(velocity, new_spec, fill_value=0, bounds_error=False)
