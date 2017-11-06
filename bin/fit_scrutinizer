@@ -18,16 +18,26 @@ import dill as pickle
 
 class mclass:
 
-    def __init__(self,  window, datacube, fitfile, fitstatus_mask,
-                 astropy=False):
+    def __init__(self, window, args):
 
-        self.fitstatus_mask = fitstatus_mask
+        self.fitstatus_mask = args.fitstatus_mask
+        self.astropy = args.astropy
 
-        if astropy:
-            with open(fitfile, 'rb') as f:
+        if self.astropy:
+            with open(args.fitfile, 'rb') as f:
                 cube = pickle.load(f)
         else:
-            cube = ct.gmosdc(datacube)
+
+            if args.datacube == None:
+                raise RuntimeError(
+                    'Astropy option -a not set and no data cube file provided.'
+                    ' If this is not an astropy.modeling fit you '
+                    'should provide a data cube file using the -d or '
+                    '--datacube option.'
+                )
+
+            cube = ct.gmosdc(args.datacube)
+            cube.loadfit(args.fitfile)
 
         self.window = window
         self.buttonPlot = Tk.Button(
@@ -47,7 +57,25 @@ class mclass:
         for i in ['Flux', 'Velocity', 'Sigma', 'h3', 'h4']:
             l_par.insert('end', i)
 
-        for i in range(len(cube.fit_func._submodels)):
+        if args.astropy:
+            try:
+                n_components = len(cube.fit_func._submodels)
+            except AttributeError:
+                n_components = 1
+
+            if n_components > 1:
+                n_parameters = len(cube.fit_func[0].parameters)
+            else:
+                n_parameters = len(cube.fit_func.parameters)
+
+        else:
+            n_components, n_parameters = [
+                int(cube.fit_info[i]) for i in ['components', 'parameters']]
+
+        self.n_components = n_components
+        self.n_parameters = n_parameters
+
+        for i in range(n_components):
             l_component.insert('end', i)
 
         self.fig = Figure(figsize=(6, 6))
@@ -116,16 +144,9 @@ class mclass:
             'motion_notify_event', self.onclick)
 
     def getim(self, fitstatus_mask=True):
-
-        try:
-            ncomps = len(self.cube.fit_func._submodels)
-        except AttributeError:
-            ncomps = 1
-
-        if ncomps > 1:
-            npars = len(self.cube.fit_func[0].parameters)
-        else:
-            npars = len(self.cube.fit_func.parameters)
+        
+        ncomps = self.n_components
+        npars = self.n_parameters
 
         par = self.l_par.curselection()[0]
         comp = self.l_component.curselection()[0]
@@ -213,11 +234,11 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        'datacube', type=str, help='The original data cube.')
+        '-d', '--datacube', type=str, help='The original data cube.')
     parser.add_argument(
-        'fitfile', type=str, help='Result of the fit')
+        '-f', '--fitfile', type=str, help='Result of the fit')
     parser.add_argument(
-        '--fitstatus_mask', type=bool, help='Apply fit status mask.')
+        '-m', '--fitstatus_mask', type=bool, help='Apply fit status mask.')
     parser.add_argument(
         '-a', '--astropy', action='store_true',
         help='Fitfile refers to an astropy modeling fit.')
@@ -225,7 +246,5 @@ if __name__ == '__main__':
 
     window = Tk.Tk()
     window.title('IFSCUBE Fit Scrutinizer')
-    start = mclass(
-        window, args.datacube, args.fitfile, args.fitstatus_mask,
-        astropy=args.astropy)
+    start = mclass(window, args)
     window.mainloop()
