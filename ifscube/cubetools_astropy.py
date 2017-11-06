@@ -4,23 +4,21 @@ Functions for the analysis of integral field spectroscopy.
 Author: Daniel Ruschel Dutra
 Website: https://github.com/danielrd6/ifscube
 """
-import numpy as np
 import astropy.io.fits as pf
-import ifscube.spectools as st
+import numpy as np
 import matplotlib.pyplot as plt
-from scipy.integrate import trapz, fixed_quad
+
+from . import elprofile as lprof
+from . import plots as ifsplots
+from . import spectools
+
 from copy import deepcopy
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
+from scipy.integrate import trapz, fixed_quad
 from scipy import ndimage
-import ifscube.elprofile as lprof
-from . import spectools
 from numpy import ma
-from astropy import constants
-from astropy import units
-from scipy.ndimage import gaussian_filter
-import ifscube.plots as ifsplots
-
+from astropy import constants, units
 
 def nan_to_nearest(d):
     """
@@ -1257,8 +1255,8 @@ class gmosdc:
             tmp_data = nan_to_nearest(self.data[i])
             tmp_var = nan_to_nearest(self.noise_cube[i]) ** 2
 
-            gdata[i] = gaussian_filter(tmp_data, sigma)
-            gvar[i] = np.sqrt(gaussian_filter(tmp_var, sigma))
+            gdata[i] = ndimage.gaussian_filter(tmp_data, sigma)
+            gvar[i] = np.sqrt(ndimage.gaussian_filter(tmp_var, sigma))
 
             i += 1
 
