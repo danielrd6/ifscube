@@ -617,7 +617,7 @@ class gmosdc:
                 minopts={'eps': 1e-3}, copts=None, refit=False,
                 update_bounds=False, bound_range=.1, spiral_loop=False,
                 spiral_center=None, fit_continuum=True, refit_radius=3,
-                sig_threshold=0):
+                sig_threshold=0, par_threshold=0):
 
         """
         Fits a spectral feature with a gaussian function and returns a
@@ -699,6 +699,13 @@ class gmosdc:
             the emission lines. Setting this option to False will
             cause the algorithm to look for self.cont, which should
             contain a data cube of continua.
+        sig_threshold : number
+            Fits which return *par_threshold* below this number of
+            times the local noise will be set to nan. If set to 0 this
+            criteria is ignored.
+        par_threshold : integer
+            Parameter which must be above the noise threshold to be
+            considered a valid fit.
 
         Returns
         -------
@@ -883,7 +890,7 @@ class gmosdc:
             elif function == 'gaussian':
                 mnl_flux = mnl
 
-            if p[0] < mnl_flux * sig_threshold:
+            if p[par_threshold] < mnl_flux * sig_threshold:
                 p = nan_solution
                 fit_status[i, j] = 99
 
