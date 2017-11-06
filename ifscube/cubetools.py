@@ -14,7 +14,7 @@ from scipy.optimize import minimize
 from scipy.interpolate import interp1d
 from scipy import ndimage
 import ifscube.elprofile as lprof
-import spectools
+from . import spectools
 from numpy import ma
 from astropy import constants
 from astropy import units
