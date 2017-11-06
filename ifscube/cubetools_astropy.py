@@ -231,7 +231,7 @@ class gmosdc:
         self.header = hdulist[hdrext].header
         self.hdrext = hdrext
 
-        self.wl = st.get_wl(
+        self.wl = spectools.get_wl(
             fitsfile, hdrext=dataext, dimension=0, dwlkey='CD3_3',
             wl0key='CRVAL3', pix0key='CRPIX3')
 
@@ -329,7 +329,7 @@ class gmosdc:
             if (any(s[:20]) and any(s[-20:])) or \
                     (any(np.isnan(s[:20])) and any(np.isnan(s[-20:]))):
                 try:
-                    cont = st.continuum(wl, s, **copts)
+                    cont = spectools.continuum(wl, s, **copts)
                     if self.binned:
                         for l, m in v[v[:, 2] == k, :2]:
                             c[:, l, m] = cont[1]
@@ -419,7 +419,7 @@ class gmosdc:
             if any(data[snrwindow, i, j]) and\
                     all(~np.isnan(data[snrwindow, i, j])):
                 s = data[snrwindow, i, j]
-                cont = st.continuum(wl, s, **copts)[1]
+                cont = spectools.continuum(wl, s, **copts)[1]
                 noise[i, j] = np.nanstd(s - cont)
                 signal[i, j] = np.nanmean(cont)
             else:
@@ -724,7 +724,7 @@ class gmosdc:
                 continue
             v = vcube[:, i, j]
             if fit_continuum:
-                cont = st.continuum(wl, data[:, i, j], **copts)[1]
+                cont = spectools.continuum(wl, data[:, i, j], **copts)[1]
             else:
                 cont = self.cont[:, i, j]
             s = data[:, i, j] - cont
@@ -879,7 +879,7 @@ class gmosdc:
         Nothing.
         """
 
-        self.fitwl = st.get_wl(fname, pix0key='crpix3', wl0key='crval3',
+        self.fitwl = spectools.get_wl(fname, pix0key='crpix3', wl0key='crval3',
                                dwlkey='cd3_3', hdrext=1, dataext=1)
         self.fitspec = pf.getdata(fname, ext=1)
         self.fitcont = pf.getdata(fname, ext=2)
