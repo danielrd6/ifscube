@@ -1050,20 +1050,20 @@ class gmosdc:
             else:
 
                 cond = (fwl > cwl - sf * sig) & (fwl < cwl + sf * sig)
-                cond_data = (rwl > cwl - sf * sig) & (rwl < cwl + sf * sig)
 
                 fit = self.fit_func(
                     fwl[cond], self.em_model[par_indexes, i, j])
+                obs_spec = self.fitspec[cond, i, j]
 
-                # cont = self.fitcont[cond, i, j]
-                cont_data = interp1d(
-                    fwl, self.fitcont[:, i, j])(rwl[cond_data])
+                cont = self.fitcont[cond, i, j]
+                # cont_data = interp1d(
+                #     fwl, self.fitcont[:, i, j])(rwl[cond_data])
 
                 w80_model[i, j], m0, m1, mv, ms = spectools.w80eval(
                     fwl[cond], fit, cwl)
 
                 w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(
-                    rwl[cond_data], self.data[cond_data, i, j] - cont_data, cwl
+                    fwl[cond], obs_spec - cont, cwl
                 )
 
                 # Plots the fit when evaluating only one spectrum.
