@@ -16,8 +16,7 @@ from scipy.integrate import trapz, quad, fixed_quad
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import interp1d, UnivariateSpline
 from scipy.optimize import curve_fit, minimize
-from astropy import constants
-from astropy import units
+from astropy import constants, units
 import re
 
 
