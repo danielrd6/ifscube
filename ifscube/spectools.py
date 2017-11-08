@@ -12,11 +12,11 @@ points.
 import copy
 import astropy.io.fits as pf
 import numpy as np
-from scipy.integrate import trapz, quad, fixed_quad
+from scipy.integrate import trapz, quad, cumtrapz
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import interp1d, UnivariateSpline
-from scipy.optimize import curve_fit, minimize
-from astropy import constants, units
+from scipy.optimize import curve_fit, minimize, root
+from astropy import units
 import re
 
 
@@ -640,7 +640,7 @@ def specphotometry(spec, filt, intlims=(8, 13), coords='wavelength',
         return phot
 
 
-def w80eval(wl, spec, wl0, **min_args):
+def w80eval(wl, spec, wl0, smooth=0, **min_args):
     """
     Evaluates the W80 parameter of a given emission fature.
 
@@ -665,6 +665,7 @@ def w80eval(wl, spec, wl0, **min_args):
     W80 is the width in velocity space which encompasses 80% of the
     light emitted in a given spectral feature. It is widely used as
     a proxy for identifying outflows of ionized gas in active galaxies.
+    For instance, see Zakamska+2014 MNRAS.
     """
 
     # First we begin by transforming from wavelength space to velocity
@@ -675,23 +676,26 @@ def w80eval(wl, spec, wl0, **min_args):
         equivalencies=units.doppler_relativistic(wl0 * units.angstrom),
     )
 
-    f_norm = np.mean(spec)
+    # Linearly interpolates spectrum in the velocity coordinates
+    s = interp1d(velocity, spec)
 
-    new_spec = copy.deepcopy(spec) / f_norm
-    # new_spec[new_spec < 0] = 0
+    # Normalized cumulative integral curve of the emission feature.
+    cumulative = cumtrapz(spec, velocity, initial=0)
+    cumulative /= cumulative.max()
 
-    s = interp1d(velocity, new_spec, fill_value=0, bounds_error=False)
-    total_flux = trapz(new_spec, velocity.value)
-    tf80 = 0.8 * total_flux
-
-    def res(p):
-        return np.square(fixed_quad(s, p[0], p[1], n=7)[0] - tf80)
+    # This returns a function that will be used by the scipy.optimize.root
+    # routine below. There is a possibilty for smoothing the cumulative curve
+    # after performing the integration, which might be useful for very noisy
+    # data.
+    def cumulative_fun(cumulative, d):
+        c = gaussian_filter1d(cumulative, smooth, mode='constant')
+        return interp1d(velocity, c - d)
 
     # In order to have a good initial guess, the code will find the
     # the Half-Width at Half Maximum (hwhm) of the specified feature.
 
     for i in np.linspace(0, velocity[-1]):
-        if s(i) <= new_spec.max() / 2:
+        if s(i) <= spec.max() / 2:
             hwhm = i
             break
 
@@ -705,11 +709,13 @@ def w80eval(wl, spec, wl0, **min_args):
     # numpy.nan when such events occur.
 
     if 'hwhm' in locals():
-        r = minimize(res, x0=[-hwhm.value, hwhm.value], **min_args)
-        w80 = r.x[1] - r.x[0]
-        return w80, r.x[0], r.x[1], velocity, s(velocity)
+        # Finds the velocity of the 10-percentile
+        r0 = root(cumulative_fun(cumulative, .1), -hwhm).x
+        # Finds the velocity of the 90-percentile
+        r1 = root(cumulative_fun(cumulative, .9), +hwhm).x
+        # W80 is the difference between the two.
+        w80 = r1 - r0
+        return w80, r0, r1, velocity, s(velocity)
     else:
         w80 = np.nan
-        return w80, np.nan, np.nan, velocity, s(velocity) 
-
-
+        return w80, np.nan, np.nan, velocity, s(velocity)
