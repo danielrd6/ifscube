@@ -689,7 +689,7 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args):
     # data.
     def cumulative_fun(cumulative, d):
         c = gaussian_filter1d(cumulative, smooth, mode='constant')
-        return interp1d(velocity, c - d)
+        return interp1d(velocity, c - d, bounds_error=False)
 
     # In order to have a good initial guess, the code will find the
     # the Half-Width at Half Maximum (hwhm) of the specified feature.

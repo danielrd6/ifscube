@@ -1000,7 +1000,7 @@ class gmosdc:
         return np.array([eqw_model, eqw_direct])
 
     def w80(self, component, sigma_factor=5, individual_spec=False,
-            verbose=False):
+            verbose=False, smooth=0):
 
         if individual_spec:
             # The reflaction of the *individual_spec* iterable puts the
@@ -1063,7 +1063,7 @@ class gmosdc:
                     fwl[cond], fit, cwl)
 
                 w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(
-                    fwl[cond], obs_spec - cont, cwl
+                    fwl[cond], obs_spec - cont, cwl, smooth=smooth,
                 )
 
                 # Plots the fit when evaluating only one spectrum.
