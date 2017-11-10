@@ -20,6 +20,7 @@ from astropy import constants
 from astropy import units
 from scipy.ndimage import gaussian_filter
 import ifscube.plots as ifsplots
+import progressbar
 
 
 def nan_to_nearest(d):
@@ -121,14 +122,6 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
             outim[i, j] = trapz(arr[:, i, j] * arrfilt, wl)
 
         return outim
-
-
-def progress(x, xmax, steps=10):
-    try:
-        if x % (xmax / steps) == 0:
-            print('{:2.0f}%\r'.format(np.float(x) / np.float(xmax) * 100))
-    except ZeroDivisionError:
-        pass
 
 
 def bound_updater(p0, bound_range):
@@ -752,8 +745,9 @@ class gmosdc:
             xy = np.column_stack([np.ravel(y)[s], np.ravel(x)[s]])
 
         nspec = len(xy)
-        for k, h in enumerate(xy):
-            progress(k, nspec, 10)
+        bar = progressbar.ProgressBar()
+        is_first_spec = True
+        for h in bar(xy):
             i, j = h
             if self.binned:
                 binNum = vor[(vor[:, 0] == i) & (vor[:, 1] == j), 2]
@@ -773,8 +767,8 @@ class gmosdc:
             try:
                 def res(x):
                     return np.sum((s - fit_func(self.fitwl, x)) ** 2 / v)
-
-                if refit and k != 0:
+                if refit and is_first_spec:
+                    is_first_spec = False
                     radsol = np.sqrt((Y - i)**2 + (X - j)**2)
                     nearsol = sol[:-1, (radsol < refit_radius) &
                                   (fit_status == 0)]
