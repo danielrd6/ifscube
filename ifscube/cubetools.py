@@ -664,7 +664,13 @@ class gmosdc:
 
         copts['returns'] = 'function'
 
+        # Checks the suitability of the fitting window given the
+        # available wavelength vector.
         wl = deepcopy(self.restwl[fw])
+        if wl.size == 0:
+            raise RuntimeError('Fitting window limits outside the available'
+            ' wavelength range.')
+
         scale_factor = np.nanmean(self.data[fw, :, :])
         data = deepcopy(self.data[fw, :, :]) / scale_factor
         fit_status = np.ones(np.shape(data)[1:], dtype='float32') * -1
