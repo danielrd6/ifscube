@@ -721,9 +721,10 @@ class gmosdc:
         flux_sf[np.arange(0, npars, npars_pc)] *= scale_factor
         p0 /= flux_sf
         if bounds is not None:
-            bounds = np.array(bounds)
             for i, j in enumerate(bounds):
-                j /= flux_sf[i]
+                for k in (0, 1): 
+                    if j[k] is not None: 
+                        j[k] /= flux_sf[i]
 
         Y, X = np.indices(np.shape(data)[1:])
 
