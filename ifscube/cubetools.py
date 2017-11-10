@@ -1018,6 +1018,10 @@ class gmosdc:
         center_index = 1 + npars * component
         sigma_index = 2 + npars * component
 
+        if center_index > self.em_model.shape[0]:
+            raise RuntimeError('Specified component number is higher than the'
+            ' total number of components.')
+
         for i, j in xy:
 
             if verbose:
