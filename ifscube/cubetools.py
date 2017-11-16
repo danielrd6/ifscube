@@ -664,7 +664,13 @@ class gmosdc:
 
         copts['returns'] = 'function'
 
+        # Checks the suitability of the fitting window given the
+        # available wavelength vector.
         wl = deepcopy(self.restwl[fw])
+        if wl.size == 0:
+            raise RuntimeError('Fitting window limits outside the available'
+            ' wavelength range.')
+
         scale_factor = np.nanmean(self.data[fw, :, :])
         data = deepcopy(self.data[fw, :, :]) / scale_factor
         fit_status = np.ones(np.shape(data)[1:], dtype='float32') * -1
@@ -750,11 +756,14 @@ class gmosdc:
             i, j = h
             if self.binned:
                 binNum = vor[(vor[:, 0] == i) & (vor[:, 1] == j), 2]
-            if (~np.any(data[:20, i, j])) or\
-                    ~np.any(data[-20:, i, j]) or\
+           
+            # Catches spectra with too many nan or zeros.
+            if (~np.any(data[:50, i, j])) or\
+                    ~np.any(data[-50:, i, j]) or\
                     np.any(np.isnan(data[:, i, j])):
                 sol[:, i, j] = nan_solution
                 continue
+            
             v = vcube[:, i, j]
             if fit_continuum:
                 cont = st.continuum(wl, data[:, i, j], **copts)[1]
@@ -1023,6 +1032,10 @@ class gmosdc:
 
         center_index = 1 + npars * component
         sigma_index = 2 + npars * component
+
+        if center_index > self.em_model.shape[0]:
+            raise RuntimeError('Specified component number is higher than the'
+            ' total number of components.')
 
         for i, j in xy:
 
