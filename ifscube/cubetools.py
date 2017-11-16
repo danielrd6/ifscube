@@ -8,7 +8,7 @@ import numpy as np
 import astropy.io.fits as pf
 import ifscube.spectools as st
 import matplotlib.pyplot as plt
-from scipy.integrate import trapz, fixed_quad
+from scipy.integrate import trapz
 from copy import deepcopy
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
@@ -715,8 +715,8 @@ class gmosdc:
         p0 /= flux_sf
         if bounds is not None:
             for i, j in enumerate(bounds):
-                for k in (0, 1): 
-                    if j[k] is not None: 
+                for k in (0, 1):
+                    if j[k] is not None:
                         j[k] /= flux_sf[i]
 
         Y, X = np.indices(np.shape(data)[1:])
@@ -744,7 +744,6 @@ class gmosdc:
             s = np.argsort(b, axis=0, order=['radius', 'angle'])
             xy = np.column_stack([np.ravel(y)[s], np.ravel(x)[s]])
 
-        nspec = len(xy)
         bar = progressbar.ProgressBar()
         is_first_spec = True
         for h in bar(xy):
@@ -767,8 +766,7 @@ class gmosdc:
             try:
                 def res(x):
                     return np.sum((s - fit_func(self.fitwl, x)) ** 2 / v)
-                if refit and is_first_spec:
-                    is_first_spec = False
+                if refit and not is_first_spec:
                     radsol = np.sqrt((Y - i)**2 + (X - j)**2)
                     nearsol = sol[:-1, (radsol < refit_radius) &
                                   (fit_status == 0)]
@@ -783,8 +781,16 @@ class gmosdc:
 
                 r = minimize(res, x0=p0, method=min_method, bounds=bounds,
                              constraints=constraints, options=minopts)
+
+                # When the fit is unsuccessful, prints the minimizer
+                # message.
                 if r.status != 0:
                     print(h, r.message, r.status)
+
+                # If successful, sets is_first_spec to False.
+                if is_first_spec and (r.status == 0):
+                    is_first_spec = False
+
                 # Reduced chi squared of the fit.
                 chi2 = res(r['x'])
                 nu = len(s)/inst_disp - npars - len(constraints) - 1
@@ -1026,7 +1032,7 @@ class gmosdc:
             # Wavelength vector of the line fit
             fwl = self.fitwl
             # Rest wavelength vector of the whole data cube
-            rwl = self.restwl
+            # rwl = self.restwl
             # Center wavelength coordinate of the fit
             cwl = self.em_model[center_index, i, j]
             # Sigma of the fit
@@ -1145,7 +1151,7 @@ class gmosdc:
             return pars
 
         return ax
-    
+
     def channelmaps(
             self, lambda0, velmin, velmax, channels=6,
             continuum_width=300, logFlux=False, continuum_opts=None,
@@ -1663,10 +1669,7 @@ class gmosdc:
             dtype='float64')
         ppxf_model = np.zeros(np.shape(ppxf_spec), dtype='float64')
 
-        nspec = len(xy)
-
         for k, h in enumerate(xy):
-            progress(k, nspec, 10)
             i, j = h
 
             gal_lin = deepcopy(self.data[fw, i, j])
