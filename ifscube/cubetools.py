@@ -1010,7 +1010,7 @@ class gmosdc:
         return np.array([eqw_model, eqw_direct])
 
     def w80(self, component, sigma_factor=5, individual_spec=False,
-            verbose=False, smooth=0):
+            verbose=False, smooth=0, remove_components=[]):
 
         if individual_spec:
             # The reflaction of the *individual_spec* iterable puts the
@@ -1067,15 +1067,26 @@ class gmosdc:
 
                 fit = self.fit_func(
                     fwl[cond], self.em_model[par_indexes, i, j])
-                obs_spec = self.fitspec[cond, i, j]
+                obs_spec = deepcopy(self.fitspec[cond, i, j])
 
                 cont = self.fitcont[cond, i, j]
-                # cont_data = interp1d(
-                #     fwl, self.fitcont[:, i, j])(rwl[cond_data])
 
+                # Evaluates the W80 over the modeled emission line.
                 w80_model[i, j], m0, m1, mv, ms = spectools.w80eval(
                     fwl[cond], fit, cwl)
 
+                # Evaluating the W80 over the observed spectrum
+                # directly is a bit more complicated due to the overlap
+                # between neighbouring spectral features. The solution
+                # here is to remove the undesired components from the
+                # observed spectrum. 
+                if len(remove_components) > 0:
+                    for component in remove_components:
+                        ci = component * npars 
+                        obs_spec -= self.fit_func(
+                            fwl[cond], self.em_model[ci:ci + npars, i, j],
+                        )
+                # And now for the actual W80 evaluation.
                 w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(
                     fwl[cond], obs_spec - cont, cwl, smooth=smooth,
                 )
