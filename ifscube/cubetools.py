@@ -124,7 +124,7 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
         return outim
 
 
-def bound_updater(p0, bound_range):
+def bound_updater(p0, bound_range, bounds=None):
 
     newbound = []
     if np.shape(bound_range) != ():
@@ -163,6 +163,30 @@ def bound_updater(p0, bound_range):
                 newbound += [[i * (1. - bound_range), i * (1. + bound_range)]]
                 if newbound[-1][1] < newbound[-1][0]:
                     newbound[-1].sort()
+
+    # If bounds is set, then newbounds must not exceed bounds.
+    if bounds is not None:
+        for i, j in enumerate(newbound):
+
+            low_new, high_new = j
+            low, high = bounds[i]
+            d = abs(high_new - low_new)
+
+            if low is not None:
+                if low_new < low:
+                    low_new = deepcopy(low)
+                    high_new = low_new + d
+            else:
+                low_new = None
+
+            if high is not None:
+                if high_new > high:
+                    high_new = deepcopy(high)
+                    low_new = high_new - d
+            else:
+                high_new = None
+
+            newbound[i] = [low_new, high_new]
 
     return newbound
 
@@ -668,8 +692,9 @@ class gmosdc:
         # available wavelength vector.
         wl = deepcopy(self.restwl[fw])
         if wl.size == 0:
-            raise RuntimeError('Fitting window limits outside the available'
-            ' wavelength range.')
+            raise RuntimeError(
+                'Fitting window limits outside the available wavelength '
+                ' range.')
 
         scale_factor = np.nanmean(self.data[fw, :, :])
         data = deepcopy(self.data[fw, :, :]) / scale_factor
@@ -724,6 +749,7 @@ class gmosdc:
                 for k in (0, 1):
                     if j[k] is not None:
                         j[k] /= flux_sf[i]
+        original_bounds = deepcopy(bounds)
 
         Y, X = np.indices(np.shape(data)[1:])
 
@@ -756,14 +782,14 @@ class gmosdc:
             i, j = h
             if self.binned:
                 binNum = vor[(vor[:, 0] == i) & (vor[:, 1] == j), 2]
-           
+
             # Catches spectra with too many nan or zeros.
             if (~np.any(data[:50, i, j])) or\
                     ~np.any(data[-50:, i, j]) or\
                     np.any(np.isnan(data[:, i, j])):
                 sol[:, i, j] = nan_solution
                 continue
-            
+
             v = vcube[:, i, j]
             if fit_continuum:
                 cont = st.continuum(wl, data[:, i, j], **copts)[1]
@@ -786,7 +812,8 @@ class gmosdc:
                             np.average(nearsol.transpose(), 0) / flux_sf)
 
                         if update_bounds:
-                            bounds = bound_updater(p0, bound_range)
+                            bounds = bound_updater(
+                                p0, bound_range, bounds=original_bounds)
 
                 r = minimize(res, x0=p0, method=min_method, bounds=bounds,
                              constraints=constraints, options=minopts)
@@ -1034,8 +1061,9 @@ class gmosdc:
         sigma_index = 2 + npars * component
 
         if center_index > self.em_model.shape[0]:
-            raise RuntimeError('Specified component number is higher than the'
-            ' total number of components.')
+            raise RuntimeError(
+                'Specified component number is higher than the total number '
+                'of components.')
 
         for i, j in xy:
 
@@ -1079,10 +1107,10 @@ class gmosdc:
                 # directly is a bit more complicated due to the overlap
                 # between neighbouring spectral features. The solution
                 # here is to remove the undesired components from the
-                # observed spectrum. 
+                # observed spectrum.
                 if len(remove_components) > 0:
                     for component in remove_components:
-                        ci = component * npars 
+                        ci = component * npars
                         obs_spec -= self.fit_func(
                             fwl[cond], self.em_model[ci:ci + npars, i, j],
                         )
