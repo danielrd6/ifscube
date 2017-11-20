@@ -681,7 +681,8 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args):
 
     # Normalized cumulative integral curve of the emission feature.
     cumulative = cumtrapz(spec, velocity, initial=0)
-    cumulative /= cumulative.max()
+    # cumulative /= cumulative.max()
+    cumulative /= cumulative[-1]
 
     # This returns a function that will be used by the scipy.optimize.root
     # routine below. There is a possibilty for smoothing the cumulative curve
