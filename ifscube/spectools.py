@@ -400,8 +400,8 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
         if len(x) == 0:
             print('Stopped at iteration: {:d}.'.format(i))
             break
-        sig = np.std(s(x) - f(x))
         res = s(x) - f(x)
+        sig = np.std(res)
         x = x[(res < upper_threshold * sig) & (res > -lower_threshold * sig)]
 
     if verbose:
