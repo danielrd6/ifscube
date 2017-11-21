@@ -350,7 +350,8 @@ def dopcor(wl, z):
 
 
 def continuum(x, y, returns='ratio', degr=6, niterate=5,
-              lower_threshold=2, upper_threshold=3, verbose=False):
+              lower_threshold=2, upper_threshold=3, verbose=False,
+              weights=None):
     """
     Builds a polynomial continuum from segments of a spectrum,
     given in the form of wl and flux arrays.
@@ -392,8 +393,11 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
     xfull = copy.deepcopy(x)
     s = interp1d(x, y)
 
+    if weights is None:
+        weights = np.ones_like(x)
+
     def f(x):
-        return np.polyval(np.polyfit(x, s(x), deg=degr), x)
+        return np.polyval(np.polyfit(x, s(x), deg=degr, w=weights), x)
 
     for i in range(niterate):
 
@@ -402,7 +406,11 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
             break
         res = s(x) - f(x)
         sig = np.std(res)
-        x = x[(res < upper_threshold * sig) & (res > -lower_threshold * sig)]
+        rej_cond = (
+            (res < upper_threshold * sig) & (res > -lower_threshold * sig)
+        )
+        x = x[rej_cond]
+        weights = weights[rej_cond]
 
     if verbose:
         print('Final number of points used in the fit: {:d}'
@@ -410,7 +418,7 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
         print('Rejection ratio: {:.2f}'
               .format(1. - float(len(x)) / float(len(xfull))))
 
-    p = np.polyfit(x, s(x), deg=degr)
+    p = np.polyfit(x, s(x), deg=degr, w=weights)
 
     if returns == 'ratio':
         return xfull, s(xfull) / np.polyval(p, xfull)
