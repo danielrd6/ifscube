@@ -1188,7 +1188,8 @@ class gmosdc:
                 ax.plot(
                     wl, (c + f(wl, p[i: i+npars])) / 10. ** norm_factor, 'k--')
 
-        pars = (npars * '{:10s}' + '\n').format(*parnames)
+        pars = ('Red_Chi2: {:.3f}\n'.format(self.em_model[-1, y, x]))
+        pars += (npars * '{:10s}' + '\n').format(*parnames)
         for i in np.arange(0, len(p), npars):
             pars += (
                 ('{:10.2e}' + (npars-1) * '{:10.2f}' + '\n')
