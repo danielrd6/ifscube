@@ -11,6 +11,7 @@ import argparse
 import copy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import ifscube.cubetools as ct
+from ifscube import manga
 import ifscube.cubetools_astropy as cta
 import tkinter as Tk
 import dill as pickle
@@ -28,15 +29,16 @@ class mclass:
                 cube = pickle.load(f)
         else:
 
-            if args.datacube == None:
+            if args.gmos_datacube is not None:
+                cube = ct.gmosdc(args.gmos_datacube)
+            elif args.manga_datacube is not None:
+                cube = manga.cube(args.manga_datacube)
+            else:
                 raise RuntimeError(
                     'Astropy option -a not set and no data cube file provided.'
-                    ' If this is not an astropy.modeling fit you '
-                    'should provide a data cube file using the -d or '
-                    '--datacube option.'
+                    ' If this is not an astropy.modeling fit you should' 
+                    ' provide a data cube file using either -d or -m options.'
                 )
-
-            cube = ct.gmosdc(args.datacube)
             cube.loadfit(args.fitfile)
 
         self.window = window
@@ -234,11 +236,13 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '-d', '--datacube', type=str, help='The original data cube.')
+        '-d', '--gmos-datacube', type=str, help='GMOS data cube.')
+    parser.add_argument(
+        '-m', '--manga-datacube', type=str, help='Manga data cube.')
     parser.add_argument(
         '-f', '--fitfile', type=str, help='Result of the fit')
     parser.add_argument(
-        '-m', '--fitstatus_mask', type=bool, help='Apply fit status mask.')
+        '--fitstatus_mask', type=bool, help='Apply fit status mask.')
     parser.add_argument(
         '-a', '--astropy', action='store_true',
         help='Fitfile refers to an astropy modeling fit.')
