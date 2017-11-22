@@ -784,17 +784,17 @@ class gmosdc:
                 binNum = vor[(vor[:, 0] == i) & (vor[:, 1] == j), 2]
 
             # Catches spectra with too many nan or zeros.
-            if (~np.any(data[:50, i, j])) or\
-                    ~np.any(data[-50:, i, j]) or\
-                    np.any(np.isnan(data[:, i, j])):
-                sol[:, i, j] = nan_solution
-                continue
+            # if (~np.any(data[:50, i, j])) or\
+            #         ~np.any(data[-50:, i, j]) or\
+            #         np.any(np.isnan(data[:, i, j])):
+            #     sol[:, i, j] = nan_solution
+            #     continue
 
             v = vcube[:, i, j]
             if fit_continuum:
                 cont = st.continuum(wl, data[:, i, j], **copts)[1]
             else:
-                cont = self.cont[:, i, j]/scale_factor
+                cont = self.cont[fw, i, j]/scale_factor
             s = data[:, i, j] - cont
 
             # Avoids fitting if the spectrum is null.
