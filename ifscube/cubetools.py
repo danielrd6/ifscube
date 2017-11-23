@@ -1174,7 +1174,12 @@ class gmosdc:
         f = self.fit_func
         s = self.fitspec[:, y, x]
 
-        norm_factor = np.int(np.log10(np.median(s)))
+        median_spec = np.median(s)
+        
+        if median_spec > 0:
+            norm_factor = np.int(np.log10(median_spec))
+        else:
+            return ax
 
         ax.plot(wl, (c + f(wl, p)) / 10. ** norm_factor)
         ax.plot(wl, c / 10. ** norm_factor)
