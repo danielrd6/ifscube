@@ -18,11 +18,11 @@ class cube(cubetools.gmosdc):
         self.header = hdu[0].header
 
         self.data = hdu['F_OBS'].data
-        self.flags = hdu['F_FLAG'].data
         self.header_data = hdu['F_OBS'].header
         self.fobs_norm = hdu['FOBS_NORM'].data
         self.noise_cube = hdu['F_ERR'].data
-        self.weights = hdu['F_WEI'].data
+        self.flag_cube = hdu['F_FLAG'].data
+        # self.weights = hdu['F_WEI'].data
 
         self.data *= self.fobs_norm
         self.noise_cube *= self.fobs_norm
@@ -32,12 +32,27 @@ class cube(cubetools.gmosdc):
         self.binned = False
 
         self.__getwl__()
+        self.__flags__()
         self.__spec_indices__()
 
         self.cont = hdu['F_SYN'].data * self.fobs_norm
         self.syn = hdu['F_SYN'].data * self.fobs_norm
 
         hdu.close()
+
+    def __flags__(self):
+
+        _unused = 0x0001
+        no_data = 0x0002
+        bad_pix = 0x0004
+        ccd_gap = 0x0008
+        telluric = 0x0010
+        # seg_has_badpixels = 0x0020
+        # low_sn = 0x0040
+        
+        no_obs = no_data | bad_pix | ccd_gap
+        
+        self.flags = self.flag_cube & no_obs
 
     def __spec_indices__(self):
 
