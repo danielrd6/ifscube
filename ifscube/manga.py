@@ -24,6 +24,9 @@ class cube(cubetools.gmosdc):
         self.noise_cube = hdu['F_ERR'].data
         self.weights = hdu['F_WEI'].data
 
+        self.data *= self.fobs_norm
+        self.noise_cube *= self.fobs_norm
+
         self.wcs = wcs.WCS(self.header_data)
 
         self.binned = False
@@ -31,8 +34,8 @@ class cube(cubetools.gmosdc):
         self.__getwl__()
         self.__spec_indices__()
 
-        self.cont = hdu['F_SYN'].data
-        self.syn = hdu['F_SYN'].data
+        self.cont = hdu['F_SYN'].data * self.fobs_norm
+        self.syn = hdu['F_SYN'].data * self.fobs_norm
 
         hdu.close()
 
