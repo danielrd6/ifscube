@@ -21,6 +21,8 @@ class cube(cubetools.gmosdc):
         self.flags = hdu['F_FLAG'].data
         self.header_data = hdu['F_OBS'].header
         self.fobs_norm = hdu['FOBS_NORM'].data
+        self.noise_cube = hdu['F_ERR'].data
+        self.weights = hdu['F_WEI'].data
 
         self.wcs = wcs.WCS(self.header_data)
 
