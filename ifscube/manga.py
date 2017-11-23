@@ -33,6 +33,18 @@ class cube(cubetools.gmosdc):
         hdu.close()
     
     def __getwl__(self):
+        """
+        Builds a wavelength vector based on the wcs object created in
+        the __init__ method. 
+
+        Parameters
+        ----------
+        None.
+
+        Returns
+        -------
+        None.
+        """
 
         x = np.arange(self.data.shape[0])
         z = np.zeros_like(x)
@@ -43,3 +55,7 @@ class cube(cubetools.gmosdc):
             self.restwl = self.wl / (1. + redshift)
         else:
             self.restwl = self.wl
+
+    def eqw(self, component):
+
+
