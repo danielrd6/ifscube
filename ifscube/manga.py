@@ -75,7 +75,7 @@ class cube(cubetools.gmosdc):
         no_starlight = starlight_no_data | starlight_failed_run
 
         flags = no_obs | no_starlight
-        bad_lyx = (self.flags & flags) > 0
+        bad_lyx = (self.flag_cube & flags) > 0
         spatial_mask = (
             np.sum(bad_lyx, 0) > len(self.restwl) * 0.8
         )
