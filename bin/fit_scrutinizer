@@ -242,7 +242,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-f', '--fitfile', type=str, help='Result of the fit')
     parser.add_argument(
-        '--fitstatus_mask', type=bool, help='Apply fit status mask.')
+        '--fitstatus_mask', type=bool, help='Apply fit status mask.',
+        default=True)
     parser.add_argument(
         '-a', '--astropy', action='store_true',
         help='Fitfile refers to an astropy modeling fit.')
