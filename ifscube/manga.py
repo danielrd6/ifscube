@@ -3,7 +3,6 @@ from . import elprofile as lprof
 from astropy.io import fits
 from astropy import wcs
 import numpy as np
-from scipy.interpolate import interp1d
 from scipy.integrate import trapz
 
 
@@ -37,9 +36,9 @@ class cube(cubetools.gmosdc):
     def __spec_indices__(self):
 
         # _unused = 0x0001
-        # no_data = 0x0002
-        # bad_pix = 0x0004
-        # ccd_gap = 0x0008
+        no_data = 0x0002
+        bad_pix = 0x0004
+        ccd_gap = 0x0008
         # telluric = 0x0010
         # seg_has_badpixels = 0x0020
         # low_sn = 0x0040
@@ -50,11 +49,12 @@ class cube(cubetools.gmosdc):
         # starlight_clipped = 0x0800
 
         # Compound flags
-        # no_obs = no_data | bad_pix | ccd_gap
+        no_obs = no_data | bad_pix | ccd_gap
         # before_starlight = no_obs | telluric | low_sn
         no_starlight = starlight_no_data | starlight_failed_run
 
-        bad_lyx = (self.flags & no_starlight) > 0
+        flags = no_obs | no_starlight
+        bad_lyx = (self.flags & flags) > 0
         spatial_mask = (
             np.sum(bad_lyx, 0) > len(self.restwl) * 0.8
         )
@@ -117,6 +117,9 @@ class cube(cubetools.gmosdc):
         eqw_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
         eqw_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
 
+        eqw_model[self.spatial_mask] = np.nan
+        eqw_direct[self.spatial_mask] = np.nan
+
         if self.fit_func == lprof.gauss:
             npars = 3
         if self.fit_func == lprof.gausshermite:
@@ -174,16 +177,12 @@ class cube(cubetools.gmosdc):
                 cont = spectools.continuum(
                     fwl, self.syn[cond_syn, i, j], weights=weights,
                     degr=1, niterate=3, lower_threshold=3,
-                    upper_threshold=3, returns='function')
-
-                cont_data = interp1d(
-                    fwl, self.fitcont[:, i, j])(rwl[cond_data])
+                    upper_threshold=3, returns='function')[1][cond]
 
                 eqw_model[i, j] = trapz(
                     1. - (fit + cont) / cont, x=fwl[cond])
 
                 eqw_direct[i, j] = trapz(
-                    1. - self.data[cond_data, i, j] / cont_data,
-                    x=rwl[cond_data])
+                    1. - self.data[cond_data, i, j] / cont, x=fwl[cond])
 
         return np.array([eqw_model, eqw_direct])
