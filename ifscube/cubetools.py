@@ -310,13 +310,13 @@ class gmosdc:
     def __set_spec_indices__(self):
 
         if self.spatial_mask is None:
-            self.spatial_mask = np.ones_like(self.data[0]).astype('bool')
+            self.spatial_mask = np.zeros_like(self.data[0]).astype('bool')
 
         self.spec_indices = np.column_stack([
             np.ravel(
-                np.indices(np.shape(self.data)[1:])[0][self.spatial_mask]),
+                np.indices(np.shape(self.data)[1:])[0][~self.spatial_mask]),
             np.ravel(
-                np.indices(np.shape(self.data)[1:])[1][self.spatial_mask]),
+                np.indices(np.shape(self.data)[1:])[1][~self.spatial_mask]),
         ])
 
     def continuum(self, writefits=False, outimage=None,
@@ -1175,7 +1175,7 @@ class gmosdc:
         s = self.fitspec[:, y, x]
 
         median_spec = np.median(s)
-        
+
         if median_spec > 0:
             norm_factor = np.int(np.log10(median_spec))
         else:
