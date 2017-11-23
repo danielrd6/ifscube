@@ -20,6 +20,7 @@ class cube(cubetools.gmosdc):
         self.data = hdu['F_OBS'].data
         self.flags = hdu['F_FLAG'].data
         self.header_data = hdu['F_OBS'].header
+        self.fobs_norm = hdu['FOBS_NORM'].data
 
         self.wcs = wcs.WCS(self.header_data)
 
