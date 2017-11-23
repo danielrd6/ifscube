@@ -120,11 +120,10 @@ class cube(cubetools.gmosdc):
 
                 cond = (fwl > cwl - sf * sig) & (fwl < cwl + sf * sig)
                 cond_data = (rwl > cwl - sf * sig) & (rwl < cwl + sf * sig)
+                cond_syn = (rwl >= fwl[0] ) & (rwl <= fwl[-1])
 
                 fit = self.fit_func(
                         fwl[cond], self.em_model[par_indexes, i, j])
-
-                # cont = self.fitcont[cond, i, j]
 
                 # If the continuum fitting windos are set, use that
                 # to define the weights vector.
@@ -141,9 +140,9 @@ class cube(cubetools.gmosdc):
                     weights = np.ones_like(self.fitwl)
 
                 cont = spectools.continuum(
-                    fwl, self.syn[cond, i, j], weights=weights,
-                    degr=1, niterate=3, lower_threshold=1,
-                    upper_threshold=1, returns='function')
+                    fwl, self.syn[cond_syn, i, j], weights=weights,
+                    degr=1, niterate=3, lower_threshold=3,
+                    upper_threshold=3, returns='function')
 
                 cont_data = interp1d(
                     fwl, self.fitcont[:, i, j])(rwl[cond_data])
