@@ -319,6 +319,19 @@ class gmosdc:
                 np.indices(np.shape(self.data)[1:])[1][~self.spatial_mask]),
         ])
 
+    def __arg2cube__(self, arg, cube):
+
+        if len(np.shape(arg)) == 0:
+            cube *= arg
+        elif len(np.shape(arg)) == 1:
+            for i, j in self.spec_indices:
+                cube[:, i, j] = arg
+        elif len(np.shape(arg)) == 2:
+            for i, j in enumerate(cube):
+                cube[i] = arg
+
+        return cube
+
     def continuum(self, writefits=False, outimage=None,
                   fitting_window=None, copts=None):
         """
@@ -573,7 +586,8 @@ class gmosdc:
                 minopts={'eps': 1e-3}, copts=None, refit=False,
                 update_bounds=False, bound_range=.1, spiral_loop=False,
                 spiral_center=None, fit_continuum=True, refit_radius=3,
-                sig_threshold=0, par_threshold=0):
+                sig_threshold=0, par_threshold=0, weights=None,
+                flags=None):
 
         """
         Fits a spectral feature with a gaussian function and returns a
@@ -711,24 +725,39 @@ class gmosdc:
         data = deepcopy(self.data[fw, :, :]) / scale_factor
         fit_status = np.ones(np.shape(data)[1:], dtype='float32') * -1
 
+        #
+        # Set the variance cube.
+        #
         try:
             vcube = (self.noise_cube[fw, :, :] ** 2) / (scale_factor ** 2)
         except AttributeError:
             vcube = np.ones(np.shape(data), dtype='float32')
 
         if variance is not None:
-            if len(np.shape(variance)) == 0:
-                vcube *= variance
-            elif len(np.shape(variance)) == 1:
-                for i, j in self.spec_indices:
-                    vcube[:, i, j] = variance
-            elif len(np.shape(variance)) == 2:
-                for i, j in enumerate(vcube):
-                    vcube[i] = variance
-            elif len(np.shape(variance)) == 3:
-                vcube = variance[fw, :, :]
-
+            vcube = self.__arg2cube__(variance, vcube)
             vcube /= scale_factor ** 2
+
+        #
+        # Set the weight cube.
+        #
+        try:
+            wcube = self.weights[fw, :, :]
+        except AttributeError:
+            wcube = np.ones_like(data)
+
+        if weights is not None:
+            wcube = self.__arg2cube__(weights, wcube)
+
+        #
+        # Set the flags cube.
+        #
+        try:
+            flag_cube = self.flags[fw, :, :]
+        except AttributeError:
+            flag_cube = np.zeros_like(data)
+
+        if flags is not None:
+            flag_cube = self.__arg2cube__(flags, flag_cube)
 
         npars = len(p0)
         nan_solution = np.array([np.nan for i in range(npars+1)])
@@ -739,6 +768,7 @@ class gmosdc:
         self.fitwl = wl
         self.fitspec = np.zeros(np.shape(data), dtype='float32')
         self.resultspec = np.zeros(np.shape(data), dtype='float32')
+        self.fitweights = wcube
 
         if self.binned:
             v = self.voronoi_tab
@@ -790,28 +820,40 @@ class gmosdc:
         bar = progressbar.ProgressBar()
         is_first_spec = True
         for h in bar(xy):
+
             i, j = h
             if self.binned:
                 binNum = vor[(vor[:, 0] == i) & (vor[:, 1] == j), 2]
 
-            # Catches spectra with too many nan or zeros.
-            # if (~np.any(data[:50, i, j])) or\
-            #         ~np.any(data[-50:, i, j]) or\
-            #         np.any(np.isnan(data[:, i, j])):
-            #     sol[:, i, j] = nan_solution
-            #     continue
-
             v = vcube[:, i, j]
+
             if fit_continuum:
                 cont = st.continuum(wl, data[:, i, j], **copts)[1]
             else:
                 cont = self.cont[fw, i, j]/scale_factor
-            s = data[:, i, j] - cont
 
+            s = data[:, i, j] - cont
+            w = deepcopy(wcube[:, i, j])
+
+            flags = flag_cube[:, i, j].astype('bool')
+
+            assert np.all(v[~flags] > 0), 'Variance values of less than or '\
+                'equal to zero.'
+            assert np.all(w >= 0), 'Weight values of less than zero.'
             # Avoids fitting if the spectrum is null.
             try:
+
+                #
+                # Function to be minimized!
+                # This is the definition of Chi^2.
+                #
                 def res(x):
-                    return np.sum((s - fit_func(self.fitwl, x)) ** 2 / v)
+                    m = fit_func(self.fitwl, x)
+                    # Should I divide this by the sum of the weights?
+                    a = w * (s - m) ** 2
+                    b = (a[~flags] / v[~flags])
+                    return np.sum(b)
+
                 if refit and not is_first_spec:
                     radsol = np.sqrt((Y - i)**2 + (X - j)**2)
                     nearsol = sol[:-1, (radsol < refit_radius) &
@@ -840,7 +882,7 @@ class gmosdc:
 
                 # Reduced chi squared of the fit.
                 chi2 = res(r['x'])
-                nu = len(s)/inst_disp - npars - len(constraints) - 1
+                nu = len(s[~flags])/inst_disp - npars - len(constraints) - 1
                 red_chi2 = chi2 / nu
                 p = np.append(r['x']*flux_sf, red_chi2)
                 fit_status[i, j] = r.status
