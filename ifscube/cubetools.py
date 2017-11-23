@@ -199,7 +199,7 @@ class gmosdc:
 
     def __init__(self, fitsfile, redshift=None, vortab=None,
                  dataext=1, hdrext=0, var_ext=None, ncubes_ext=None,
-                 nan_spaxels='all'):
+                 nan_spaxels='all', spatial_mask=None):
         """
         Initializes the class and loads basic information onto the
         object.
@@ -234,6 +234,7 @@ class gmosdc:
         self.dataext = dataext
         self.var_ext = var_ext
         self.ncubes_ext = ncubes_ext
+        self.spatial_mask = spatial_mask
 
         hdulist = pf.open(fitsfile)
 
@@ -303,10 +304,20 @@ class gmosdc:
 
         self.fitsfile = fitsfile
         self.redshift = redshift
+
+        self.__set_spec_indices__()
+
+    def __set_spec_indices__(self):
+
+        if self.spatial_mask is None:
+            self.spatial_mask = np.ones_like(self.data[0]).astype('bool')
+
         self.spec_indices = np.column_stack([
-            np.ravel(np.indices(np.shape(self.data)[1:])[0]),
-            np.ravel(np.indices(np.shape(self.data)[1:])[1])
-            ])
+            np.ravel(
+                np.indices(np.shape(self.data)[1:])[0][self.spatial_mask]),
+            np.ravel(
+                np.indices(np.shape(self.data)[1:])[1][self.spatial_mask]),
+        ])
 
     def continuum(self, writefits=False, outimage=None,
                   fitting_window=None, copts=None):
