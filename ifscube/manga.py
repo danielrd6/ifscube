@@ -19,22 +19,54 @@ class cube(cubetools.gmosdc):
         self.header = hdu[0].header
 
         self.data = hdu['F_OBS'].data
+        self.flags = hdu['F_FLAG'].data
         self.header_data = hdu['F_OBS'].header
 
         self.wcs = wcs.WCS(self.header_data)
 
         self.binned = False
 
-        self.spec_indices = np.column_stack([
-            np.ravel(np.indices(np.shape(self.data)[1:])[0]),
-            np.ravel(np.indices(np.shape(self.data)[1:])[1])
-        ])
-
         self.__getwl__()
+        self.__spec_indices__()
+
         self.cont = hdu['F_SYN'].data
         self.syn = hdu['F_SYN'].data
 
         hdu.close()
+
+    def __spec_indices__(self):
+
+        # _unused = 0x0001
+        # no_data = 0x0002
+        # bad_pix = 0x0004
+        # ccd_gap = 0x0008
+        # telluric = 0x0010
+        # seg_has_badpixels = 0x0020
+        # low_sn = 0x0040
+
+        # starlight_masked = 0x0100
+        starlight_failed_run = 0x0200
+        starlight_no_data = 0x0400
+        # starlight_clipped = 0x0800
+
+        # Compound flags
+        # no_obs = no_data | bad_pix | ccd_gap
+        # before_starlight = no_obs | telluric | low_sn
+        no_starlight = starlight_no_data | starlight_failed_run
+
+        bad_lyx = (self.flags & no_starlight) > 0
+        spatial_mask = (
+            np.sum(bad_lyx, 0) > len(self.restwl) * 0.8
+        )
+
+        self.spatial_mask = spatial_mask
+
+        self.spec_indices = np.column_stack([
+            np.ravel(
+                np.indices(np.shape(self.data)[1:])[0][~spatial_mask]),
+            np.ravel(
+                np.indices(np.shape(self.data)[1:])[1][~spatial_mask]),
+        ])
 
     def __getwl__(self):
         """
@@ -76,7 +108,7 @@ class cube(cubetools.gmosdc):
 
         Returns
         -------
-        eqw : numpy.ndarray 
+        eqw : numpy.ndarray
           Equivalent widths measured on the emission line model and
           directly on the observed spectrum, respectively.
         """
@@ -120,7 +152,7 @@ class cube(cubetools.gmosdc):
 
                 cond = (fwl > cwl - sf * sig) & (fwl < cwl + sf * sig)
                 cond_data = (rwl > cwl - sf * sig) & (rwl < cwl + sf * sig)
-                cond_syn = (rwl >= fwl[0] ) & (rwl <= fwl[-1])
+                cond_syn = (rwl >= fwl[0]) & (rwl <= fwl[-1])
 
                 fit = self.fit_func(
                         fwl[cond], self.em_model[par_indexes, i, j])
