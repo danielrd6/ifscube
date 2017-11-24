@@ -343,6 +343,55 @@ class gmosdc:
 
         return cube
 
+    def __write_linefit__(self, sol, args):
+
+        outimage = args['outimage']
+        # Basic tests and first header
+        if outimage is None:
+            outimage = self.fitsfile.replace('.fits',
+                                             '_linefit.fits')
+        hdr = deepcopy(self.header_data)
+        try:
+            hdr['REDSHIFT'] = self.redshift
+        except KeyError:
+            hdr['REDSHIFT'] = (self.redshift,
+                               'Redshift used in GMOSDC')
+
+        # Creates MEF output.
+        h = pf.HDUList()
+        h.append(pf.PrimaryHDU(header=hdr))
+
+        # Creates the fitted spectrum extension
+        hdr = pf.Header()
+        hdr['object'] = ('spectrum', 'Data in this extension')
+        hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
+        hdr['CRVAL3'] = (self.fitwl[0], 'Reference value for wavelength')
+        hdr['CD3_3'] = (np.average(np.diff(self.fitwl)), 'CD3_3')
+        h.append(pf.ImageHDU(data=self.fitspec, header=hdr))
+
+        # Creates the fitted continuum extension.
+        hdr['object'] = 'continuum'
+        h.append(pf.ImageHDU(data=self.fitcont, header=hdr))
+
+        # Creates the fitted function extension.
+        hdr['object'] = 'fit'
+        h.append(pf.ImageHDU(data=self.resultspec, header=hdr))
+
+        # Creates the solution extension.
+        function = args['function']
+        total_pars = self.em_model.shape[0] - 1
+
+        hdr['object'] = 'parameters'
+        hdr['function'] = (function, 'Fitted function')
+        hdr['nfunc'] = (total_pars/self.npars, 'Number of functions')
+        h.append(pf.ImageHDU(data=sol, header=hdr))
+
+        # Creates the minimize's exit status extension
+        hdr['object'] = 'status'
+        h.append(pf.ImageHDU(data=self.fit_status, header=hdr))
+
+        h.writeto(outimage)
+
     def continuum(self, writefits=False, outimage=None,
                   fitting_window=None, copts=None):
         """
@@ -711,6 +760,8 @@ class gmosdc:
         else:
             raise NameError('Unknown function "{:s}".'.format(function))
 
+        self.npars = npars_pc
+
         if fitting_window is not None:
             fw = (self.restwl > fitting_window[0]) &\
                  (self.restwl < fitting_window[1])
@@ -842,7 +893,7 @@ class gmosdc:
                 continue
 
             scale_factor = np.average(data[:, i, j][~flags])
-            assert scale_factor > 0; 'Scale factor is negative.'
+            assert scale_factor > 0, 'Scale factor is negative.'
             s /= scale_factor
             v /= scale_factor ** 2
 
@@ -958,49 +1009,7 @@ class gmosdc:
         p0 *= flux_sf
 
         if writefits:
-
-            # Basic tests and first header
-            if outimage is None:
-                outimage = self.fitsfile.replace('.fits',
-                                                 '_linefit.fits')
-            hdr = deepcopy(self.header_data)
-            try:
-                hdr['REDSHIFT'] = self.redshift
-            except KeyError:
-                hdr['REDSHIFT'] = (self.redshift,
-                                   'Redshift used in GMOSDC')
-
-            # Creates MEF output.
-            h = pf.HDUList()
-            h.append(pf.PrimaryHDU(header=hdr))
-
-            # Creates the fitted spectrum extension
-            hdr = pf.Header()
-            hdr['object'] = ('spectrum', 'Data in this extension')
-            hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
-            hdr['CRVAL3'] = (wl[0], 'Reference value for wavelength')
-            hdr['CD3_3'] = (np.average(np.diff(wl)), 'CD3_3')
-            h.append(pf.ImageHDU(data=self.fitspec, header=hdr))
-
-            # Creates the fitted continuum extension.
-            hdr['object'] = 'continuum'
-            h.append(pf.ImageHDU(data=self.fitcont, header=hdr))
-
-            # Creates the fitted function extension.
-            hdr['object'] = 'fit'
-            h.append(pf.ImageHDU(data=self.resultspec, header=hdr))
-
-            # Creates the solution extension.
-            hdr['object'] = 'parameters'
-            hdr['function'] = (function, 'Fitted function')
-            hdr['nfunc'] = (len(p)/3, 'Number of functions')
-            h.append(pf.ImageHDU(data=sol, header=hdr))
-
-            # Creates the minimize's exit status extension
-            hdr['object'] = 'status'
-            h.append(pf.ImageHDU(data=fit_status, header=hdr))
-
-            h.writeto(outimage)
+            self.__write_linefit__(sol=sol, args=locals())
 
         if individual_spec:
             return wl, s * scale_factor, cont * scale_factor,\
@@ -1038,14 +1047,17 @@ class gmosdc:
 
         if func_name == 'gaussian':
             self.fit_func = lprof.gauss
-            npars = 3
-
-        if func_name == 'gauss_hermite':
+            self.npars = 3
+            self.parnames = ('A', 'wl', 's')
+        elif func_name == 'gauss_hermite':
             self.fit_func = lprof.gausshermite
-            npars = 5
+            self.npars = 5
+            self.parnames = ('A', 'wl', 's', 'h3', 'h4')
+        else:
+            raise IOError('Unkwon function name "{:s}"'.format(func_name))
 
-        fit_info['parameters'] = npars
-        fit_info['components'] = (self.em_model.shape[0] - 1) / npars
+        fit_info['parameters'] = self.npars
+        fit_info['components'] = (self.em_model.shape[0] - 1) / self.npars
 
         self.fit_info = fit_info
 
@@ -1259,14 +1271,8 @@ class gmosdc:
             'Flux density ($10^{{{:d}}}\, {{\\rm erg\,s^{{-1}}\,cm^{{-2}}'
             '\,\AA^{{-1}}}}$)'.format(norm_factor))
 
-        if self.fit_func == lprof.gauss:
-            npars = 3
-            parnames = ('A', 'wl', 's')
-        elif self.fit_func == lprof.gausshermite:
-            npars = 5
-            parnames = ('A', 'wl', 's', 'h3', 'h4')
-        else:
-            raise NameError('Unkown fit function.')
+        npars = self.npars
+        parnames = self.parnames
 
         if len(p) > npars:
             for i in np.arange(0, len(p), npars):
