@@ -191,6 +191,16 @@ def bound_updater(p0, bound_range, bounds=None):
     return newbound
 
 
+def scale_bounds(bounds, flux_sf):
+
+    for i, j in enumerate(bounds):
+        for k in (0, 1):
+            if j[k] is not None:
+                j[k] /= flux_sf[i]
+
+    return bounds
+
+
 class gmosdc:
     """
     A class for dealing with data cubes, originally written to work
@@ -721,21 +731,19 @@ class gmosdc:
                 'Fitting window limits outside the available wavelength '
                 ' range.')
 
-        scale_factor = np.nanmean(self.data[fw, :, :])
-        data = deepcopy(self.data[fw, :, :]) / scale_factor
+        data = deepcopy(self.data[fw, :, :])
         fit_status = np.ones(np.shape(data)[1:], dtype='float32') * -1
 
         #
         # Set the variance cube.
         #
         try:
-            vcube = (self.noise_cube[fw, :, :] ** 2) / (scale_factor ** 2)
+            vcube = self.noise_cube[fw, :, :] ** 2
         except AttributeError:
-            vcube = np.ones(np.shape(data), dtype='float32')
+            vcube = np.ones_like(data)
 
         if variance is not None:
             vcube = self.__arg2cube__(variance, vcube)
-            vcube /= scale_factor ** 2
 
         #
         # Set the weight cube.
@@ -780,16 +788,7 @@ class gmosdc:
         else:
             xy = self.spec_indices
 
-        # Scale factor for the flux. Needed to avoid problems with
-        # the minimization algorithm.
-        flux_sf = np.ones(npars, dtype='float32')
-        flux_sf[np.arange(0, npars, npars_pc)] *= scale_factor
-        p0 /= flux_sf
-        if bounds is not None:
-            for i, j in enumerate(bounds):
-                for k in (0, 1):
-                    if j[k] is not None:
-                        j[k] /= flux_sf[i]
+        # Saves the original bounds in case the bound updater is used.
         original_bounds = deepcopy(bounds)
 
         Y, X = np.indices(np.shape(data)[1:])
@@ -830,19 +829,32 @@ class gmosdc:
             if fit_continuum:
                 cont = st.continuum(wl, data[:, i, j], **copts)[1]
             else:
-                cont = self.cont[fw, i, j]/scale_factor
+                cont = self.cont[fw, i, j]
 
             s = data[:, i, j] - cont
             w = deepcopy(wcube[:, i, j])
+            w /= np.sum(w) / w.size
 
             flags = flag_cube[:, i, j].astype('bool')
+
+            scale_factor = np.average(s[~flags])
+            s /= scale_factor
+            v /= scale_factor ** 2
+
+            flux_sf = np.ones_like(p0)
+            flux_sf[np.arange(0, npars, npars_pc)] *= scale_factor
+            p0 /= flux_sf
+
+            # The bounds, possibly having *None* in some places, need
+            # a special function to apply the scale factor.
+            bounds = scale_bounds(bounds, flux_sf)
+            bounds_0 = scale_bounds(original_bounds, flux_sf)
 
             assert np.all(v[~flags] > 0), 'Variance values of less than or '\
                 'equal to zero.'
             assert np.all(w >= 0), 'Weight values of less than zero.'
-            # Avoids fitting if the spectrum is null.
-            try:
 
+            try:
                 #
                 # Function to be minimized!
                 # This is the definition of Chi^2.
@@ -851,8 +863,9 @@ class gmosdc:
                     m = fit_func(self.fitwl, x)
                     # Should I divide this by the sum of the weights?
                     a = w * (s - m) ** 2
-                    b = (a[~flags] / v[~flags])
-                    return np.sum(b)
+                    b = a[~flags] / v[~flags]
+                    rms = np.sqrt(np.sum(b))
+                    return rms
 
                 if refit and not is_first_spec:
                     radsol = np.sqrt((Y - i)**2 + (X - j)**2)
@@ -866,7 +879,7 @@ class gmosdc:
 
                         if update_bounds:
                             bounds = bound_updater(
-                                p0, bound_range, bounds=original_bounds)
+                                p0, bound_range, bounds=bounds_0)
 
                 r = minimize(res, x0=p0, method=min_method, bounds=bounds,
                              constraints=constraints, options=minopts)
@@ -881,11 +894,14 @@ class gmosdc:
                     is_first_spec = False
 
                 # Reduced chi squared of the fit.
-                chi2 = res(r['x'])
+                chi2 = np.sum(
+                    ((s - fit_func(self.fitwl, r.x)) ** 2 / v)[~flags])
                 nu = len(s[~flags])/inst_disp - npars - len(constraints) - 1
                 red_chi2 = chi2 / nu
+
                 p = np.append(r['x']*flux_sf, red_chi2)
                 fit_status[i, j] = r.status
+
             except RuntimeError:
                 print(
                     'Optimal parameters not found for spectrum {:d},{:d}'
@@ -915,14 +931,14 @@ class gmosdc:
             if self.binned:
                 for l, m in vor[vor[:, 2] == binNum, :2]:
                     sol[:, l, m] = p
-                    self.fitcont[:, l, m] = cont * scale_factor
-                    self.fitspec[:, l, m] = (s + cont) * scale_factor
+                    self.fitcont[:, l, m] = cont
+                    self.fitspec[:, l, m] = s * scale_factor + cont
                     self.resultspec[:, l, m] = (
                         cont+fit_func(self.fitwl, r['x'])) * scale_factor
             else:
                 sol[:, i, j] = p
-                self.fitcont[:, i, j] = cont*scale_factor
-                self.fitspec[:, i, j] = (s+cont)*scale_factor
+                self.fitcont[:, i, j] = cont
+                self.fitspec[:, i, j] = s * scale_factor + cont
                 self.resultspec[:, i, j] = (
                     cont + fit_func(self.fitwl, r['x'])) * scale_factor
 
