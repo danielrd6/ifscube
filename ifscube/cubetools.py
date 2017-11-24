@@ -598,7 +598,7 @@ class gmosdc:
                 update_bounds=False, bound_range=.1, spiral_loop=False,
                 spiral_center=None, fit_continuum=True, refit_radius=3,
                 sig_threshold=0, par_threshold=0, weights=None,
-                flags=None):
+                flags=None, verbose=False):
 
         """
         Fits a spectral feature with a gaussian function and returns a
@@ -892,7 +892,7 @@ class gmosdc:
 
                 # When the fit is unsuccessful, prints the minimizer
                 # message.
-                if r.status != 0:
+                if verbose and (r.status != 0):
                     print(h, r.message, r.status)
 
                 # If successful, sets is_first_spec to False.
@@ -913,9 +913,10 @@ class gmosdc:
                 fit_status[i, j] = r.status
 
             except RuntimeError:
-                print(
-                    'Optimal parameters not found for spectrum {:d},{:d}'
-                    .format(int(i), int(j)))
+                if verbose:
+                    print(
+                        'Optimal parameters not found for spectrum {:d},{:d}'
+                        .format(int(i), int(j)))
                 p = nan_solution
 
             # Sets p to nan if the flux is smaller than the average
