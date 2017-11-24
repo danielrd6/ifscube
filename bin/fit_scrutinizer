@@ -28,7 +28,7 @@ class mclass:
             with open(args.fitfile, 'rb') as f:
                 cube = pickle.load(f)
         else:
-            cube = manga.cube()
+            cube = ct.gmosdc()
             cube.loadfit(args.fitfile)
 
         self.window = window
