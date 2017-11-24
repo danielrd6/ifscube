@@ -208,7 +208,12 @@ class gmosdc:
     with GMOS IFU.
     """
 
-    def __init__(self, fitsfile, redshift=None, vortab=None,
+    def __init__(self, *args, **kwargs):
+
+        if len(args) > 0:
+            self.__load__(*args, **kwargs)
+
+    def __load__(self, fitsfile, redshift=None, vortab=None,
                  dataext=1, hdrext=0, var_ext=None, ncubes_ext=None,
                  nan_spaxels='all', spatial_mask=None):
         """
