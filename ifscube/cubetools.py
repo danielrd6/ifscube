@@ -917,9 +917,19 @@ class gmosdc:
                 bounds = scale_bounds(bounds, flux_sf)
             bounds_0 = scale_bounds(original_bounds, flux_sf)
 
-            assert np.all(v[~flags] > 0), 'Variance values of less than or '\
-                'equal to zero.'
-            assert np.all(w >= 0), 'Weight values of less than zero.'
+            if not np.all(v[~flags] > 0):
+                p = nan_solution
+                fit_status[i, j] = 96
+                continue
+
+            # assert np.all(v[~flags] > 0), 'Variance values of less than or '\
+            #     'equal to zero.'
+            if not np.all(w >= 0):
+                p = nan_solution
+                fit_status[i, j] = 95
+                continue
+
+            # assert np.all(w >= 0), 'Weight values of less than zero.'
 
             try:
                 #
