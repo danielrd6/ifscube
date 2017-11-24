@@ -28,17 +28,7 @@ class mclass:
             with open(args.fitfile, 'rb') as f:
                 cube = pickle.load(f)
         else:
-
-            if args.gmos_datacube is not None:
-                cube = ct.gmosdc(args.gmos_datacube)
-            elif args.manga_datacube is not None:
-                cube = manga.cube(args.manga_datacube)
-            else:
-                raise RuntimeError(
-                    'Astropy option -a not set and no data cube file provided.'
-                    ' If this is not an astropy.modeling fit you should' 
-                    ' provide a data cube file using either -d or -m options.'
-                )
+            cube = manga.cube()
             cube.loadfit(args.fitfile)
 
         self.window = window
@@ -235,10 +225,10 @@ class mclass:
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-d', '--gmos-datacube', type=str, help='GMOS data cube.')
-    parser.add_argument(
-        '-m', '--manga-datacube', type=str, help='Manga data cube.')
+    # parser.add_argument(
+    #     '-d', '--gmos-datacube', type=str, help='GMOS data cube.')
+    # parser.add_argument(
+    #     '-m', '--manga-datacube', type=str, help='Manga data cube.')
     parser.add_argument(
         '-f', '--fitfile', type=str, help='Result of the fit')
     parser.add_argument(
