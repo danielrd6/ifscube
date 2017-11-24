@@ -837,6 +837,9 @@ class gmosdc:
             w /= np.sum(w) / w.size
 
             flags = flag_cube[:, i, j].astype('bool')
+            if np.sum(flags) > 0.8 * flags.size:
+                p = nan_solution
+                continue
 
             scale_factor = np.average(data[:, i, j][~flags])
             assert scale_factor > 0; 'Scale factor is negative.'
