@@ -193,12 +193,13 @@ def bound_updater(p0, bound_range, bounds=None):
 
 def scale_bounds(bounds, flux_sf):
 
-    for i, j in enumerate(bounds):
+    b = deepcopy(bounds)
+    for i, j in enumerate(b):
         for k in (0, 1):
             if j[k] is not None:
                 j[k] /= flux_sf[i]
 
-    return bounds
+    return b
 
 
 class gmosdc:
@@ -837,7 +838,8 @@ class gmosdc:
 
             flags = flag_cube[:, i, j].astype('bool')
 
-            scale_factor = np.average(s[~flags])
+            scale_factor = np.average(data[:, i, j][~flags])
+            assert scale_factor > 0; 'Scale factor is negative.'
             s /= scale_factor
             v /= scale_factor ** 2
 
@@ -847,7 +849,8 @@ class gmosdc:
 
             # The bounds, possibly having *None* in some places, need
             # a special function to apply the scale factor.
-            bounds = scale_bounds(bounds, flux_sf)
+            if is_first_spec:
+                bounds = scale_bounds(bounds, flux_sf)
             bounds_0 = scale_bounds(original_bounds, flux_sf)
 
             assert np.all(v[~flags] > 0), 'Variance values of less than or '\
@@ -895,7 +898,11 @@ class gmosdc:
 
                 # Reduced chi squared of the fit.
                 chi2 = np.sum(
-                    ((s - fit_func(self.fitwl, r.x)) ** 2 / v)[~flags])
+                    (
+                        (s[~flags] - fit_func(self.fitwl, r.x)[~flags]) ** 2 /
+                        v[~flags]
+                    )
+                )
                 nu = len(s[~flags])/inst_disp - npars - len(constraints) - 1
                 red_chi2 = chi2 / nu
 
