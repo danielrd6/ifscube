@@ -8,7 +8,12 @@ from scipy.integrate import trapz
 
 class cube(cubetools.gmosdc):
 
-    def __init__(self, fitsfile, redshift=None):
+    def __init__(self, *args, **kwargs):
+
+        if len(args) > 0:
+            self.__load__(*args, **kwargs)
+
+    def __load__(self, fitsfile, redshift=0):
 
         self.filename = fitsfile
         self.redshift = redshift
