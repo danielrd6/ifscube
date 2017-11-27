@@ -47,16 +47,16 @@ class cube(cubetools.gmosdc):
 
     def __flags__(self):
 
-        _unused = 0x0001
+        # _unused = 0x0001
         no_data = 0x0002
         bad_pix = 0x0004
         ccd_gap = 0x0008
-        telluric = 0x0010
+        # telluric = 0x0010
         # seg_has_badpixels = 0x0020
         # low_sn = 0x0040
-        
+
         no_obs = no_data | bad_pix | ccd_gap
-        
+
         self.flags = self.flag_cube & no_obs
 
     def __spec_indices__(self):
@@ -118,7 +118,7 @@ class cube(cubetools.gmosdc):
         else:
             self.restwl = self.wl
 
-    def eqw(self, component, sigma_factor=5, windows=None):
+    def eqw(self, component, sigma_factor=5, windows=None, outimage=None):
         """
         Evaluates the equivalent width of a previous linefit.
 
@@ -140,8 +140,8 @@ class cube(cubetools.gmosdc):
         """
 
         xy = self.spec_indices
-        eqw_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
-        eqw_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
+        eqw_model = np.zeros(np.shape(self.em_model)[1:])
+        eqw_direct = np.zeros_like(eqw_model)
 
         eqw_model[self.spatial_mask] = np.nan
         eqw_direct[self.spatial_mask] = np.nan
@@ -172,7 +172,7 @@ class cube(cubetools.gmosdc):
             nandata_flag = np.any(np.isnan(self.em_model[par_indexes, i, j]))
             nullcwl_flag = cwl == 0
 
-            if nandata_flag or nullcwl_flag:
+            if nandata_flag or nullcwl_flag or (self.fit_status[i, j] != 0):
 
                 eqw_model[i, j] = np.nan
                 eqw_direct[i, j] = np.nan
@@ -185,6 +185,8 @@ class cube(cubetools.gmosdc):
 
                 fit = self.fit_func(
                         fwl[cond], self.em_model[par_indexes, i, j])
+                syn = self.syn[cond_data, i, j]
+                data = self.data[cond_data, i, j]
 
                 # If the continuum fitting windos are set, use that
                 # to define the weights vector.
@@ -209,6 +211,10 @@ class cube(cubetools.gmosdc):
                     1. - (fit + cont) / cont, x=fwl[cond])
 
                 eqw_direct[i, j] = trapz(
-                    1. - self.data[cond_data, i, j] / cont, x=fwl[cond])
+                    1. - (data - syn + cont) / cont, x=fwl[cond])
 
-        return np.array([eqw_model, eqw_direct])
+        eqw_cube = np.array([eqw_model, eqw_direct])
+        if outimage is not None:
+            self.__write_eqw__(eqw_cube, locals())
+
+        return eqw_cube
