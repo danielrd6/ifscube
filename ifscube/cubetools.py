@@ -203,6 +203,7 @@ def scale_bounds(bounds, flux_sf):
 
 
 class gmosdc:
+
     """
     A class for dealing with data cubes, originally written to work
     with GMOS IFU.
@@ -388,7 +389,7 @@ class gmosdc:
 
         hdr['object'] = 'parameters'
         hdr['function'] = (function, 'Fitted function')
-        hdr['nfunc'] = (total_pars/self.npars, 'Number of functions')
+        hdr['nfunc'] = (total_pars / self.npars, 'Number of functions')
         h.append(fits.ImageHDU(data=sol, header=hdr))
 
         # Creates the minimize's exit status extension
@@ -396,15 +397,13 @@ class gmosdc:
         h.append(fits.ImageHDU(data=self.fit_status, header=hdr))
 
         h.writeto(outimage)
-    
+
     def __write_eqw__(self, eqw, args):
 
         outimage = args['outimage']
         # Basic tests and first header
-        if outimage is None:
-            outimage = self.fitsfile.replace('.fits',
-                                             '_eqw.fits')
-        hdr = deepcopy(self.header_data)
+
+        hdr = fits.Header()
         try:
             hdr['REDSHIFT'] = self.redshift
         except KeyError:
@@ -413,39 +412,40 @@ class gmosdc:
 
         # Creates MEF output.
         h = fits.HDUList()
-        h.append(fits.PrimaryHDU(header=hdr))
+        h.append(fits.PrimaryHDU(header=self.header))
+        h[0].name = 'PRIMARY'
 
-        # Creates the fitted spectrum extension
-        hdr = fits.Header()
-        hdr['object'] = ('spectrum', 'Data in this extension')
-        hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
-        hdr['CRVAL3'] = (self.fitwl[0], 'Reference value for wavelength')
-        hdr['CD3_3'] = (np.average(np.diff(self.fitwl)), 'CD3_3')
-        h.append(fits.ImageHDU(data=self.fitspec, header=hdr))
+        # Creates the model equivalent width extension
+        hdr['object'] = ('eqw_model', 'EqW based on emission model.')
+        hdr['sigwidth'] = (
+            args['sigma_factor'], 'Line width in units of sigma.')
+        hdr['bunit'] = ('angstrom', 'Unit of pixel values.')
 
-        # Creates the fitted continuum extension.
-        hdr['object'] = 'continuum'
-        h.append(fits.ImageHDU(data=self.fitcont, header=hdr))
+        if args['windows'] is not None:
+            hdr['c_blue0'] = (
+                args['windows'][0], 'lower limit, blue continuum section')
+            hdr['c_blue1'] = (
+                args['windows'][1], 'upper limit, blue continuum section')
+            hdr['c_red0'] = (
+                args['windows'][2], 'lower limit, red continuum section')
+            hdr['c_red1'] = (
+                args['windows'][3], 'upper limit, red continuum section')
 
-        # Creates the fitted function extension.
-        hdr['object'] = 'fit'
-        h.append(fits.ImageHDU(data=self.resultspec, header=hdr))
+        h.append(fits.ImageHDU(data=eqw[0], header=hdr, name='EQW_M'))
 
-        # Creates the solution extension.
-        function = args['function']
-        total_pars = self.em_model.shape[0] - 1
-
-        hdr['object'] = 'parameters'
-        hdr['function'] = (function, 'Fitted function')
-        hdr['nfunc'] = (total_pars/self.npars, 'Number of functions')
-        h.append(fits.ImageHDU(data=sol, header=hdr))
+        # Creates the direct equivalent width extension
+        hdr['object'] = (
+            'eqw_direct', 'EqW measured directly on the spectrum.')
+        hdr['sigwidth'] = (
+            args['sigma_factor'], 'Line width in units of sigma.')
+        h.append(fits.ImageHDU(data=eqw[1], header=hdr, name='EQW_D'))
 
         # Creates the minimize's exit status extension
-        hdr['object'] = 'status'
-        h.append(fits.ImageHDU(data=self.fit_status, header=hdr))
+        hdr['object'] = 'fit_status'
+        h.append(
+            fits.ImageHDU(data=self.fit_status, header=hdr, name='STATUS'))
 
         h.writeto(outimage)
-
 
     def continuum(self, writefits=False, outimage=None,
                   fitting_window=None, copts=None):
@@ -661,7 +661,7 @@ class gmosdc:
 
         if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
             s = np.average(
-                    np.average(self.data[:, y[0]:y[1], x[0]:x[1]], 1), 1)
+                np.average(self.data[:, y[0]:y[1], x[0]:x[1]], 1), 1)
         elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
             s = np.average(self.data[:, y, x[0]:x[1]], 1)
         elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
@@ -703,7 +703,6 @@ class gmosdc:
                 spiral_center=None, fit_continuum=True, refit_radius=3,
                 sig_threshold=0, par_threshold=0, weights=None,
                 flags=None, verbose=False):
-
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties. This is a wrapper for the scipy
@@ -875,9 +874,9 @@ class gmosdc:
             flag_cube = self.__arg2cube__(flags, flag_cube)
 
         npars = len(p0)
-        nan_solution = np.array([np.nan for i in range(npars+1)])
+        nan_solution = np.array([np.nan for i in range(npars + 1)])
         sol = np.zeros(
-            (npars+1, np.shape(self.data)[1], np.shape(self.data)[2]),
+            (npars + 1, np.shape(self.data)[1], np.shape(self.data)[2]),
             dtype='float32')
         self.fitcont = np.zeros(np.shape(data), dtype='float32')
         self.fitwl = wl
@@ -912,7 +911,7 @@ class gmosdc:
             else:
                 r = np.sqrt(
                     (x - spiral_center[0]) ** 2 + (y - spiral_center[1]) ** 2)
-            t = np.arctan2(y - y.max()/2., x - x.max()/2.)
+            t = np.arctan2(y - y.max() / 2., x - x.max() / 2.)
             t[t < 0] += 2 * np.pi
 
             b = np.array([
@@ -999,7 +998,7 @@ class gmosdc:
                     nearsol = sol[:-1, (radsol < refit_radius) &
                                   (fit_status == 0)]
                     if np.shape(nearsol) == (5, 1):
-                        p0 = deepcopy(nearsol.transpose()/flux_sf)
+                        p0 = deepcopy(nearsol.transpose() / flux_sf)
                     elif np.any(nearsol):
                         p0 = deepcopy(
                             np.average(nearsol.transpose(), 0) / flux_sf)
@@ -1027,10 +1026,10 @@ class gmosdc:
                         v[~flags]
                     )
                 )
-                nu = len(s[~flags])/inst_disp - npars - len(constraints) - 1
+                nu = len(s[~flags]) / inst_disp - npars - len(constraints) - 1
                 red_chi2 = chi2 / nu
 
-                p = np.append(r['x']*flux_sf, red_chi2)
+                p = np.append(r['x'] * flux_sf, red_chi2)
                 fit_status[i, j] = r.status
 
             except RuntimeError:
@@ -1066,7 +1065,7 @@ class gmosdc:
                     self.fitcont[:, l, m] = cont
                     self.fitspec[:, l, m] = s * scale_factor + cont
                     self.resultspec[:, l, m] = (
-                        cont+fit_func(self.fitwl, r['x'])) * scale_factor
+                        cont + fit_func(self.fitwl, r['x'])) * scale_factor
             else:
                 sol[:, i, j] = p
                 self.fitcont[:, i, j] = cont
@@ -1183,7 +1182,7 @@ class gmosdc:
                 cond_data = (rwl > cwl - sf * sig) & (rwl < cwl + sf * sig)
 
                 fit = self.fit_func(
-                        fwl[cond], self.em_model[par_indexes, i, j])
+                    fwl[cond], self.em_model[par_indexes, i, j])
 
                 cont = self.fitcont[cond, i, j]
                 cont_data = interp1d(
@@ -1200,7 +1199,7 @@ class gmosdc:
         if outimage is not None:
             self.__write_eqw__(eqw_cube, *locals())
 
-        return eqw_cube 
+        return eqw_cube
 
     def w80(self, component, sigma_factor=5, individual_spec=False,
             verbose=False, smooth=0, remove_components=[]):
@@ -1292,8 +1291,8 @@ class gmosdc:
                     print('W80 direct: {:.2f} km/s'.format(w80_direct[i, j]))
 
                     p = [
-                            [m0, m1, mv, ms],
-                            [d0, d1, dv, ds],
+                        [m0, m1, mv, ms],
+                        [d0, d1, dv, ds],
                     ]
 
                     ifsplots.w80(p)
@@ -1351,14 +1350,16 @@ class gmosdc:
         if len(p) > npars:
             for i in np.arange(0, len(p), npars):
                 ax.plot(
-                    wl, (c + f(wl, p[i: i+npars])) / 10. ** norm_factor, 'k--')
+                    wl, (c + f(wl, p[i: i + npars])) / 10. ** norm_factor,
+                    'k--'
+                )
 
         pars = ('Red_Chi2: {:.3f}\n'.format(self.em_model[-1, y, x]))
         pars += (npars * '{:10s}' + '\n').format(*parnames)
         for i in np.arange(0, len(p), npars):
             pars += (
-                ('{:10.2e}' + (npars-1) * '{:10.2f}' + '\n')
-                .format(*p[i:i+npars]))
+                ('{:10.2e}' + (npars - 1) * '{:10.2f}' + '\n')
+                .format(*p[i:i + npars]))
 
         if show:
             plt.show()
@@ -1422,7 +1423,7 @@ class gmosdc:
             constants.c.to(units.km / units.s).value + 1.
         )
 
-        wlstep = (wlmax - wlmin)/channels
+        wlstep = (wlmax - wlmin) / channels
         wl_limits = np.arange(wlmin, wlmax + wlstep, wlstep)
 
         side = int(np.ceil(np.sqrt(channels)))  # columns
@@ -1449,12 +1450,12 @@ class gmosdc:
         pmaps = []
 
         for i in np.arange(channels):
-            ax = fig.add_subplot(otherside, side, i+1)
+            ax = fig.add_subplot(otherside, side, i + 1)
             axes += [ax]
             wl = self.restwl
-            wl0, wl1 = wl_limits[i], wl_limits[i+1]
+            wl0, wl1 = wl_limits[i], wl_limits[i + 1]
             print(wl[(wl > wl0) & (wl < wl1)])
-            wlc, wlwidth = np.average([wl0, wl1]), (wl1-wl0)
+            wlc, wlwidth = np.average([wl0, wl1]), (wl1 - wl0)
 
             f_obs = wlprojection(
                 arr=self.data, wl=self.restwl, wl0=wlc, fwhm=wlwidth,
@@ -1477,12 +1478,12 @@ class gmosdc:
             pmap = ax.pcolormesh(x, y, channel, **plot_opts)
             ax.set_aspect('equal', 'datalim')
             ax.annotate(
-                '{:.0f}'.format((wlc - lambda0)/lambda0*2.99792e+5),
+                '{:.0f}'.format((wlc - lambda0) / lambda0 * 2.99792e+5),
                 xy=(0.1, 0.8), xycoords='axes fraction',
                 color=text_color)
             if i % side != 0:
                 ax.set_yticklabels([])
-            if i / float((otherside-1) * side) < 1:
+            if i / float((otherside - 1) * side) < 1:
                 ax.set_xticklabels([])
             channelMaps += [channel]
             pmaps += [pmap]
@@ -1611,7 +1612,7 @@ class gmosdc:
         s, n = deepcopy(self.signal), deepcopy(self.noise)
 
         s[s <= 0] = np.average(self.signal[self.signal > 0])
-        n[n <= 0] = np.average(self.signal[self.signal > 0])*.5
+        n[n <= 0] = np.average(self.signal[self.signal > 0]) * .5
 
         signal, noise = np.ravel(s)[valid_spaxels], np.ravel(n)[valid_spaxels]
 
@@ -1695,7 +1696,7 @@ class gmosdc:
             tbhdu_plus = fits.BinTableHDU.from_columns(
                 [
                     fits.Column(name='ubin', format='i8',
-                              array=np.unique(binNum)),
+                                array=np.unique(binNum)),
                     fits.Column(name='xNode', format='F16.8', array=xNode),
                     fits.Column(name='yNode', format='F16.8', array=yNode),
                     fits.Column(name='xBar', format='F16.8', array=xBar),
@@ -1734,8 +1735,8 @@ class gmosdc:
                 return
 
             for k, i, j in enumerate(unique_indices):
-                z = self.em_model[0, i, j]/2.998e+5
-                interp_spec = interp1d(self.restwl/(1.+z), self.data[i, j])
+                z = self.em_model[0, i, j] / 2.998e+5
+                interp_spec = interp1d(self.restwl / (1. + z), self.data[i, j])
                 if k == 0:
                     specs = interp_spec(self.restwl)
                 else:
@@ -1848,7 +1849,7 @@ class gmosdc:
 
         FWHM_dif = np.sqrt(fwhm_gal**2 - fwhm_model**2)
         # Sigma difference in pixels
-        sigma = FWHM_dif/2.355/base_cdelt
+        sigma = FWHM_dif / 2.355 / base_cdelt
 
         for j in range(len(base_spec)):
             ssp = base_spec[j]
@@ -1856,7 +1857,7 @@ class gmosdc:
             sspNew, logLam2, velscale = ppxf_util.log_rebin(
                 lamRange2, ssp, velscale=velscale)
             # Normalizes templates
-            templates[:, j] = sspNew/np.median(sspNew)
+            templates[:, j] = sspNew / np.median(sspNew)
 
         c = constants.c.value * 1.e-3
         dv = (logLam2[0] - logLam1[0]) * c  # km/s
