@@ -179,8 +179,13 @@ class cube(cubetools.gmosdc):
 
             else:
 
-                cond = (fwl > cwl - sf * sig) & (fwl < cwl + sf * sig)
-                cond_data = (rwl > cwl - sf * sig) & (rwl < cwl + sf * sig)
+                # This 1e-6 is to guarantee that no floating point
+                # errors in the comparison will arise.
+                low_wl = cwl - sf * sig + 1e-6
+                up_wl = cwl + sf * sig + 1e-6
+
+                cond = (fwl > low_wl) & (fwl < up_wl)
+                cond_data = (rwl > low_wl) & (rwl < up_wl)
                 cond_syn = (rwl >= fwl[0]) & (rwl <= fwl[-1])
 
                 fit = self.fit_func(
