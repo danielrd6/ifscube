@@ -211,7 +211,7 @@ class cube(cubetools.gmosdc):
                     1. - (fit + cont) / cont, x=fwl[cond])
 
                 eqw_direct[i, j] = trapz(
-                    1. - (data - syn + cont) / cont, x=fwl[cond])
+                    1. - data / cont, x=fwl[cond])
 
         eqw_cube = np.array([eqw_model, eqw_direct])
         if outimage is not None:
