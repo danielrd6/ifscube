@@ -5,7 +5,7 @@ Author: Daniel Ruschel Dutra
 Website: https://github.com/danielrd6/ifscube
 """
 import numpy as np
-import astropy.io.fits as pf
+from astropy.io import fits
 import ifscube.spectools as st
 import matplotlib.pyplot as plt
 from scipy.integrate import trapz
@@ -252,7 +252,7 @@ class gmosdc:
         self.ncubes_ext = ncubes_ext
         self.spatial_mask = spatial_mask
 
-        hdulist = pf.open(fitsfile)
+        hdulist = fits.open(fitsfile)
 
         self.data = hdulist[dataext].data
 
@@ -312,7 +312,7 @@ class gmosdc:
 
         try:
             if self.header['VORBIN']:
-                vortab = pf.open(fitsfile)['VOR'].data
+                vortab = fits.open(fitsfile)['VOR'].data
                 self.voronoi_tab = vortab
                 self.binned = True
         except KeyError:
@@ -363,24 +363,24 @@ class gmosdc:
                                'Redshift used in GMOSDC')
 
         # Creates MEF output.
-        h = pf.HDUList()
-        h.append(pf.PrimaryHDU(header=hdr))
+        h = fits.HDUList()
+        h.append(fits.PrimaryHDU(header=hdr))
 
         # Creates the fitted spectrum extension
-        hdr = pf.Header()
+        hdr = fits.Header()
         hdr['object'] = ('spectrum', 'Data in this extension')
         hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
         hdr['CRVAL3'] = (self.fitwl[0], 'Reference value for wavelength')
         hdr['CD3_3'] = (np.average(np.diff(self.fitwl)), 'CD3_3')
-        h.append(pf.ImageHDU(data=self.fitspec, header=hdr))
+        h.append(fits.ImageHDU(data=self.fitspec, header=hdr))
 
         # Creates the fitted continuum extension.
         hdr['object'] = 'continuum'
-        h.append(pf.ImageHDU(data=self.fitcont, header=hdr))
+        h.append(fits.ImageHDU(data=self.fitcont, header=hdr))
 
         # Creates the fitted function extension.
         hdr['object'] = 'fit'
-        h.append(pf.ImageHDU(data=self.resultspec, header=hdr))
+        h.append(fits.ImageHDU(data=self.resultspec, header=hdr))
 
         # Creates the solution extension.
         function = args['function']
@@ -389,13 +389,63 @@ class gmosdc:
         hdr['object'] = 'parameters'
         hdr['function'] = (function, 'Fitted function')
         hdr['nfunc'] = (total_pars/self.npars, 'Number of functions')
-        h.append(pf.ImageHDU(data=sol, header=hdr))
+        h.append(fits.ImageHDU(data=sol, header=hdr))
 
         # Creates the minimize's exit status extension
         hdr['object'] = 'status'
-        h.append(pf.ImageHDU(data=self.fit_status, header=hdr))
+        h.append(fits.ImageHDU(data=self.fit_status, header=hdr))
 
         h.writeto(outimage)
+    
+    def __write_eqw__(self, eqw, args):
+
+        outimage = args['outimage']
+        # Basic tests and first header
+        if outimage is None:
+            outimage = self.fitsfile.replace('.fits',
+                                             '_eqw.fits')
+        hdr = deepcopy(self.header_data)
+        try:
+            hdr['REDSHIFT'] = self.redshift
+        except KeyError:
+            hdr['REDSHIFT'] = (self.redshift,
+                               'Redshift used in GMOSDC')
+
+        # Creates MEF output.
+        h = fits.HDUList()
+        h.append(fits.PrimaryHDU(header=hdr))
+
+        # Creates the fitted spectrum extension
+        hdr = fits.Header()
+        hdr['object'] = ('spectrum', 'Data in this extension')
+        hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
+        hdr['CRVAL3'] = (self.fitwl[0], 'Reference value for wavelength')
+        hdr['CD3_3'] = (np.average(np.diff(self.fitwl)), 'CD3_3')
+        h.append(fits.ImageHDU(data=self.fitspec, header=hdr))
+
+        # Creates the fitted continuum extension.
+        hdr['object'] = 'continuum'
+        h.append(fits.ImageHDU(data=self.fitcont, header=hdr))
+
+        # Creates the fitted function extension.
+        hdr['object'] = 'fit'
+        h.append(fits.ImageHDU(data=self.resultspec, header=hdr))
+
+        # Creates the solution extension.
+        function = args['function']
+        total_pars = self.em_model.shape[0] - 1
+
+        hdr['object'] = 'parameters'
+        hdr['function'] = (function, 'Fitted function')
+        hdr['nfunc'] = (total_pars/self.npars, 'Number of functions')
+        h.append(fits.ImageHDU(data=sol, header=hdr))
+
+        # Creates the minimize's exit status extension
+        hdr['object'] = 'status'
+        h.append(fits.ImageHDU(data=self.fit_status, header=hdr))
+
+        h.writeto(outimage)
+
 
     def continuum(self, writefits=False, outimage=None,
                   fitting_window=None, copts=None):
@@ -476,7 +526,7 @@ class gmosdc:
             hdr['CONTHTR'] = (copts['upper_threshold'],
                               'Continuum upper threshold')
 
-            pf.writeto(outimage, data=c, header=hdr)
+            fits.writeto(outimage, data=c, header=hdr)
 
         return c
 
@@ -584,7 +634,7 @@ class gmosdc:
             hdr['WLPRWL0'] = (wl0, 'Central wavelength of the filter.')
             hdr['WLPRFWHM'] = (fwhm, 'FWHM of the projection filter.')
 
-            pf.writeto(outimage, data=outim, header=hdr)
+            fits.writeto(outimage, data=outim, header=hdr)
 
         return outim
 
@@ -1054,15 +1104,15 @@ class gmosdc:
 
         self.fitwl = st.get_wl(fname, pix0key='crpix3', wl0key='crval3',
                                dwlkey='cd3_3', hdrext=1, dataext=1)
-        self.fitspec = pf.getdata(fname, ext=1)
-        self.fitcont = pf.getdata(fname, ext=2)
-        self.resultspec = pf.getdata(fname, ext=3)
+        self.fitspec = fits.getdata(fname, ext=1)
+        self.fitcont = fits.getdata(fname, ext=2)
+        self.resultspec = fits.getdata(fname, ext=3)
 
-        self.em_model = pf.getdata(fname, ext=4)
-        self.fit_status = pf.getdata(fname, ext=5)
+        self.em_model = fits.getdata(fname, ext=4)
+        self.fit_status = fits.getdata(fname, ext=5)
 
         fit_info = {}
-        func_name = pf.getheader(fname, ext=4)['function']
+        func_name = fits.getheader(fname, ext=4)['function']
         fit_info['function'] = func_name
 
         if func_name == 'gaussian':
@@ -1081,7 +1131,7 @@ class gmosdc:
 
         self.fit_info = fit_info
 
-    def eqw(self, component=0, sigma_factor=3):
+    def eqw(self, component=0, sigma_factor=3, outimage=None):
         """
         Evaluates the equivalent width of a previous linefit.
 
@@ -1146,7 +1196,11 @@ class gmosdc:
                     1. - self.data[cond_data, i, j] / cont_data,
                     x=rwl[cond_data])
 
-        return np.array([eqw_model, eqw_direct])
+        eqw_cube = np.array([eqw_model, eqw_direct])
+        if outimage is not None:
+            self.__write_eqw__(eqw_cube, *locals())
+
+        return eqw_cube 
 
     def w80(self, component, sigma_factor=5, individual_spec=False,
             verbose=False, smooth=0, remove_components=[]):
@@ -1470,7 +1524,7 @@ class gmosdc:
 
         if writefits:
 
-            hdulist = pf.open(self.fitsfile)
+            hdulist = fits.open(self.fitsfile)
             hdr = hdulist[0].header
 
             hdr['SPSMOOTH'] = ('Gaussian', 'Type of spatial smoothing.')
@@ -1610,7 +1664,7 @@ class gmosdc:
         if writefits:
 
             # Starting with the original data cube
-            hdulist = pf.open(self.fitsfile)
+            hdulist = fits.open(self.fitsfile)
             hdr = self.header
 
             # Add a few new keywords to the header
@@ -1631,23 +1685,23 @@ class gmosdc:
 
             # Write a FITS table with the description of the
             # tesselation process.
-            tbhdu = pf.BinTableHDU.from_columns(
+            tbhdu = fits.BinTableHDU.from_columns(
                 [
-                    pf.Column(name='xcoords', format='i8', array=x),
-                    pf.Column(name='ycoords', format='i8', array=y),
-                    pf.Column(name='binNum', format='i8', array=binNum),
+                    fits.Column(name='xcoords', format='i8', array=x),
+                    fits.Column(name='ycoords', format='i8', array=y),
+                    fits.Column(name='binNum', format='i8', array=binNum),
                 ], name='VOR')
 
-            tbhdu_plus = pf.BinTableHDU.from_columns(
+            tbhdu_plus = fits.BinTableHDU.from_columns(
                 [
-                    pf.Column(name='ubin', format='i8',
+                    fits.Column(name='ubin', format='i8',
                               array=np.unique(binNum)),
-                    pf.Column(name='xNode', format='F16.8', array=xNode),
-                    pf.Column(name='yNode', format='F16.8', array=yNode),
-                    pf.Column(name='xBar', format='F16.8', array=xBar),
-                    pf.Column(name='yBar', format='F16.8', array=yBar),
-                    pf.Column(name='sn', format='F16.8', array=sn),
-                    pf.Column(name='nPixels', format='i8', array=nPixels),
+                    fits.Column(name='xNode', format='F16.8', array=xNode),
+                    fits.Column(name='yNode', format='F16.8', array=yNode),
+                    fits.Column(name='xBar', format='F16.8', array=xBar),
+                    fits.Column(name='yBar', format='F16.8', array=yBar),
+                    fits.Column(name='sn', format='F16.8', array=sn),
+                    fits.Column(name='nPixels', format='i8', array=nPixels),
                 ], name='VORPLUS')
 
             hdulist.append(tbhdu)
@@ -1890,53 +1944,53 @@ class gmosdc:
                 hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
 
             # Creates MEF output.
-            h = pf.HDUList()
-            h.append(pf.PrimaryHDU(header=hdr))
+            h = fits.HDUList()
+            h.append(fits.PrimaryHDU(header=hdr))
             h[0].name = ''
             print(h.info())
 
             # Creates the fitted spectrum extension
-            hdr = pf.Header()
+            hdr = fits.Header()
             hdr['object'] = ('spectrum', 'Data in this extension')
             hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
             hdr['CRVAL3'] = (self.restwl[0], 'Reference value for wavelength')
             hdr['CD3_3'] = (np.average(np.diff(self.restwl)), 'CD3_3')
             h.append(
-                pf.ImageHDU(data=self.ppxf_spec, header=hdr, name='SCI'))
+                fits.ImageHDU(data=self.ppxf_spec, header=hdr, name='SCI'))
 
             # Creates the residual spectrum extension
-            hdr = pf.Header()
+            hdr = fits.Header()
             hdr['object'] = ('residuals', 'Data in this extension')
             hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
             hdr['CRVAL3'] = (self.ppxf_wl[0], 'Reference value for wavelength')
             hdr['CD3_3'] = (np.average(np.diff(self.ppxf_wl)), 'CD3_3')
             h.append(
-                pf.ImageHDU(
+                fits.ImageHDU(
                     data=self.ppxf_spec - self.ppxf_model, header=hdr,
                     name='RES'))
 
             # Creates the fitted model extension.
             hdr['object'] = 'model'
             h.append(
-                pf.ImageHDU(
+                fits.ImageHDU(
                     data=self.ppxf_model, header=hdr, name='MODEL'))
 
             # Creates the solution extension.
             hdr['object'] = 'parameters'
             h.append(
-                pf.ImageHDU(
+                fits.ImageHDU(
                     data=self.ppxf_sol, header=hdr, name='SOL'))
 
             # Creates the wavelength extension.
             hdr['object'] = 'wavelength'
             h.append(
-                pf.ImageHDU(
+                fits.ImageHDU(
                     data=self.ppxf_wl, header=hdr, name='WAVELEN'))
 
             # Creates the goodpixels extension.
             hdr['object'] = 'goodpixels'
             h.append(
-                pf.ImageHDU(
+                fits.ImageHDU(
                     data=self.ppxf_goodpixels, header=hdr, name='GOODPIX'))
 
             h.writeto(outimage)
