@@ -181,7 +181,7 @@ class cube(cubetools.gmosdc):
 
                 # This 1e-6 is to guarantee that no floating point
                 # errors in the comparison will arise.
-                low_wl = cwl - sf * sig + 1e-6
+                low_wl = cwl - sf * sig - 1e-6
                 up_wl = cwl + sf * sig + 1e-6
 
                 cond = (fwl > low_wl) & (fwl < up_wl)
