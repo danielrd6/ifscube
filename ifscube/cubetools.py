@@ -840,7 +840,7 @@ class gmosdc:
                 ' range.')
 
         data = deepcopy(self.data[fw, :, :])
-        fit_status = np.ones(np.shape(data)[1:], dtype='float32') * -1
+        fit_status = np.ones(np.shape(data)[1:], dtype='int') * -1
 
         #
         # Set the variance cube.
@@ -924,9 +924,13 @@ class gmosdc:
             s = np.argsort(b, axis=0, order=['radius', 'angle'])
             xy = np.column_stack([np.ravel(y)[s], np.ravel(x)[s]])
 
-        bar = progressbar.ProgressBar()
+        if verbose:
+            iterador = progressbar.ProgressBar()(xy)
+        else:
+            iterador = xy
+        
         is_first_spec = True
-        for h in bar(xy):
+        for h in iterador:
 
             i, j = h
             if self.binned:
