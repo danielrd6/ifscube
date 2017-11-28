@@ -807,10 +807,12 @@ class gmosdc:
             fit_func = lprof.gauss
             self.fit_func = lprof.gauss
             npars_pc = 3
+            self.parnames = ('A', 'wl', 's')
         elif function == 'gauss_hermite':
             fit_func = lprof.gausshermite
             self.fit_func = lprof.gausshermite
             npars_pc = 5
+            self.parnames = ('A', 'wl', 's', 'h3', 'h4')
         else:
             raise NameError('Unknown function "{:s}".'.format(function))
 
