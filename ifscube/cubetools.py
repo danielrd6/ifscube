@@ -928,7 +928,7 @@ class gmosdc:
             iterador = progressbar.ProgressBar()(xy)
         else:
             iterador = xy
-        
+
         is_first_spec = True
         for h in iterador:
 
