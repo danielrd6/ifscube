@@ -447,6 +447,32 @@ class gmosdc:
 
         h.writeto(outimage)
 
+    def __spiral__(self, xy, spiral_center=None):
+
+        if self.binned:
+            y, x = xy[:, 0], xy[:, 1]
+        else:
+            y, x = self.spec_indices[:, 0], self.spec_indices[:, 1]
+
+        if spiral_center is None:
+            r = np.sqrt((x - x.max() / 2.) ** 2 + (y - y.max() / 2.) ** 2)
+        else:
+            r = np.sqrt(
+                (x - spiral_center[0]) ** 2 + (y - spiral_center[1]) ** 2)
+
+        t = np.arctan2(y - y.max() / 2., x - x.max() / 2.)
+        t[t < 0] += 2 * np.pi
+
+        b = np.array([
+            (np.ravel(r)[i], np.ravel(t)[i]) for i in
+            range(len(np.ravel(r)))], dtype=[
+                ('radius', 'f8'), ('angle', 'f8')])
+
+        s = np.argsort(b, axis=0, order=['radius', 'angle'])
+        xy = np.column_stack([np.ravel(y)[s], np.ravel(x)[s]])
+
+        return xy
+
     def continuum(self, writefits=False, outimage=None,
                   fitting_window=None, copts=None):
         """
@@ -904,25 +930,7 @@ class gmosdc:
         if individual_spec:
             xy = [individual_spec[::-1]]
         elif spiral_loop:
-            if self.binned:
-                y, x = xy[:, 0], xy[:, 1]
-            else:
-                y, x = self.spec_indices[:, 0], self.spec_indices[:, 1]
-            if spiral_center is None:
-                r = np.sqrt((x - x.max() / 2.) ** 2 + (y - y.max() / 2.) ** 2)
-            else:
-                r = np.sqrt(
-                    (x - spiral_center[0]) ** 2 + (y - spiral_center[1]) ** 2)
-            t = np.arctan2(y - y.max() / 2., x - x.max() / 2.)
-            t[t < 0] += 2 * np.pi
-
-            b = np.array([
-                (np.ravel(r)[i], np.ravel(t)[i]) for i in
-                range(len(np.ravel(r)))], dtype=[
-                    ('radius', 'f8'), ('angle', 'f8')])
-
-            s = np.argsort(b, axis=0, order=['radius', 'angle'])
-            xy = np.column_stack([np.ravel(y)[s], np.ravel(x)[s]])
+            xy = self.__spiral__(xy, spiral_center=spiral_center)
 
         if verbose:
             iterador = progressbar.ProgressBar()(xy)
