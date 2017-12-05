@@ -42,7 +42,7 @@ def w80(x):
         # Write the W80 values
         ax.annotate(
             r'$W_{{80}} (\mathbf{{{:s}}})'
-            ' = {:.2f}$ km/s'.format(w80_label[i], np.float(j[1] - j[0])),
+            ' = {:.0f}$ km/s'.format(w80_label[i], np.float(j[1] - j[0])),
             xy=(.65, .9 - i / 10), xycoords='axes fraction', size=12)
     
         ax.minorticks_on()
