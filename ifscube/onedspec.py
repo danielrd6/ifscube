@@ -12,7 +12,12 @@ from scipy.interpolate import interp1d
 
 class Spectrum():
 
-    def __init__(self, fname, ext=0, variance=None):
+    def __init__(self, *args, **kwargs):
+
+        if len(args) > 0:
+            self.__load__(*args, **kwargs)
+
+    def __load__(self, fname, ext=0, variance=None):
 
         with pf.open(fname) as hdu:
             self.data = hdu[ext].data
