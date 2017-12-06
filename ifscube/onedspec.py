@@ -17,7 +17,7 @@ class Spectrum():
         if len(args) > 0:
             self.__load__(*args, **kwargs)
 
-    def __load__(self, fname, ext=0, variance=None):
+    def __load__(self, fname, ext=0, redshift=0, variance=None):
 
         with pf.open(fname) as hdu:
             self.data = hdu[ext].data
@@ -31,10 +31,20 @@ class Spectrum():
         self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
         self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
 
+        if redshift != 0:
+            self.restwl = self.__dopcor__()
+        else:
+            self.restwl = self.wl
+
+    def __dopcor__(self):
+
+        self.restwl = self.wl / (1. + self.redshift)
+
     def linefit(self, p0, function='gaussian', fitting_window=None,
                 writefits=False, outimage=None, variance=None,
                 constraints=(), bounds=None, inst_disp=1.0,
-                min_method='SLSQP', minopts={'eps': 1e-3}, copts=None):
+                min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
+                weights=None):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties. This is a wrapper for the scipy
@@ -132,10 +142,12 @@ class Spectrum():
             fit_func = lprof.gauss
             self.fit_func = lprof.gauss
             npars_pc = 3
+            self.parnames = ('A', 'wl', 's')
         elif function == 'gauss_hermite':
             fit_func = lprof.gausshermite
             self.fit_func = lprof.gausshermite
             npars_pc = 5
+            self.parnames = ('A', 'wl', 's', 'h3', 'h4')
         else:
             raise NameError('Unknown function "{:s}".'.format(function))
 
@@ -150,29 +162,27 @@ class Spectrum():
                 'niterate': 5, 'degr': 4, 'upper_threshold': 2,
                 'lower_threshold': 2}
 
-        copts['returns'] = 'function'
+        copts.update({'returns'='function'})
 
-        wl = deepcopy(self.wl[fw])
+        wl = deepcopy(self.restwl[fw])
         scale_factor = np.nanmean(self.data[fw])
         data = deepcopy(self.data[fw]) / scale_factor
 
-        vspec = np.ones(data.shape)
         if variance is not None:
             if len(np.shape(variance)) == 0:
-                vspec *= variance
-            elif len(np.shape(variance)) == 1:
-                vspec = variance
-
+                vspec = np.ones_like(data) * variance
+                
             vspec /= scale_factor ** 2
         v = vspec
 
         npars = len(p0)
-        nan_solution = np.array([np.nan for i in range(npars+1)])
-        sol = np.zeros((npars+1,), dtype='float32')
-        self.fitcont = np.zeros(data.shape, dtype='float32')
+        nan_solution = np.array([np.nan for i in range(npars + 1)])
+        
+        sol = np.zeros((npars + 1,))
+        self.fitcont = np.zeros_like(data)
         self.fitwl = wl
-        self.fitspec = np.zeros(data.shape, dtype='float32')
-        self.resultspec = np.zeros(data.shape, dtype='float32')
+        self.fitspec = np.zeros_like(data)
+        self.resultspec = np.zeros_like(data)
 
         # Scale factor for the flux. Needed to avoid problems with
         # the minimization algorithm.
