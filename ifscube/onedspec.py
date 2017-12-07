@@ -187,6 +187,9 @@ class Spectrum():
         else:
             fw = (self.wl > fitting_window[0]) &\
                  (self.wl < fitting_window[1])
+        if not np.any(fw):
+            raise RuntimeError(
+                'Fitting window outside the available wavelength range.')
 
         if copts is None:
             copts = {
