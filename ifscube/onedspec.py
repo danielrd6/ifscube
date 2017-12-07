@@ -17,7 +17,8 @@ class Spectrum():
         if len(args) > 0:
             self.__load__(*args, **kwargs)
 
-    def __load__(self, fname, ext=0, redshift=0, variance=None):
+    def __load__(self, fname, ext=0, redshift=0, variance=None,
+                 flags=None):
 
         with pf.open(fname) as hdu:
             self.data = hdu[ext].data
@@ -25,8 +26,18 @@ class Spectrum():
             self.wcs = wcs.WCS(self.header)
 
         if variance is not None:
+            assert variance.shape == self.data.shape, 'Variance spectrum must'\
+                ' have the same shape of the spectrum itself.'
             self.var = variance
-            self.err = np.sqrt(variance)
+        else:
+            self.var = np.ones_like(self.data)
+
+        if flags is not None:
+            assert flags.shape == self.data.shape, 'Flag spectrum must have '\
+                'the same shape of the spectrum itself.'
+            self.flags = flags
+        else:
+            self.flags = np.zeros_like(self.data)
 
         self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
         self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
