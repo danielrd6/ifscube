@@ -68,7 +68,7 @@ class Spectrum():
                 writefits=False, outimage=None, variance=None,
                 constraints=(), bounds=None, inst_disp=1.0,
                 min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
-                weights=None):
+                weights=None, verbose=False):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties. This is a wrapper for the scipy
@@ -245,7 +245,7 @@ class Spectrum():
         scale_factor = np.mean(s)
         if scale_factor <= 0:
             p = nan_solution
-            fit_status = 97
+            self.fit_status = 97
             return
         s /= scale_factor
         if not np.all(v == 1.):
@@ -267,14 +267,16 @@ class Spectrum():
         r = minimize(res, x0=p0, method=min_method, bounds=sbounds,
                      constraints=constraints, options=minopts)
 
-        if r.status != 0:
+        if verbose and r.status != 0:
             print(r.message, r.status)
+
         # Reduced chi squared of the fit.
-        chi2 = res(r['x'])
-        nu = len(s)/inst_disp - npars - len(constraints) - 1
+        chi2 = np.sum((s - fit_func(wl, r.x)) ** 2 / v)
+        nu = len(s) / inst_disp - npars - len(constraints) - 1
         red_chi2 = chi2 / nu
+
         p = np.append(r['x'], red_chi2)
-        fit_status = r.status
+        self.fit_status = r.status
 
         p[::npars_pc] *= scale_factor
         sol = p
@@ -282,7 +284,6 @@ class Spectrum():
         self.resultspec = cont + fit_func(self.fitwl, r['x']) * scale_factor
 
         self.em_model = sol
-        self.fit_status = fit_status
 
         if writefits:
 
@@ -315,12 +316,12 @@ class Spectrum():
             # Creates the solution extension.
             hdr['object'] = 'parameters'
             hdr['function'] = (function, 'Fitted function')
-            hdr['nfunc'] = (len(p)/3, 'Number of functions')
+            hdr['nfunc'] = (len(p) / npars_pc, 'Number of functions')
             h.append(pf.ImageHDU(data=sol, header=hdr))
 
             # Creates the minimize's exit status extension
             hdr['object'] = 'status'
-            h.append(pf.ImageHDU(data=fit_status, header=hdr))
+            h.append(pf.ImageHDU(data=self.fit_status, header=hdr))
 
             h.writeto(outimage)
 
