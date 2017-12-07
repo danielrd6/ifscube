@@ -185,8 +185,8 @@ class Spectrum():
         if fitting_window is None:
             fw = np.ones_like(self.data).astype('bool')
         else:
-            fw = (self.wl > fitting_window[0]) &\
-                 (self.wl < fitting_window[1])
+            fw = (self.restwl > fitting_window[0]) &\
+                 (self.restwl < fitting_window[1])
         if not np.any(fw):
             raise RuntimeError(
                 'Fitting window outside the available wavelength range.')
