@@ -162,6 +162,10 @@ class Spectrum():
         scipy.optimize.curve_fit, scipy.optimize.leastsq
         """
 
+        # Sets a pre-made nan vector for nan solutions.
+        npars = len(p0)
+        nan_solution = np.array([np.nan for i in range(npars + 1)])
+
         if function == 'gaussian':
             fit_func = lprof.gauss
             self.fit_func = lprof.gauss
@@ -188,6 +192,14 @@ class Spectrum():
 
         copts.update(dict(returns='function'))
 
+        #
+        # Avoids fit if more than 80% of the pixels are flagged.
+        #
+        if np.sum(self.flags) > 0.8 * self.flags.size:
+            p = nan_solution
+            self.fit_status = 98
+            return
+
         valid_pixels = (self.flags == 0) & fw
 
         wl = deepcopy(self.restwl[valid_pixels])
@@ -196,22 +208,11 @@ class Spectrum():
         if weights is None:
             weights = np.ones_like(data)
 
-        npars = len(p0)
-        nan_solution = np.array([np.nan for i in range(npars + 1)])
-
         sol = np.zeros((npars + 1,))
         self.fitcont = np.zeros_like(data)
         self.fitwl = wl
         self.fitspec = np.zeros_like(data)
         self.resultspec = np.zeros_like(data)
-
-        # Scale factor for the flux. Needed to avoid problems with
-        # the minimization algorithm.
-
-        # if bounds is not None:
-        #     bounds = np.array(bounds)
-        #     for i, j in enumerate(bounds):
-        #         j /= flux_sf[i]
 
         #
         # Pseudo continuum fitting.
