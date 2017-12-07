@@ -27,6 +27,7 @@ class cube(cubetools.gmosdc):
         self.fobs_norm = hdu['FOBS_NORM'].data
         self.noise_cube = hdu['F_ERR'].data
         self.flag_cube = hdu['F_FLAG'].data
+        self.flags = self.flag_cube
         # self.weights = hdu['F_WEI'].data
 
         self.data *= self.fobs_norm
@@ -42,6 +43,11 @@ class cube(cubetools.gmosdc):
 
         self.cont = hdu['F_SYN'].data * self.fobs_norm
         self.syn = hdu['F_SYN'].data * self.fobs_norm
+
+        self.variance = np.square(self.noise_cube)
+        self.stellar = self.syn
+
+        self.weights = np.ones_like(self.data)
 
         hdu.close()
 
