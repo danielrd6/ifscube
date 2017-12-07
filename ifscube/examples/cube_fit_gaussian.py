@@ -62,7 +62,8 @@ x = mycube.linefit(
     refit=True,
     spiral_loop=True,
     spiral_center=idx,
-    minopts=dict(eps=1e-3)
+    minopts=dict(eps=1e-3),
+    fit_continuum=True,
 )
 
 # Plots the fit for the spaxel defined in "idx".
