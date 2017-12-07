@@ -53,8 +53,7 @@ myspec.variance = (myspec.data / 10) ** 2
 
 x = myspec.linefit(
     p0, fitting_window=(6500, 6700), function='gaussian',
-    constraints=c, bounds=b,
-)
+    constraints=c, bounds=b, fit_continuum=True,)
 
 myspec.plotfit()
 
