@@ -1,13 +1,26 @@
-import astropy.io.fits as pf
+from copy import deepcopy
+
 import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import minimize
+from scipy.interpolate import interp1d
+from astropy import wcs
+import astropy.io.fits as pf
+
+from ifscube import stats
 import ifscube.spectools as st
 import ifscube.elprofile as lprof
-from copy import deepcopy
-from scipy.optimize import minimize
-from astropy import wcs
-import matplotlib.pyplot as plt
-from ifscube import stats
-from scipy.interpolate import interp1d
+
+
+def scale_bounds(bounds, scale_factor, npars_pc):
+
+    b = deepcopy(bounds)
+    for j in b[::npars_pc]:
+        for k in (0, 1):
+            if j[k] is not None:
+                j[k] /= scale_factor
+
+    return b
 
 
 class Spectrum():
@@ -28,9 +41,9 @@ class Spectrum():
         if variance is not None:
             assert variance.shape == self.data.shape, 'Variance spectrum must'\
                 ' have the same shape of the spectrum itself.'
-            self.var = variance
+            self.variance = variance
         else:
-            self.var = np.ones_like(self.data)
+            self.variance = np.ones_like(self.data)
 
         if flags is not None:
             assert flags.shape == self.data.shape, 'Flag spectrum must have '\
@@ -162,33 +175,30 @@ class Spectrum():
         else:
             raise NameError('Unknown function "{:s}".'.format(function))
 
-        if fitting_window is not None:
+        if fitting_window is None:
+            fw = np.ones_like(self.data).astype('bool')
+        else:
             fw = (self.wl > fitting_window[0]) &\
                  (self.wl < fitting_window[1])
-        else:
-            fw = Ellipsis
 
         if copts is None:
             copts = {
                 'niterate': 5, 'degr': 4, 'upper_threshold': 2,
                 'lower_threshold': 2}
 
-        copts.update({'returns'='function'})
+        copts.update(dict(returns='function'))
 
-        wl = deepcopy(self.restwl[fw])
-        scale_factor = np.nanmean(self.data[fw])
-        data = deepcopy(self.data[fw]) / scale_factor
+        valid_pixels = (self.flags == 0) & fw
 
-        if variance is not None:
-            if len(np.shape(variance)) == 0:
-                vspec = np.ones_like(data) * variance
-                
-            vspec /= scale_factor ** 2
-        v = vspec
+        wl = deepcopy(self.restwl[valid_pixels])
+        data = deepcopy(self.data[valid_pixels])
+
+        if weights is None:
+            weights = np.ones_like(data)
 
         npars = len(p0)
         nan_solution = np.array([np.nan for i in range(npars + 1)])
-        
+
         sol = np.zeros((npars + 1,))
         self.fitcont = np.zeros_like(data)
         self.fitwl = wl
@@ -197,52 +207,73 @@ class Spectrum():
 
         # Scale factor for the flux. Needed to avoid problems with
         # the minimization algorithm.
-        flux_sf = np.ones(npars, dtype='float32')
-        flux_sf[np.arange(0, npars, npars_pc)] *= scale_factor
-        p0 /= flux_sf
 
-        if bounds is not None:
-            bounds = np.array(bounds)
-            for i, j in enumerate(bounds):
-                j /= flux_sf[i]
+        # if bounds is not None:
+        #     bounds = np.array(bounds)
+        #     for i, j in enumerate(bounds):
+        #         j /= flux_sf[i]
 
+        #
+        # Pseudo continuum fitting.
+        #
         try:
-            cont = self.cont[:, i, j]/scale_factor
+            cont = self.cont
         except AttributeError:
             cont = st.continuum(wl, data, **copts)[1]
+        self.fitcont = cont
 
+        #
+        # Short alias for the spectrum that is going to be fitted.
+        #
         s = data - cont
+        w = weights
+        v = self.variance[valid_pixels]
 
-        # Avoids fitting if the spectrum is null.
-        try:
-            def res(x):
-                return np.sum((s - fit_func(self.fitwl, x)) ** 2 / v)
-
-            r = minimize(res, x0=p0, method=min_method, bounds=bounds,
-                         constraints=constraints, options=minopts)
-
-            if r.status != 0:
-                print(r.message, r.status)
-            # Reduced chi squared of the fit.
-            chi2 = res(r['x'])
-            nu = len(s)/inst_disp - npars - len(constraints) - 1
-            red_chi2 = chi2 / nu
-            p = np.append(r['x']*flux_sf, red_chi2)
-            fit_status = r.status
-        except RuntimeError:
-            print(
-                'Optimal parameters not found for spectrum {:d},{:d}'
-                .format(int(i), int(j)))
+        #
+        # Scaling the flux in the spectrum, the initial guess and the
+        # bounds to bring everything close to unity.
+        #
+        scale_factor = np.mean(s)
+        if scale_factor <= 0:
             p = nan_solution
+            fit_status = 97
+            return
+        s /= scale_factor
+        if not np.all(v == 1.):
+            v /= scale_factor ** 2
+        p0[::npars_pc] /= scale_factor
+        sbounds = scale_bounds(bounds, scale_factor, npars_pc)
 
+        #
+        # Here the actual fit begins
+        #
+        def res(x):
+            m = fit_func(self.fitwl, x)
+            # Should I divide this by the sum of the weights?
+            a = w * (s - m) ** 2
+            b = a / v
+            rms = np.sqrt(np.sum(b))
+            return rms
+
+        r = minimize(res, x0=p0, method=min_method, bounds=sbounds,
+                     constraints=constraints, options=minopts)
+
+        if r.status != 0:
+            print(r.message, r.status)
+        # Reduced chi squared of the fit.
+        chi2 = res(r['x'])
+        nu = len(s)/inst_disp - npars - len(constraints) - 1
+        red_chi2 = chi2 / nu
+        p = np.append(r['x'], red_chi2)
+        fit_status = r.status
+
+        p[::npars_pc] *= scale_factor
         sol = p
-        self.fitcont = cont * scale_factor
-        self.fitspec = (s + cont) * scale_factor
-        self.resultspec = (cont + fit_func(self.fitwl, r['x'])) * scale_factor
+        self.fitspec = s * scale_factor + cont
+        self.resultspec = cont + fit_func(self.fitwl, r['x']) * scale_factor
 
         self.em_model = sol
         self.fit_status = fit_status
-        p0 *= flux_sf
 
         if writefits:
 
