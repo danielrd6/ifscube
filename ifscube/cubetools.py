@@ -844,7 +844,7 @@ class gmosdc:
             fit_npixels = self.restwl.size
         fit_shape = (fit_npixels,) + self.data.shape[1:]
 
-        fit_status = np.ones(np.shape(self.data)[1:], dtype='int') * -1
+        self.fit_status = np.ones(np.shape(self.data)[1:], dtype='int') * -1
 
         #
         # Sets the variance cube
@@ -918,15 +918,11 @@ class gmosdc:
             spec.flags = self.flags[cube_slice]
             spec.stellar = self.stellar[cube_slice]
 
-            try:
-                spec.stellar = self.syn
-            except AttributeError:
-                pass
-
             if refit and not is_first_spec:
 
                 radsol = np.sqrt((Y - i)**2 + (X - j)**2)
-                nearsol = sol[:-1, (radsol < refit_radius) & (fit_status == 0)]
+                nearsol = sol[
+                    :-1, (radsol < refit_radius) & (self.fit_status == 0)]
 
                 if np.shape(nearsol) == (5, 1):
                     p0 = deepcopy(nearsol.transpose())
@@ -943,7 +939,7 @@ class gmosdc:
             if is_first_spec and (spec.fit_status == 0):
                 is_first_spec = False
 
-            fit_status[i, j] = spec.fit_status
+            self.fit_status[i, j] = spec.fit_status
 
             if self.binned:
                 for l, m in vor[vor[:, 2] == binNum, :2]:
@@ -967,7 +963,6 @@ class gmosdc:
         self.npars = len(spec.parnames)
 
         self.em_model = sol
-        self.fit_status = fit_status
 
         if writefits:
             self.__write_linefit__(sol=sol, args=locals())
