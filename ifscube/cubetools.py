@@ -928,9 +928,9 @@ class gmosdc:
                 nearsol = sol[:-1, (radsol < refit_radius) & (fit_status == 0)]
 
                 if np.shape(nearsol) == (5, 1):
-                    p0 = deepcopy(nearsol)
+                    p0 = deepcopy(nearsol.transpose())
                 elif np.any(nearsol):
-                    p0 = deepcopy(np.average(nearsol, 0))
+                    p0 = deepcopy(np.average(nearsol.transpose(), 0))
 
                     if update_bounds:
                         bounds = bound_updater(
