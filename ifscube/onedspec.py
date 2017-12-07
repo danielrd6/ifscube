@@ -243,7 +243,13 @@ class Spectrum():
             p = nan_solution
             self.fit_status = 96
             return
-
+        #
+        # Checks for the presence of negative weight values.
+        #
+        if np.any(w < 0):
+            p = nan_solution
+            self.fit_status = 95
+            return
         #
         # Scaling the flux in the spectrum, the initial guess and the
         # bounds to bring everything close to unity.
