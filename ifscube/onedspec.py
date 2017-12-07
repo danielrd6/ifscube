@@ -52,7 +52,7 @@ class Spectrum():
             self.stellar = stellar
         else:
             self.stellar = np.zeros_like(self.data)
-    
+
     def __load__(self, fname, ext=0, redshift=0, variance=None,
                  flags=None, stellar=None):
 
@@ -296,15 +296,15 @@ class Spectrum():
         red_chi2 = chi2 / nu
 
         self.fit_status = r.status
-        
-        p = np.append(r['x'], red_chi2)
-        p[::npars_pc] *= scale_factor
+
         p0[::npars_pc] *= scale_factor
+        p = np.append(r['x'], red_chi2)
+        p[0:-1:npars_pc] *= scale_factor
 
         self.resultspec = stellar + cont\
             + fit_func(self.fitwl, r['x']) * scale_factor
 
-        self.em_model = p 
+        self.em_model = p
 
         if writefits:
 
@@ -460,13 +460,13 @@ class Spectrum():
 
         if len(p) > npars:
             for i in np.arange(0, len(p), npars):
-                ax.plot(wl, c + f(wl, p[i: i+npars]), 'k--')
+                ax.plot(wl, c + f(wl, p[i: i + npars]), 'k--')
 
         pars = (npars * '{:10s}' + '\n').format(*parnames)
         for i in np.arange(0, len(p), npars):
             pars += (
-                ('{:10.2e}' + (npars-1) * '{:10.2f}' + '\n')
-                .format(*p[i:i+npars]))
+                ('{:10.2e}' + (npars - 1) * '{:10.2f}' + '\n')
+                .format(*p[i:i + npars]))
 
         if show:
             plt.show()
