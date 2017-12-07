@@ -4,23 +4,22 @@ Functions for the analysis of integral field spectroscopy.
 Author: Daniel Ruschel Dutra
 Website: https://github.com/danielrd6/ifscube
 """
+from copy import deepcopy
+
 import numpy as np
-from astropy.io import fits
-import ifscube.spectools as st
+from numpy import ma
 import matplotlib.pyplot as plt
 from scipy.integrate import trapz
-from copy import deepcopy
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
-from scipy import ndimage
-import ifscube.elprofile as lprof
-from . import spectools
-from numpy import ma
-from astropy import constants
-from astropy import units
 from scipy.ndimage import gaussian_filter
-import ifscube.plots as ifsplots
+from astropy import constants, units
+from astropy.io import fits
 import progressbar
+
+from . import spectools, onedspec
+from . import plots as ifsplots
+from . import elprofile as lprof
 
 
 def nan_to_nearest(d):
@@ -268,7 +267,7 @@ class gmosdc:
         self.header = hdulist[hdrext].header
         self.hdrext = hdrext
 
-        self.wl = st.get_wl(
+        self.wl = spectools.get_wl(
             fitsfile, hdrext=dataext, dimension=0, dwlkey='CD3_3',
             wl0key='CRVAL3', pix0key='CRPIX3')
 
@@ -513,7 +512,7 @@ class gmosdc:
             if (any(s[:20]) and any(s[-20:])) or \
                     (any(np.isnan(s[:20])) and any(np.isnan(s[-20:]))):
                 try:
-                    cont = st.continuum(wl, s, **copts)
+                    cont = spectools.continuum(wl, s, **copts)
                     if self.binned:
                         for l, m in v[v[:, 2] == k, :2]:
                             c[:, l, m] = cont[1]
@@ -603,7 +602,7 @@ class gmosdc:
             if any(data[snrwindow, i, j]) and\
                     all(~np.isnan(data[snrwindow, i, j])):
                 s = data[snrwindow, i, j]
-                cont = st.continuum(wl, s, **copts)[1]
+                cont = spectools.continuum(wl, s, **copts)[1]
                 noise[i, j] = np.nanstd(s - cont)
                 signal[i, j] = np.nanmean(cont)
             else:
@@ -712,8 +711,8 @@ class gmosdc:
             else:
                 n = self.noise_cube[:, y, x]
 
-            n = ndimage.gaussian_filter1d(n, noise_smooth)
-            sg = ndimage.gaussian_filter1d(s, noise_smooth)
+            n = gaussian_filter(n, noise_smooth)
+            sg = gaussian_filter(s, noise_smooth)
 
             ax.fill_between(self.restwl, sg - n, sg + n, edgecolor='',
                             alpha=0.2, color='green')
@@ -947,7 +946,7 @@ class gmosdc:
             v = vcube[:, i, j]
 
             if fit_continuum:
-                cont = st.continuum(wl, data[:, i, j], **copts)[1]
+                cont = spectools.continuum(wl, data[:, i, j], **copts)[1]
             else:
                 cont = self.cont[fw, i, j]
 
@@ -1115,8 +1114,9 @@ class gmosdc:
         Nothing.
         """
 
-        self.fitwl = st.get_wl(fname, pix0key='crpix3', wl0key='crval3',
-                               dwlkey='cd3_3', hdrext=1, dataext=1)
+        self.fitwl = spectools.get_wl(
+            fname, pix0key='crpix3', wl0key='crval3', dwlkey='cd3_3',
+            hdrext=1, dataext=1)
         self.fitspec = fits.getdata(fname, ext=1)
         self.fitcont = fits.getdata(fname, ext=2)
         self.resultspec = fits.getdata(fname, ext=3)
@@ -1867,7 +1867,7 @@ class gmosdc:
 
         for j in range(len(base_spec)):
             ssp = base_spec[j]
-            ssp = ndimage.gaussian_filter1d(ssp, sigma)
+            ssp = gaussian_filter(ssp, sigma)
             sspNew, logLam2, velscale = ppxf_util.log_rebin(
                 lamRange2, ssp, velscale=velscale)
             # Normalizes templates
