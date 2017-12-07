@@ -31,7 +31,7 @@ class Spectrum():
             self.__load__(*args, **kwargs)
 
     def __load__(self, fname, ext=0, redshift=0, variance=None,
-                 flags=None):
+                 flags=None, stellar=None):
 
         with pf.open(fname) as hdu:
             self.data = hdu[ext].data
@@ -52,6 +52,13 @@ class Spectrum():
         else:
             self.flags = np.zeros_like(self.data)
 
+        if stellar is not None:
+            assert flags.shape == self.data.shape, 'Stellar population'\
+                ' spectrum must have the same shape of the spectrum itself.'
+            self.stellar = stellar
+        else:
+            self.stellar = np.zeros_like(self.data)
+
         self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
         self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
 
@@ -68,19 +75,15 @@ class Spectrum():
                 writefits=False, outimage=None, variance=None,
                 constraints=(), bounds=None, inst_disp=1.0,
                 min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
-                weights=None, verbose=False):
+                weights=None, verbose=False, fit_continuum=False):
         """
-        Fits a spectral feature with a gaussian function and returns a
-        map of measured properties. This is a wrapper for the scipy
-        minimize function that basically iterates over the cube,
-        has a formula for the reduced chi squared, and applies
-        an internal scale factor to the flux.
+        Fits a spectral features.
 
         Parameters
         ----------
         p0 : iterable
             Initial guess for the fitting funcion, consisting of a list
-            of 3N parameters for N components of **function**. In the
+            of N*M parameters for M components of **function**. In the
             case of a gaussian fucntion, these parameters must be given
             as [amplitude0, center0, sigma0, amplitude1, center1, ...].
         function : string
@@ -204,29 +207,32 @@ class Spectrum():
 
         wl = deepcopy(self.restwl[valid_pixels])
         data = deepcopy(self.data[valid_pixels])
+        stellar = deepcopy(self.stellar[valid_pixels])
+        self.fitspec = data
 
         if weights is None:
             weights = np.ones_like(data)
 
         sol = np.zeros((npars + 1,))
-        self.fitcont = np.zeros_like(data)
         self.fitwl = wl
-        self.fitspec = np.zeros_like(data)
         self.resultspec = np.zeros_like(data)
 
         #
         # Pseudo continuum fitting.
         #
         try:
-            cont = self.cont
+            cont = self.continuum[valid_pixels]
         except AttributeError:
-            cont = st.continuum(wl, data, **copts)[1]
+            if fit_continuum:
+                cont = st.continuum(wl, data - stellar, **copts)[1]
+            else:
+                cont = np.zeros_like(data)
         self.fitcont = cont
 
         #
         # Short alias for the spectrum that is going to be fitted.
         #
-        s = data - cont
+        s = data - cont - stellar
         w = weights
         v = self.variance[valid_pixels]
 
@@ -280,8 +286,8 @@ class Spectrum():
 
         p[::npars_pc] *= scale_factor
         sol = p
-        self.fitspec = s * scale_factor + cont
-        self.resultspec = cont + fit_func(self.fitwl, r['x']) * scale_factor
+        self.resultspec = stellar + cont\
+            + fit_func(self.fitwl, r['x']) * scale_factor
 
         self.em_model = sol
 
