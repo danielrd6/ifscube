@@ -283,6 +283,7 @@ class gmosdc:
         if var_ext is not None:
             # The noise for each pixel in the cube
             self.noise_cube = hdulist[var_ext].data
+            self.variance = self.noise_cube ** 2 
 
             # An image of the mean noise, collapsed over the
             # wavelength dimension.
@@ -299,6 +300,8 @@ class gmosdc:
 
             self.noise[np.isinf(self.noise)] =\
                 self.signal[np.isinf(self.noise)]
+        else:
+            self.variance = np.ones_like(self.data)
 
         if ncubes_ext is not None:
             # The self.ncubes variable describes how many different
@@ -308,6 +311,11 @@ class gmosdc:
             # are present in only one observation, for greater
             # confidence.
             self.ncubes = hdulist[ncubes_ext].data
+        else:
+            self.ncubes = np.ones_like(self.data)
+
+        self.flags = np.zeros_like(self.data)
+        self.flags[self.ncubes <= 0] = 1
 
         try:
             if self.header['VORBIN']:
@@ -319,6 +327,9 @@ class gmosdc:
 
         self.fitsfile = fitsfile
         self.redshift = redshift
+
+        self.stellar = np.zeros_like(self.data)
+        self.weights = np.zeros_like(self.data)
 
         self.__set_spec_indices__()
 
@@ -836,13 +847,9 @@ class gmosdc:
         fit_status = np.ones(np.shape(self.data)[1:], dtype='int') * -1
 
         #
-        # Set the variance cube.
+        # Sets the variance cube
         #
-        try:
-            vcube = self.noise_cube ** 2
-        except AttributeError:
-            vcube = np.ones_like(self.data)
-
+        vcube = self.variance
         variance = kwargs.get('variance', None)
         if variance is not None:
             vcube = self.__arg2cube__(variance, vcube)
@@ -850,11 +857,7 @@ class gmosdc:
         #
         # Set the weight cube.
         #
-        try:
-            wcube = self.weights
-        except AttributeError:
-            wcube = np.ones_like(self.data)
-
+        wcube = self.weights
         weights = kwargs.get('weights', None)
         if weights is not None:
             wcube = self.__arg2cube__(weights, wcube)
@@ -862,11 +865,7 @@ class gmosdc:
         #
         # Set the flags cube.
         #
-        try:
-            flag_cube = self.flags
-        except AttributeError:
-            flag_cube = np.zeros_like(self.data)
-
+        flag_cube = self.flags
         flags = kwargs.get('flags', None)
         if flags is not None:
             flag_cube = self.__arg2cube__(flags, flag_cube)
@@ -915,7 +914,9 @@ class gmosdc:
             spec = onedspec.Spectrum()
             spec.restwl = self.restwl
             spec.data = self.data[cube_slice]
-            spec.__accessory_data__(None, None, None)
+            spec.variance = self.variance[cube_slice]
+            spec.flags = self.flags[cube_slice]
+            spec.stellar = self.stellar[cube_slice]
 
             try:
                 spec.stellar = self.syn
