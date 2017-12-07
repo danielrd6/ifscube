@@ -231,6 +231,14 @@ class Spectrum():
         v = self.variance[valid_pixels]
 
         #
+        # Checks for the presence of negative or zero variance pixels.
+        #
+        if not np.all(v > 0):
+            p = nan_solution
+            self.fit_status = 96
+            return
+
+        #
         # Scaling the flux in the spectrum, the initial guess and the
         # bounds to bring everything close to unity.
         #
