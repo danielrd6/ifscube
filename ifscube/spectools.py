@@ -428,7 +428,9 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
 
     if returns == 'function':
         return xfull, np.polyval(p, xfull)
-
+    
+    if returns == 'polynomial':
+        return p 
 
 def eqw(wl, flux, lims, cniterate=5):
     """
