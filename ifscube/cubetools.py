@@ -10,7 +10,6 @@ import numpy as np
 from numpy import ma
 import matplotlib.pyplot as plt
 from scipy.integrate import trapz
-from scipy.optimize import minimize
 from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter
 from astropy import constants, units
@@ -719,15 +718,11 @@ class gmosdc:
 
         plt.show()
 
-    def linefit(self, p0, function='gaussian', fitting_window=None,
-                writefits=False, outimage=None, variance=None,
-                constraints=(), bounds=None, inst_disp=1.0,
-                individual_spec=False, min_method='SLSQP',
-                minopts={'eps': 1e-3}, copts=None, refit=False,
+    def linefit(self, p0, writefits=False, outimage=None,
+                individual_spec=False, refit=False,
                 update_bounds=False, bound_range=.1, spiral_loop=False,
-                spiral_center=None, fit_continuum=True, refit_radius=3,
-                sig_threshold=0, par_threshold=0, weights=None,
-                flags=None, verbose=False):
+                spiral_center=None, refit_radius=3, sig_threshold=0,
+                par_threshold=0, verbose=False, **kwargs):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties. This is a wrapper for the scipy
@@ -828,53 +823,27 @@ class gmosdc:
         scipy.optimize.curve_fit, scipy.optimize.leastsq
         """
 
-        if function == 'gaussian':
-            fit_func = lprof.gauss
-            self.fit_func = lprof.gauss
-            npars_pc = 3
-            self.parnames = ('A', 'wl', 's')
-        elif function == 'gauss_hermite':
-            fit_func = lprof.gausshermite
-            self.fit_func = lprof.gausshermite
-            npars_pc = 5
-            self.parnames = ('A', 'wl', 's', 'h3', 'h4')
-        else:
-            raise NameError('Unknown function "{:s}".'.format(function))
-
-        self.npars = npars_pc
-
+        fitting_window = kwargs.get('fitting_window', None)
         if fitting_window is not None:
-            fw = (self.restwl > fitting_window[0]) &\
-                 (self.restwl < fitting_window[1])
+            fit_npixels = np.sum(
+                (self.restwl > fitting_window[0])
+                & (self.restwl < fitting_window[1])
+            )
         else:
-            fw = Ellipsis
+            fit_npixels = self.restwl.size
+        fit_shape = (fit_npixels,) + self.data.shape[1:]
 
-        if copts is None:
-            copts = {
-                'niterate': 5, 'degr': 4, 'upper_threshold': 2,
-                'lower_threshold': 2}
-
-        copts['returns'] = 'function'
-
-        # Checks the suitability of the fitting window given the
-        # available wavelength vector.
-        wl = deepcopy(self.restwl[fw])
-        if wl.size == 0:
-            raise RuntimeError(
-                'Fitting window limits outside the available wavelength '
-                ' range.')
-
-        data = deepcopy(self.data[fw, :, :])
-        fit_status = np.ones(np.shape(data)[1:], dtype='int') * -1
+        fit_status = np.ones(np.shape(self.data)[1:], dtype='int') * -1
 
         #
         # Set the variance cube.
         #
         try:
-            vcube = self.noise_cube[fw, :, :] ** 2
+            vcube = self.noise_cube ** 2
         except AttributeError:
-            vcube = np.ones_like(data)
+            vcube = np.ones_like(self.data)
 
+        variance = kwargs.get('variance', None)
         if variance is not None:
             vcube = self.__arg2cube__(variance, vcube)
 
@@ -882,10 +851,11 @@ class gmosdc:
         # Set the weight cube.
         #
         try:
-            wcube = self.weights[fw, :, :]
+            wcube = self.weights
         except AttributeError:
-            wcube = np.ones_like(data)
+            wcube = np.ones_like(self.data)
 
+        weights = kwargs.get('weights', None)
         if weights is not None:
             wcube = self.__arg2cube__(weights, wcube)
 
@@ -893,22 +863,19 @@ class gmosdc:
         # Set the flags cube.
         #
         try:
-            flag_cube = self.flags[fw, :, :]
+            flag_cube = self.flags
         except AttributeError:
-            flag_cube = np.zeros_like(data)
+            flag_cube = np.zeros_like(self.data)
 
+        flags = kwargs.get('flags', None)
         if flags is not None:
             flag_cube = self.__arg2cube__(flags, flag_cube)
 
         npars = len(p0)
-        nan_solution = np.array([np.nan for i in range(npars + 1)])
-        sol = np.zeros(
-            (npars + 1, np.shape(self.data)[1], np.shape(self.data)[2]),
-            dtype='float32')
-        self.fitcont = np.zeros(np.shape(data), dtype='float32')
-        self.fitwl = wl
-        self.fitspec = np.zeros(np.shape(data), dtype='float32')
-        self.resultspec = np.zeros(np.shape(data), dtype='float32')
+        sol = np.zeros((npars + 1,) + self.data.shape[1:])
+        self.fitcont = np.zeros(fit_shape)
+        self.fitspec = np.zeros(fit_shape)
+        self.resultspec = np.zeros(fit_shape)
         self.fitweights = wcube
 
         if self.binned:
@@ -922,9 +889,9 @@ class gmosdc:
             xy = self.spec_indices
 
         # Saves the original bounds in case the bound updater is used.
-        original_bounds = deepcopy(bounds)
+        original_bounds = deepcopy(kwargs.get('bounds', None))
 
-        Y, X = np.indices(np.shape(data)[1:])
+        Y, X = np.indices(fit_shape[1:])
 
         if individual_spec:
             xy = [individual_spec[::-1]]
@@ -943,159 +910,71 @@ class gmosdc:
             if self.binned:
                 binNum = vor[(vor[:, 0] == i) & (vor[:, 1] == j), 2]
 
-            v = vcube[:, i, j]
+            cube_slice = (Ellipsis, i, j)
 
-            if fit_continuum:
-                cont = spectools.continuum(wl, data[:, i, j], **copts)[1]
-            else:
-                cont = self.cont[fw, i, j]
-
-            s = data[:, i, j] - cont
-            w = deepcopy(wcube[:, i, j])
-            w /= np.sum(w) / w.size
-
-            flags = flag_cube[:, i, j].astype('bool')
-            if np.sum(flags) > 0.8 * flags.size:
-                p = nan_solution
-                fit_status[i, j] = 98
-                continue
-
-            scale_factor = np.average(data[:, i, j][~flags])
-            if not scale_factor > 0:
-                p = nan_solution
-                fit_status[i, j] = 97
-                continue
-            # assert scale_factor > 0, 'Scale factor is negative.'
-            s /= scale_factor
-            v /= scale_factor ** 2
-
-            flux_sf = np.ones_like(p0)
-            flux_sf[np.arange(0, npars, npars_pc)] *= scale_factor
-            p0 /= flux_sf
-
-            # The bounds, possibly having *None* in some places, need
-            # a special function to apply the scale factor.
-            if is_first_spec:
-                bounds = scale_bounds(bounds, flux_sf)
-            bounds_0 = scale_bounds(original_bounds, flux_sf)
-
-            if not np.all(v[~flags] > 0):
-                p = nan_solution
-                fit_status[i, j] = 96
-                continue
-
-            # assert np.all(v[~flags] > 0), 'Variance values of less than or '\
-            #     'equal to zero.'
-            if not np.all(w >= 0):
-                p = nan_solution
-                fit_status[i, j] = 95
-                continue
-
-            # assert np.all(w >= 0), 'Weight values of less than zero.'
+            spec = onedspec.Spectrum()
+            spec.restwl = self.restwl
+            spec.data = self.data[cube_slice]
+            spec.__accessory_data__(None, None, None)
 
             try:
-                #
-                # Function to be minimized!
-                # This is the definition of Chi^2.
-                #
-                def res(x):
-                    m = fit_func(self.fitwl, x)
-                    # Should I divide this by the sum of the weights?
-                    a = w * (s - m) ** 2
-                    b = a[~flags] / v[~flags]
-                    rms = np.sqrt(np.sum(b))
-                    return rms
+                spec.stellar = self.syn
+            except AttributeError:
+                pass
 
-                if refit and not is_first_spec:
-                    radsol = np.sqrt((Y - i)**2 + (X - j)**2)
-                    nearsol = sol[:-1, (radsol < refit_radius) &
-                                  (fit_status == 0)]
-                    if np.shape(nearsol) == (5, 1):
-                        p0 = deepcopy(nearsol.transpose() / flux_sf)
-                    elif np.any(nearsol):
-                        p0 = deepcopy(
-                            np.average(nearsol.transpose(), 0) / flux_sf)
+            if refit and not is_first_spec:
 
-                        if update_bounds:
-                            bounds = bound_updater(
-                                p0, bound_range, bounds=bounds_0)
+                radsol = np.sqrt((Y - i)**2 + (X - j)**2)
+                nearsol = sol[:-1, (radsol < refit_radius) & (fit_status == 0)]
 
-                r = minimize(res, x0=p0, method=min_method, bounds=bounds,
-                             constraints=constraints, options=minopts)
+                if np.shape(nearsol) == (5, 1):
+                    p0 = deepcopy(nearsol)
+                elif np.any(nearsol):
+                    p0 = deepcopy(np.average(nearsol, 0))
 
-                # When the fit is unsuccessful, prints the minimizer
-                # message.
-                if verbose and (r.status != 0):
-                    print(h, r.message, r.status)
+                    if update_bounds:
+                        bounds = bound_updater(
+                            p0, bound_range, bounds=original_bounds)
 
-                # If successful, sets is_first_spec to False.
-                if is_first_spec and (r.status == 0):
-                    is_first_spec = False
+            spec.linefit(p0, **kwargs)
 
-                # Reduced chi squared of the fit.
-                chi2 = np.sum(
-                    (
-                        (s[~flags] - fit_func(self.fitwl, r.x)[~flags]) ** 2 /
-                        v[~flags]
-                    )
-                )
-                nu = len(s[~flags]) / inst_disp - npars - len(constraints) - 1
-                red_chi2 = chi2 / nu
+            # If successful, sets is_first_spec to False.
+            if is_first_spec and (spec.fit_status == 0):
+                is_first_spec = False
 
-                p = np.append(r['x'] * flux_sf, red_chi2)
-                fit_status[i, j] = r.status
-
-            except RuntimeError:
-                if verbose:
-                    print(
-                        'Optimal parameters not found for spectrum {:d},{:d}'
-                        .format(int(i), int(j)))
-                p = nan_solution
-
-            # Sets p to nan if the flux is smaller than the average
-            # noise level.
-
-            # mean noise level
-            mnl = np.sqrt(np.sum(np.square(v * scale_factor)) / v.size)
-
-            # The first argument of the gauss_hermite function is the
-            # integrated flux, and not the amplitude. Therefore it is necessary
-            # to make some sort of approximation for the flux of the noise,
-            # were it to have a quasi-gaussian shape. This is not needed for
-            # the gaussian function.
-            if function == 'gauss_hermite':
-                mnl_flux = mnl * p[2] * np.sqrt(2. * np.pi)
-            elif function == 'gaussian':
-                mnl_flux = mnl
-
-            if p[par_threshold] < mnl_flux * sig_threshold:
-                p = nan_solution
-                fit_status[i, j] = 99
+            fit_status[i, j] = spec.fit_status
 
             if self.binned:
                 for l, m in vor[vor[:, 2] == binNum, :2]:
-                    sol[:, l, m] = p
-                    self.fitcont[:, l, m] = cont
-                    self.fitspec[:, l, m] = s * scale_factor + cont
-                    self.resultspec[:, l, m] = (
-                        cont + fit_func(self.fitwl, r['x'])) * scale_factor
+                    sol[:, l, m] = spec.em_model
+                    self.fitcont[:, l, m] = spec.fitcont
+                    self.fitspec[:, l, m] = spec.fitspec
+                    self.resultspec[:, l, m] = spec.resultspec
             else:
-                sol[:, i, j] = p
-                self.fitcont[:, i, j] = cont
-                self.fitspec[:, i, j] = s * scale_factor + cont
-                self.resultspec[:, i, j] = (
-                    cont + fit_func(self.fitwl, r['x'])) * scale_factor
+                sol[:, i, j] = spec.em_model
+                self.fitcont[:, i, j] = spec.fitcont
+                self.fitspec[:, i, j] = spec.fitspec
+                self.resultspec[:, i, j] = spec.resultspec
+
+        self.fitwl = spec.fitwl
+        self.fit_func = spec.fit_func
+        self.parnames = spec.parnames
+        if spec.fit_func == lprof.gauss:
+            function = 'gaussian'
+        elif spec.fit_func == lprof.gausshermite:
+            function = 'gauss_hermite'
+        self.npars = len(spec.parnames)
 
         self.em_model = sol
         self.fit_status = fit_status
-        p0 *= flux_sf
 
         if writefits:
             self.__write_linefit__(sol=sol, args=locals())
 
         if individual_spec:
-            return wl, s * scale_factor, cont * scale_factor,\
-                fit_func(wl, p[:-1]), r
+            return (
+                spec.fitwl, spec.fitspec, spec.fitcont, spec.resultspec,
+                spec.r)
         else:
             return sol
 

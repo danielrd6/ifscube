@@ -30,13 +30,7 @@ class Spectrum():
         if len(args) > 0:
             self.__load__(*args, **kwargs)
 
-    def __load__(self, fname, ext=0, redshift=0, variance=None,
-                 flags=None, stellar=None):
-
-        with pf.open(fname) as hdu:
-            self.data = hdu[ext].data
-            self.header = hdu[ext].header
-            self.wcs = wcs.WCS(self.header)
+    def __accessory_data__(self, variance, flags, stellar):
 
         if variance is not None:
             assert variance.shape == self.data.shape, 'Variance spectrum must'\
@@ -58,6 +52,16 @@ class Spectrum():
             self.stellar = stellar
         else:
             self.stellar = np.zeros_like(self.data)
+    
+    def __load__(self, fname, ext=0, redshift=0, variance=None,
+                 flags=None, stellar=None):
+
+        with pf.open(fname) as hdu:
+            self.data = hdu[ext].data
+            self.header = hdu[ext].header
+            self.wcs = wcs.WCS(self.header)
+
+        self.__accessory_data__(variance, flags, stellar)
 
         self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
         self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
@@ -281,6 +285,7 @@ class Spectrum():
 
         r = minimize(res, x0=p0, method=min_method, bounds=sbounds,
                      constraints=constraints, options=minopts)
+        self.r = r
 
         if verbose and r.status != 0:
             print(r.message, r.status)
@@ -290,15 +295,16 @@ class Spectrum():
         nu = len(s) / inst_disp - npars - len(constraints) - 1
         red_chi2 = chi2 / nu
 
-        p = np.append(r['x'], red_chi2)
         self.fit_status = r.status
-
+        
+        p = np.append(r['x'], red_chi2)
         p[::npars_pc] *= scale_factor
-        sol = p
+        p0[::npars_pc] *= scale_factor
+
         self.resultspec = stellar + cont\
             + fit_func(self.fitwl, r['x']) * scale_factor
 
-        self.em_model = sol
+        self.em_model = p 
 
         if writefits:
 
