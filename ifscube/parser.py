@@ -32,12 +32,45 @@ class LineFitParser:
                 self.component_names += [line]
                 self.parse_line(self.cfg[line])
 
-        self._fit()
+        if 'fit' in self.cfg.sections():
+            self._fit()
+        else:
+            self.fit_opts = {}
+        if 'minimization' in self.cfg.sections():
+            self._minimization()
+        else:
+            self.minopts = {}
+        if 'continuum' in self.cfg.sections():
+            self._continuum()
+        else:
+            self.copts = {}
+
+    def _parse_dict(self, section, float_args, int_args, bool_args):
+       
+        d = {**self.cfg[section]}
+
+        for i in float_args:
+            if i in d:
+                d[i] = self.cfg.getfloat(section, i)
+
+        for i in int_args:
+            if i in d:
+                d[i] = self.cfg.getint(section, i)
+
+        for i in bool_args:
+            if i in d: 
+                d[i] = self.cfg.getboolean(section, i)
+
+        return d
 
     def _minimization(self):
 
-        minopts = {**self.cfg['minimization']}
-        self.minopts = minopts
+        self.minopts = self._parse_dict(
+            section='minimization',
+            float_args=['eps', 'ftol'],
+            int_args=['maxiter'],
+            bool_args=['disp'],
+        )
 
     def _fit(self):
 
@@ -54,8 +87,17 @@ class LineFitParser:
             fit_opts['fitting_window'] = tuple([float(i) for i in a])
 
         self.fit_opts = fit_opts
+    
+    def _continuum(self):
 
-    def _bounds_parser(self, props):
+        self.copts = self._parse_dict(
+            section='continuum',
+            float_args=['eps', 'ftol'],
+            int_args=['degr'],
+            bool_args=['disp'],
+        )
+
+    def _bounds(self, props):
 
         if len(props) > 1:
             low, up = [
@@ -69,12 +111,13 @@ class LineFitParser:
         for par in self.par_names:
             props = line[par].split(',')
             self.p0 += [float(props[0])]
-            self._bounds_parser(props)
+            self._bounds(props)
 
     def get_vars(self):
 
         d = {**vars(self), **self.fit_opts}
-        todel = ['cfg', 'component_names', 'par_names', 'fit_opts']
+        todel = [
+            'cfg', 'component_names', 'par_names', 'fit_opts', 'copts']
         for i in todel:
             del d[i]
         return d
