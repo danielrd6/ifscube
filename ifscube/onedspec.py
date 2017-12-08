@@ -13,7 +13,7 @@ from . import elprofile as lprof
 
 def scale_bounds(bounds, scale_factor, npars_pc):
 
-    b = deepcopy(bounds)
+    b = np.array(deepcopy(bounds))
     for j in b[::npars_pc]:
         for k in (0, 1):
             if j[k] is not None:
