@@ -228,9 +228,8 @@ class Spectrum():
         #
 
         if copts is None:
-            copts = {
-                'niterate': 5, 'degr': 4, 'upper_threshold': 2,
-                'lower_threshold': 2}
+            copts = dict(
+                niterate=5, degr=4, upper_threshold=2, lower_threshold=2)
 
         copts.update(dict(returns='polynomial'))
 
@@ -241,7 +240,7 @@ class Spectrum():
             if fit_continuum:
                 pcont = st.continuum(wl, data - stellar, **copts)
                 self.fitcont = np.polyval(pcont, self.restwl[fw])
-                cont = np.polyval(pcont)(wl)
+                cont = np.polyval(pcont, wl)
             else:
                 cont = np.zeros_like(data)
 
