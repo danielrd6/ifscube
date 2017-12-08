@@ -374,7 +374,9 @@ class gmosdc:
 
         # Creates MEF output.
         h = fits.HDUList()
-        h.append(fits.PrimaryHDU(header=hdr))
+        hdu = fits.PrimaryHDU(header=hdr)
+        hdu.name = 'PRIMARY'
+        h.append(hdu)
 
         # Creates the fitted spectrum extension
         hdr = fits.Header()
@@ -382,15 +384,27 @@ class gmosdc:
         hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
         hdr['CRVAL3'] = (self.fitwl[0], 'Reference value for wavelength')
         hdr['CD3_3'] = (np.average(np.diff(self.fitwl)), 'CD3_3')
-        h.append(fits.ImageHDU(data=self.fitspec, header=hdr))
+        hdu = fits.ImageHDU(data=self.fitspec, header=hdr)
+        hdu.name = 'FITSPEC'
+        h.append(hdu)
 
         # Creates the fitted continuum extension.
         hdr['object'] = 'continuum'
-        h.append(fits.ImageHDU(data=self.fitcont, header=hdr))
+        hdu = fits.ImageHDU(data=self.fitcont, header=hdr)
+        hdu.name = 'FITCONT'
+        h.append(hdu)
+
+        # Creates the stellar continuum extension.
+        hdr['object'] = 'stellar'
+        hdu = fits.ImageHDU(data=self.fitstellar, header=hdr)
+        hdu.name = 'STELLAR'
+        h.append(hdu)
 
         # Creates the fitted function extension.
-        hdr['object'] = 'fit'
-        h.append(fits.ImageHDU(data=self.resultspec, header=hdr))
+        hdr['object'] = 'modeled_spec'
+        hdu = fits.ImageHDU(data=self.resultspec, header=hdr)
+        hdu.name = 'MODEL'
+        h.append(hdu)
 
         # Creates the solution extension.
         function = args['function']
@@ -399,11 +413,15 @@ class gmosdc:
         hdr['object'] = 'parameters'
         hdr['function'] = (function, 'Fitted function')
         hdr['nfunc'] = (total_pars / self.npars, 'Number of functions')
-        h.append(fits.ImageHDU(data=sol, header=hdr))
+        hdu = fits.ImageHDU(data=sol, header=hdr)
+        hdu.name = 'SOLUTION'
+        h.append(hdu)
 
         # Creates the minimize's exit status extension
         hdr['object'] = 'status'
-        h.append(fits.ImageHDU(data=self.fit_status, header=hdr))
+        hdu = fits.ImageHDU(data=self.fit_status, header=hdr)
+        hdu.name = 'STATUS'
+        h.append(hdu)
 
         h.writeto(outimage)
 
@@ -992,18 +1010,21 @@ class gmosdc:
         Nothing.
         """
 
+        fitfile = fits.open(fname)
+
         self.fitwl = spectools.get_wl(
             fname, pix0key='crpix3', wl0key='crval3', dwlkey='cd3_3',
             hdrext=1, dataext=1)
-        self.fitspec = fits.getdata(fname, ext=1)
-        self.fitcont = fits.getdata(fname, ext=2)
-        self.resultspec = fits.getdata(fname, ext=3)
+        self.fitspec = fitfile['FITSPEC'].data
+        self.fitcont = fitfile['FITCONT'].data
+        self.resultspec = fitfile['MODEL']
 
-        self.em_model = fits.getdata(fname, ext=4)
-        self.fit_status = fits.getdata(fname, ext=5)
+        self.em_model = fitfile['SOLUTION'].data
+        self.fit_status = fitfile['STATUS'].data
+        self.fitstellar = fitfile['STELLAR'].data
 
         fit_info = {}
-        func_name = fits.getheader(fname, ext=4)['function']
+        func_name = fitfile['SOLUTION'].header['function']
         fit_info['function'] = func_name
 
         if func_name == 'gaussian':
@@ -1021,6 +1042,8 @@ class gmosdc:
         fit_info['components'] = (self.em_model.shape[0] - 1) / self.npars
 
         self.fit_info = fit_info
+
+        fitfile.close()
 
     def eqw(self, component=0, sigma_factor=3, outimage=None):
         """
