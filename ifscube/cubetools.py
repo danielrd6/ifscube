@@ -283,7 +283,7 @@ class gmosdc:
         if var_ext is not None:
             # The noise for each pixel in the cube
             self.noise_cube = hdulist[var_ext].data
-            self.variance = self.noise_cube ** 2 
+            self.variance = np.square(self.noise_cube)
 
             # An image of the mean noise, collapsed over the
             # wavelength dimension.
@@ -874,6 +874,7 @@ class gmosdc:
         sol = np.zeros((npars + 1,) + self.data.shape[1:])
         self.fitcont = np.zeros(fit_shape)
         self.fitspec = np.zeros(fit_shape)
+        self.fitstellar = np.zeros(fit_shape)
         self.resultspec = np.zeros(fit_shape)
         self.fitweights = wcube
 
@@ -947,10 +948,12 @@ class gmosdc:
                     self.fitcont[:, l, m] = spec.fitcont
                     self.fitspec[:, l, m] = spec.fitspec
                     self.resultspec[:, l, m] = spec.resultspec
+                    self.fitstellar[:, l, m] = spec.fitstellar
             else:
                 sol[:, i, j] = spec.em_model
                 self.fitcont[:, i, j] = spec.fitcont
                 self.fitspec[:, i, j] = spec.fitspec
+                self.fitstellar[:, i, j] = spec.fitstellar
                 self.resultspec[:, i, j] = spec.resultspec
 
         self.fitwl = spec.fitwl
