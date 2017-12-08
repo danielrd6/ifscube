@@ -7,9 +7,8 @@ from scipy.interpolate import interp1d
 from astropy import wcs
 import astropy.io.fits as pf
 
-from ifscube import stats
-import ifscube.spectools as st
-import ifscube.elprofile as lprof
+from . import stats, spectools
+from . import elprofile as lprof
 
 
 def scale_bounds(bounds, scale_factor, npars_pc):
@@ -235,7 +234,7 @@ class Spectrum():
 
         try:
             cont = self.continuum[valid_pixels]
-            self.fitcont = self.continuum[fw] + self.stellar[fw]
+            self.fitcont = self.continuum[fw]
         except AttributeError:
             if fit_continuum:
                 pcont = st.continuum(wl, data - stellar, **copts)
