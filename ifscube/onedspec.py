@@ -169,9 +169,11 @@ class Spectrum():
         scipy.optimize.curve_fit, scipy.optimize.leastsq
         """
 
+        p0 = np.array(p0)
+
         # Sets a pre-made nan vector for nan solutions.
         npars = len(p0)
-        nan_solution = np.array([np.nan for i in range(npars + 1)])
+        self.em_model = np.array([np.nan for i in range(npars + 1)])
 
         if function == 'gaussian':
             fit_func = lprof.gauss
@@ -194,47 +196,52 @@ class Spectrum():
         if not np.any(fw):
             raise RuntimeError(
                 'Fitting window outside the available wavelength range.')
+        zero_spec = np.zeros_like(self.restwl[fw])
 
         if copts is None:
             copts = {
                 'niterate': 5, 'degr': 4, 'upper_threshold': 2,
                 'lower_threshold': 2}
 
-        copts.update(dict(returns='function'))
-
-        #
-        # Avoids fit if more than 80% of the pixels are flagged.
-        #
-        if np.sum(self.flags) > 0.8 * self.flags.size:
-            p = nan_solution
-            self.fit_status = 98
-            return
+        copts.update(dict(returns='polynomial'))
 
         valid_pixels = (self.flags == 0) & fw
 
         wl = deepcopy(self.restwl[valid_pixels])
         data = deepcopy(self.data[valid_pixels])
         stellar = deepcopy(self.stellar[valid_pixels])
-        self.fitspec = data
+
+        self.fitspec = self.data[fw]
+        self.resultspec = zero_spec
+        self.fitcont = zero_spec
+        self.fitwl = self.restwl[fw]
+        self.fitstellar = self.stellar[fw]
+
+        #
+        # Avoids fit if more than 80% of the pixels are flagged.
+        #
+        if np.sum(self.flags) > 0.8 * self.flags.size:
+            self.fit_status = 98
+            return
 
         if weights is None:
             weights = np.ones_like(data)
 
         sol = np.zeros((npars + 1,))
-        self.fitwl = wl
-        self.resultspec = np.zeros_like(data)
 
         #
         # Pseudo continuum fitting.
         #
         try:
             cont = self.continuum[valid_pixels]
+            self.fitcont = self.continuum[fw] + self.stellar[fw]
         except AttributeError:
             if fit_continuum:
-                cont = st.continuum(wl, data - stellar, **copts)[1]
+                pcont = st.continuum(wl, data - stellar, **copts)
+                self.fitcont = np.polyval(pcont)(self.restwl[fw])
+                cont = np.polyval(pcont)(wl)
             else:
                 cont = np.zeros_like(data)
-        self.fitcont = cont
 
         #
         # Short alias for the spectrum that is going to be fitted.
@@ -247,14 +254,12 @@ class Spectrum():
         # Checks for the presence of negative or zero variance pixels.
         #
         if not np.all(v > 0):
-            p = nan_solution
             self.fit_status = 96
             return
         #
         # Checks for the presence of negative weight values.
         #
         if np.any(w < 0):
-            p = nan_solution
             self.fit_status = 95
             return
         #
@@ -263,7 +268,6 @@ class Spectrum():
         #
         scale_factor = np.mean(s)
         if scale_factor <= 0:
-            p = nan_solution
             self.fit_status = 97
             return
         s /= scale_factor
@@ -301,7 +305,7 @@ class Spectrum():
         p = np.append(r['x'], red_chi2)
         p[0:-1:npars_pc] *= scale_factor
 
-        self.resultspec = stellar + cont\
+        self.resultspec = self.fitstellar + self.fitcont\
             + fit_func(self.fitwl, r['x']) * scale_factor
 
         self.em_model = p
