@@ -1219,6 +1219,7 @@ class gmosdc:
         wl = self.fitwl
         f = self.fit_func
         s = self.fitspec[:, y, x]
+        star = self.fitstellar[:, y, x]
 
         median_spec = np.median(s)
 
