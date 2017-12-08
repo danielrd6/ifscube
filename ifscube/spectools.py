@@ -171,11 +171,11 @@ def blackbody(x, T, coordinate='wavelength'):
     if coordinate == 'wavelength':
         def b(x, t):
             return 2. * h * c**2. / x**5 * \
-                    (1. / (np.exp(h * c / (x * kb * t)) - 1.))
+                (1. / (np.exp(h * c / (x * kb * t)) - 1.))
     elif coordinate == 'frequency':
         def b(x, t):
             return 2 * h * c**2 / \
-                    x**5 * (np.exp((h * c) / (x * kb * t)) - 1)**(-1)
+                x**5 * (np.exp((h * c) / (x * kb * t)) - 1)**(-1)
 
     return b(x, T)
 
@@ -420,17 +420,15 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
 
     p = np.polyfit(x, s(x), deg=degr, w=weights)
 
-    if returns == 'ratio':
-        return xfull, s(xfull) / np.polyval(p, xfull)
+    out = dict(
+        ratio=(xfull, s(xfull) / np.polyval(p, xfull)),
+        difference=(xfull, s(xfull) - np.polyval(p, xfull)),
+        function=(xfull, np.polyval(p, xfull)),
+        polynomial=p,
+    )
 
-    if returns == 'difference':
-        return xfull, s(xfull) - np.polyval(p, xfull)
+    return out[returns]
 
-    if returns == 'function':
-        return xfull, np.polyval(p, xfull)
-    
-    if returns == 'polynomial':
-        return p 
 
 def eqw(wl, flux, lims, cniterate=5):
     """
