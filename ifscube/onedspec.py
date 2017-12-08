@@ -198,13 +198,6 @@ class Spectrum():
                 'Fitting window outside the available wavelength range.')
         zero_spec = np.zeros_like(self.restwl[fw])
 
-        if copts is None:
-            copts = {
-                'niterate': 5, 'degr': 4, 'upper_threshold': 2,
-                'lower_threshold': 2}
-
-        copts.update(dict(returns='polynomial'))
-
         valid_pixels = (self.flags == 0) & fw
 
         wl = deepcopy(self.restwl[valid_pixels])
@@ -233,13 +226,21 @@ class Spectrum():
         #
         # Pseudo continuum fitting.
         #
+
+        if copts is None:
+            copts = {
+                'niterate': 5, 'degr': 4, 'upper_threshold': 2,
+                'lower_threshold': 2}
+
+        copts.update(dict(returns='polynomial'))
+
         try:
             cont = self.continuum[valid_pixels]
             self.fitcont = self.continuum[fw] + self.stellar[fw]
         except AttributeError:
             if fit_continuum:
                 pcont = st.continuum(wl, data - stellar, **copts)
-                self.fitcont = np.polyval(pcont)(self.restwl[fw])
+                self.fitcont = np.polyval(pcont, self.restwl[fw])
                 cont = np.polyval(pcont)(wl)
             else:
                 cont = np.zeros_like(data)
