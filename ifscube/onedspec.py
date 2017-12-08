@@ -216,11 +216,12 @@ class Spectrum():
         self.fitcont = zero_spec
         self.fitwl = self.restwl[fw]
         self.fitstellar = self.stellar[fw]
+        self.r = None
 
         #
         # Avoids fit if more than 80% of the pixels are flagged.
         #
-        if np.sum(self.flags) > 0.8 * self.flags.size:
+        if np.sum(~valid_pixels[fw]) > 0.8 * valid_pixels[fw].size:
             self.fit_status = 98
             return
 
@@ -280,7 +281,7 @@ class Spectrum():
         # Here the actual fit begins
         #
         def res(x):
-            m = fit_func(self.fitwl, x)
+            m = fit_func(wl, x)
             # Should I divide this by the sum of the weights?
             a = w * (s - m) ** 2
             b = a / v
