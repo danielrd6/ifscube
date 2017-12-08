@@ -1228,9 +1228,10 @@ class gmosdc:
         else:
             return ax
 
-        ax.plot(wl, (c + f(wl, p)) / 10. ** norm_factor)
-        ax.plot(wl, c / 10. ** norm_factor)
         ax.plot(wl, s / 10. ** norm_factor)
+        ax.plot(wl, star / 10. ** norm_factor)
+        ax.plot(wl, (star + c) / 10. ** norm_factor)
+        ax.plot(wl, (c + star + f(wl, p)) / 10. ** norm_factor)
 
         ax.set_xlabel(r'Wavelength (${\rm \AA}$)')
         ax.set_ylabel(
@@ -1242,10 +1243,9 @@ class gmosdc:
 
         if len(p) > npars:
             for i in np.arange(0, len(p), npars):
-                ax.plot(
-                    wl, (c + f(wl, p[i: i + npars])) / 10. ** norm_factor,
-                    'k--'
-                )
+                modeled_spec = (c + star + f(wl, p[i: i + npars]))\
+                    / 10. ** norm_factor
+                ax.plot(wl, modeled_spec, 'k--')
 
         pars = ('Red_Chi2: {:.3f}\n'.format(self.em_model[-1, y, x]))
         pars += (npars * '{:10s}' + '\n').format(*parnames)
