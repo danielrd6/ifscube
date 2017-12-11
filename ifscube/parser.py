@@ -92,9 +92,9 @@ class LineFitParser:
 
         self.copts = self._parse_dict(
             section='continuum',
-            float_args=['eps', 'ftol'],
-            int_args=['degr'],
-            bool_args=['disp'],
+            float_args=['lower_threshold', 'upper_threshold'],
+            int_args=['degr', 'niterate'],
+            bool_args=[],
         )
 
     def _bounds(self, props):
@@ -115,9 +115,10 @@ class LineFitParser:
 
     def get_vars(self):
 
-        d = {**vars(self), **self.fit_opts}
+        d = {**vars(self), **self.fit_opts,}
         todel = [
             'cfg', 'component_names', 'par_names', 'fit_opts', 'copts']
         for i in todel:
             del d[i]
+        d['copts'] = self.copts
         return d
