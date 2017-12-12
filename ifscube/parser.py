@@ -203,6 +203,7 @@ class LineFitParser:
         self.p0 = []
         self.bounds = []
         self.constraints = []
+        self.k_groups = []
 
         if args or kwargs:
             self.__load__(*args, **kwargs)
@@ -308,6 +309,8 @@ class LineFitParser:
                 self.bounds += [(low, up)]
             else:
                 self.bounds += [(None, None)]
+        else:
+            self.bounds += [(None, None)]
 
     def _constraints(self, props, component_name, par_name):
 
@@ -317,8 +320,6 @@ class LineFitParser:
                 expr.evaluate(component_name, par_name)
 
                 self.constraints += [expr.constraint]
-            else:
-                pass
 
     def parse_line(self, line):
 
@@ -327,11 +328,15 @@ class LineFitParser:
             self.p0 += [float(props[0])]
             self._bounds(props)
 
+        # if 'k_group' in line:
+        #     self.k_groups += line['k_group']
+
     def get_vars(self):
 
         d = {**vars(self), **self.fit_opts}
         todel = [
-            'cfg', 'component_names', 'par_names', 'fit_opts', 'copts']
+            'cfg', 'component_names', 'par_names', 'fit_opts', 'copts',
+            'k_groups']
         for i in todel:
             del d[i]
         d['copts'] = self.copts
