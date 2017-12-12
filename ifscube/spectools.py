@@ -728,3 +728,42 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args):
     else:
         w80 = np.nan
         return w80, np.nan, np.nan, velocity, s(velocity)
+
+
+class Constraints():
+
+    def __init__(self, rest_wl, function='gaussian'):
+
+        pars_by_function = dict(
+            gaussian=3,
+            gausshermite=5
+        )
+
+        self.rest_wl = rest_wl
+
+        try:
+            self.npars = pars_by_function[function]
+        except KeyError:
+            raise RuntimeError(
+                'Function not understood: {:s}'.format(function))
+
+    def redshift(self, x, c1, c2):
+
+        npars = self.npars
+        wl0 = x[c1 * npars + 1]
+        wl1 = x[c2 * npars + 1]
+        rest0 = self.rest_wl[c1]
+        rest1 = self.rest_wl[c2]
+
+        def fun(x):
+            return wl0 / rest0 - wl1 / rest1
+
+        return fun
+
+    # def sigma(self, x, par1, par2):
+
+    #     npars = self.npars
+    #     wl0 = x[c1 * npars + 1]
+    #     wl1 = x[c2 * npars + 1]
+    #     rest0 =
+    #     rest1 =
