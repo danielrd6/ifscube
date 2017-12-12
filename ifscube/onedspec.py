@@ -237,7 +237,7 @@ class Spectrum():
             self.fitcont = self.continuum[fw]
         except AttributeError:
             if fit_continuum:
-                pcont = st.continuum(wl, data - stellar, **copts)
+                pcont = spectools.continuum(wl, data - stellar, **copts)
                 self.fitcont = np.polyval(pcont, self.restwl[fw])
                 cont = np.polyval(pcont, wl)
             else:
@@ -394,8 +394,9 @@ class Spectrum():
         Nothing.
         """
 
-        self.fitwl = st.get_wl(fname, pix0key='crpix0', wl0key='crval0',
-                               dwlkey='cd1_1', hdrext=1, dataext=1)
+        self.fitwl = spectools.get_wl(
+            fname, pix0key='crpix0', wl0key='crval0', dwlkey='cd1_1', hdrext=1,
+            dataext=1)
         self.fitspec = pf.getdata(fname, ext=1)
         self.fitcont = pf.getdata(fname, ext=2)
         self.resultspec = pf.getdata(fname, ext=3)
