@@ -16,11 +16,20 @@ class ConstraintParser:
         self.__classify__()
         self._getConstraintType()
 
+    @staticmethod
+    def isnumber(s):
+
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
+
     def __what__(self, c):
 
         if c.isalpha():
             group = 'alpha'
-        elif c.isdecimal():
+        elif c.isdecimal() or (c == '.'):
             group = 'number'
         elif c in self._operators:
             group = 'operator'
@@ -58,7 +67,7 @@ class ConstraintParser:
 
             if self.__what__(c) == 'alpha':
                 variables += [c]
-            elif self.__what__(c) == 'number':
+            elif self.isnumber(c):
                 numbers += [c]
             elif self.__what__(c) == 'operator':
                 operators += [c]
@@ -105,6 +114,7 @@ class ConstraintParser:
         if (lis[0] in self.numbers) and len(lis) == 1:
 
             a = float(lis[0])
+
             def func(x):
                 r = a - x[idx]
                 return r
@@ -121,9 +131,9 @@ class ConstraintParser:
         lims = self.lim
 
         for i, j in enumerate(lims):
-           
+
             if j == lims[-1]:
-                c = self.expr[lims[i]:None] 
+                c = self.expr[lims[i]:None]
             else:
                 c = self.expr[lims[i]:lims[i + 1]]
 
@@ -250,9 +260,6 @@ class LineFitParser:
         if len(props) > 2:
             expr = ConstraintParser(props[2], self)
             expr.evaluate(component_name, par_name)
-
-            import pdb
-            pdb.set_trace()
 
             self.constraints += [expr.constraint]
         else:
