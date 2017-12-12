@@ -120,7 +120,6 @@ class ConstraintParser:
         if len(lis) == 1:
 
             if (lis[0] in self.numbers):
-
                 a = float(lis[0])
 
                 def func(x):
@@ -128,12 +127,50 @@ class ConstraintParser:
                     return r
 
             elif (lis[0] in self.variables):
-
                 idx2 = self.__idx__(lis[0], parameter)
 
                 def func(x):
                     r = sign * (x[idx2] - x[idx])
                     return r
+
+        elif len(lis) == 3:
+
+            num = [i for i in lis if i in self.numbers][0]
+            var = [i for i in lis if i in self.variables][0]
+            idx2 = self.__idx__(var, parameter)
+            a = float(num)
+            oper = lis[1]
+
+            if lis.index(num) > lis.index(var):
+                if oper == '+':
+                    def op(x, j):
+                        return x[j] + a
+                elif oper == '-':
+                    def op(x, j):
+                        return x[j] - a
+                elif oper == '/':
+                    def op(x, j):
+                        return x[j] / a
+                elif oper == '*':
+                    def op(x, j):
+                        return x[j] * a
+            else:
+                if oper == '+':
+                    def op(x, j):
+                        return a + x[j]
+                elif oper == '-':
+                    def op(x, j):
+                        return a - x[j]
+                elif oper == '/':
+                    def op(x, j):
+                        return a / x[j]
+                elif oper == '*':
+                    def op(x, j):
+                        return a * x[j]
+
+            def func(x):
+                r = sign * (op(x, idx2) - x[idx])
+                return r
 
         self.constraint = dict(type=self.type, fun=func)
 
