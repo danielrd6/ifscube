@@ -63,9 +63,9 @@ class ConstraintParser:
         containers = []
         numbers = []
 
-        for c in self.tolist():
+        for c in self.expr.split(' '):
 
-            if self.__what__(c) == 'alpha':
+            if any([i.isalpha() for i in c]):
                 variables += [c]
             elif self.isnumber(c):
                 numbers += [c]
@@ -108,20 +108,32 @@ class ConstraintParser:
 
         lis = self.tolist()
 
-        if lis[0] in '<>':
+        if lis[0] == '<':
             lis.remove(lis[0])
+            sign = 1.
+        elif lis[0] == '>':
+            lis.remove(lis[0])
+            sign = -1.
+        else:
+            sign = 1.
 
-        if (lis[0] in self.numbers) and len(lis) == 1:
+        if len(lis) == 1:
 
-            a = float(lis[0])
+            if (lis[0] in self.numbers):
 
-            def func(x):
-                r = a - x[idx]
-                return r
+                a = float(lis[0])
 
-        # elif (lis[0] in variables) and len(lis) == 1:
+                def func(x):
+                    r = sign * (a - x[idx])
+                    return r
 
-        #     a =
+            elif (lis[0] in self.variables):
+
+                idx2 = self.__idx__(lis[0], parameter)
+
+                def func(x):
+                    r = sign(x[idx2] - x[idx])
+                    return r
 
         self.constraint = dict(type=self.type, fun=func)
 
@@ -140,6 +152,9 @@ class ConstraintParser:
             if c not in self._spacer:
                 elements += [c]
 
+        # return elements
+        elements = self.expr.split(' ')
+        elements = [i for i in elements if i != '']
         return elements
 
 
