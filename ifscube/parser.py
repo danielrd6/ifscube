@@ -1,6 +1,8 @@
 import configparser
 import copy
 
+from . import spectools
+
 
 class ConstraintParser:
 
@@ -204,6 +206,7 @@ class LineFitParser:
         self.bounds = []
         self.constraints = []
         self.k_groups = []
+        self.k_component_names = []
 
         if args or kwargs:
             self.__load__(*args, **kwargs)
@@ -221,18 +224,19 @@ class LineFitParser:
         self.par_names = par_names[self.cfg['fit']['function']]
         self.component_names = [
             i for i in self.cfg.sections() if i not in [
-                'continuum', 'minimization', 'fit']
-        ]
+                'continuum', 'minimization', 'fit']]
 
         # Each section has to be a line, except for the DEFAULT, MINOPTS,
         # and CONTINUUM sections.
         for line in self.component_names:
-            self.parse_line(self.cfg[line])
+            self.parse_line(line)
 
         for line in self.component_names:
             for par in self.par_names:
                 prop = self.cfg[line][par].split(',')
                 self._constraints(prop, line, par)
+
+        self._kinematic_constraints()
 
         if 'fit' in self.cfg.sections():
             self._fit()
@@ -246,6 +250,16 @@ class LineFitParser:
             self._continuum()
         else:
             self.copts = {}
+
+    def __idx__(self, cname, pname):
+
+        ci = self.component_names.index(cname)
+        pi = self.par_names.index(pname)
+        npars = len(self.par_names)
+
+        idx = ci * npars + pi
+
+        return idx
 
     def _parse_dict(self, section, float_args, int_args, bool_args):
 
@@ -321,22 +335,50 @@ class LineFitParser:
 
                 self.constraints += [expr.constraint]
 
+    def _kinematic_constraints(self):
+
+        cn = self.k_component_names
+        kg = self.k_groups
+
+        components = []
+        for i in set(kg):
+            components += [[cn[j] for j in range(len(cn)) if i == kg[j]]]
+
+        for i, g in enumerate(components):
+            if len(g) > 1:
+                for j in range(len(g[:-1])):
+                    wla = self.__idx__(g[j], 'wavelength')
+                    rest0 = copy.deepcopy(self.p0[wla])
+                    wlb = self.__idx__(g[j + 1], 'wavelength')
+                    rest1 = copy.deepcopy(self.p0[wlb])
+                    sa = self.__idx__(g[j], 'sigma')
+                    sb = self.__idx__(g[j + 1], 'sigma')
+                    self.constraints += [
+                        spectools.Constraints.redshift(
+                            wla, wlb, rest0, rest1)]
+                    self.constraints += [
+                        spectools.Constraints.sigma(sa, sb, wla, wlb)]
+
+        self.k_components = components
+
     def parse_line(self, line):
 
+        line_pars = self.cfg[line]
         for par in self.par_names:
-            props = line[par].split(',')
+            props = line_pars[par].split(',')
             self.p0 += [float(props[0])]
             self._bounds(props)
 
-        # if 'k_group' in line:
-        #     self.k_groups += line['k_group']
+        if 'k_group' in line_pars:
+            self.k_groups += [line_pars.getint('k_group')]
+            self.k_component_names += [line]
 
     def get_vars(self):
 
         d = {**vars(self), **self.fit_opts}
         todel = [
             'cfg', 'component_names', 'par_names', 'fit_opts', 'copts',
-            'k_groups']
+            'k_groups', 'k_components', 'k_component_names']
         for i in todel:
             del d[i]
         d['copts'] = self.copts

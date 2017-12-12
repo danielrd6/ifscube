@@ -732,38 +732,24 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args):
 
 class Constraints():
 
-    def __init__(self, rest_wl, function='gaussian'):
+    def __init__(self, function='gaussian'):
 
-        pars_by_function = dict(
-            gaussian=3,
-            gausshermite=5
-        )
+        pass
 
-        self.rest_wl = rest_wl
+    @staticmethod
+    def redshift(wla, wlb, rest0, rest1):
 
-        try:
-            self.npars = pars_by_function[function]
-        except KeyError:
-            raise RuntimeError(
-                'Function not understood: {:s}'.format(function))
+        def func(x):
+            return (x[wla] / rest0) - (x[wlb] / rest1)
+        d = dict(type='eq', fun=func)
 
-    def redshift(self, x, c1, c2):
+        return d
 
-        npars = self.npars
-        wl0 = x[c1 * npars + 1]
-        wl1 = x[c2 * npars + 1]
-        rest0 = self.rest_wl[c1]
-        rest1 = self.rest_wl[c2]
+    @staticmethod
+    def sigma(sa, sb, wla, wlb):
 
-        def fun(x):
-            return wl0 / rest0 - wl1 / rest1
+        def func(x):
+            return x[sa] / x[wla]  - x[sb] / x[wlb]
+        d = dict(type='eq', fun=func)
 
-        return fun
-
-    # def sigma(self, x, par1, par2):
-
-    #     npars = self.npars
-    #     wl0 = x[c1 * npars + 1]
-    #     wl1 = x[c2 * npars + 1]
-    #     rest0 =
-    #     rest1 =
+        return d
