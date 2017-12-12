@@ -132,7 +132,7 @@ class ConstraintParser:
                 idx2 = self.__idx__(lis[0], parameter)
 
                 def func(x):
-                    r = sign(x[idx2] - x[idx])
+                    r = sign * (x[idx2] - x[idx])
                     return r
 
         self.constraint = dict(type=self.type, fun=func)
@@ -264,21 +264,24 @@ class LineFitParser:
     def _bounds(self, props):
 
         if len(props) > 1:
-            low, up = [
-                float(i) if (i != '') else None for i in props[1].split(':')]
-            self.bounds += [(low, up)]
-        else:
-            self.bounds += [(None, None)]
+            if (~props[1].isspace()) and (props[1] != ''):
+                low, up = [
+                    float(i) if (i != '') else None
+                    for i in props[1].split(':')]
+                self.bounds += [(low, up)]
+            else:
+                self.bounds += [(None, None)]
 
     def _constraints(self, props, component_name, par_name):
 
         if len(props) > 2:
-            expr = ConstraintParser(props[2], self)
-            expr.evaluate(component_name, par_name)
+            if (~props[2].isspace()) and (props[2] != ''):
+                expr = ConstraintParser(props[2], self)
+                expr.evaluate(component_name, par_name)
 
-            self.constraints += [expr.constraint]
-        else:
-            pass
+                self.constraints += [expr.constraint]
+            else:
+                pass
 
     def parse_line(self, line):
 
