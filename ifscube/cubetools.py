@@ -488,12 +488,12 @@ class gmosdc:
             y, x = self.spec_indices[:, 0], self.spec_indices[:, 1]
 
         if spiral_center is None:
-            r = np.sqrt((x - x.max() / 2.) ** 2 + (y - y.max() / 2.) ** 2)
-        else:
-            r = np.sqrt(
-                (x - spiral_center[0]) ** 2 + (y - spiral_center[1]) ** 2)
+            spiral_center = (x.max() / 2., y.max() / 2.)
 
-        t = np.arctan2(y - y.max() / 2., x - x.max() / 2.)
+        r = np.sqrt(
+            (x - spiral_center[0]) ** 2 + (y - spiral_center[1]) ** 2)
+
+        t = np.arctan2(y - spiral_center[1], x - spiral_center[0])
         t[t < 0] += 2 * np.pi
 
         b = np.array([
@@ -921,10 +921,13 @@ class gmosdc:
             if individual_spec == 'peak':
                 xy = [peak_spaxel(self.data[fw_mask])[::-1]]
                 if verbose:
-                    print('Individual spaxel: {:d}, {:d}\n'.format(*xy[0]))
+                    print(
+                        'Individual spaxel: {:d}, {:d}\n'.format(*xy[0][::-1]))
             else:
                 xy = [individual_spec[::-1]]
         elif spiral_loop:
+            if spiral_center == 'peak':
+                spiral_center = peak_spaxel(self.data[fw_mask])
             xy = self.__spiral__(xy, spiral_center=spiral_center)
 
         if verbose:
