@@ -21,6 +21,12 @@ from . import plots as ifsplots
 from . import elprofile as lprof
 
 
+def peak_spaxel(cube):
+    im = cube.sum(axis=0)
+    y, x = [int(i) for i in np.where(im == im.max())]
+    return x, y
+
+
 def nan_to_nearest(d):
     """
     Replaces nan values with the valeu of the nearest pixel.
@@ -500,12 +506,6 @@ class gmosdc:
 
         return xy
 
-    @staticmethod
-    def peak_spaxel(cube):
-        im = cube.sum(axis=0)
-        y, x = [int(i) for i in np.where(im == im.max())[0]]
-        return x, y
-
     def continuum(self, writefits=False, outimage=None,
                   fitting_window=None, copts=None):
         """
@@ -753,7 +753,6 @@ class gmosdc:
 
         plt.show()
 
-
     def linefit(self, p0, writefits=False, outimage=None,
                 individual_spec=False, refit=False,
                 update_bounds=False, bound_range=.1, spiral_loop=False,
@@ -918,10 +917,11 @@ class gmosdc:
         original_bounds = deepcopy(kwargs.get('bounds', None))
 
         Y, X = np.indices(fit_shape[1:])
-
         if individual_spec:
             if individual_spec == 'peak':
-                xy = [peak_spaxel(self.data[fw_mask])] 
+                xy = [peak_spaxel(self.data[fw_mask])[::-1]]
+                if verbose:
+                    print('Individual spaxel: {:d}, {:d}\n'.format(*xy[0]))
             else:
                 xy = [individual_spec[::-1]]
         elif spiral_loop:
