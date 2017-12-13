@@ -299,6 +299,12 @@ class LineFitParser:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getboolean('fit', i)
 
+        float_args = [
+            'refit_radius', 'sig_threshold', 'inst_disp']
+        for i in float_args:
+            if i in fit_opts:
+                fit_opts[i] = self.cfg.getfloat('fit', i)
+
         key = 'fitting_window'
         if key in fit_opts:
             a = fit_opts[key].split(':')
