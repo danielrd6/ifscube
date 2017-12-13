@@ -15,7 +15,7 @@ class cube(cubetools.gmosdc):
 
     def __load__(self, fitsfile, redshift=0):
 
-        self.filename = fitsfile
+        self.fitsfile = fitsfile
         self.redshift = redshift
 
         # Opens the FITS file.
@@ -195,7 +195,7 @@ class cube(cubetools.gmosdc):
                 cond_syn = (rwl >= fwl[0]) & (rwl <= fwl[-1])
 
                 fit = self.fit_func(
-                        fwl[cond], self.em_model[par_indexes, i, j])
+                    fwl[cond], self.em_model[par_indexes, i, j])
                 syn = self.syn[cond_data, i, j]
                 data = self.data[cond_data, i, j]
 
