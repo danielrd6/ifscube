@@ -500,6 +500,12 @@ class gmosdc:
 
         return xy
 
+    @staticmethod
+    def peak_spaxel(cube):
+        im = cube.sum(axis=0)
+        y, x = [int(i) for i in np.where(im == im.max())[0]]
+        return x, y
+
     def continuum(self, writefits=False, outimage=None,
                   fitting_window=None, copts=None):
         """
@@ -747,6 +753,7 @@ class gmosdc:
 
         plt.show()
 
+
     def linefit(self, p0, writefits=False, outimage=None,
                 individual_spec=False, refit=False,
                 update_bounds=False, bound_range=.1, spiral_loop=False,
@@ -854,11 +861,12 @@ class gmosdc:
 
         fitting_window = kwargs.get('fitting_window', None)
         if fitting_window is not None:
-            fit_npixels = np.sum(
+            fw_mask = (
                 (self.restwl > fitting_window[0])
-                & (self.restwl < fitting_window[1])
-            )
+                & (self.restwl < fitting_window[1]))
+            fit_npixels = np.sum(fw_mask)
         else:
+            fw_mask = np.ones_like(self.restwl).astype('bool')
             fit_npixels = self.restwl.size
         fit_shape = (fit_npixels,) + self.data.shape[1:]
 
@@ -912,7 +920,10 @@ class gmosdc:
         Y, X = np.indices(fit_shape[1:])
 
         if individual_spec:
-            xy = [individual_spec[::-1]]
+            if individual_spec == 'peak':
+                xy = [peak_spaxel(self.data[fw_mask])] 
+            else:
+                xy = [individual_spec[::-1]]
         elif spiral_loop:
             xy = self.__spiral__(xy, spiral_center=spiral_center)
 
