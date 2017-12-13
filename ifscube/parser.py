@@ -292,7 +292,9 @@ class LineFitParser:
 
         fit_opts = {**self.cfg['fit']}
 
-        boolean_args = ['plotfit', 'fit_continuum', 'writefits', 'verbose']
+        boolean_args = [
+            'writefits', 'refit', 'update_bounds', 'spiral_loop', 'verbose',
+            'fit_continuum']
         for i in boolean_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getboolean('fit', i)
