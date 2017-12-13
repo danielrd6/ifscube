@@ -74,6 +74,17 @@ class Spectrum():
 
         self.restwl = self.wl / (1. + self.redshift)
 
+    def guessParser(self, p):
+
+        npars = len(self.parnames)
+        for i in p[::npars]:
+            if i == 'peak':
+                p[p.index(i)] = self.data[self.valid_pixels].max()
+            elif i == 'mean':
+                p[p.index(i)] = self.data[self.valid_pixels].mean()
+
+        return p
+
     def linefit(self, p0, function='gaussian', fitting_window=None,
                 writefits=False, outimage=None, variance=None,
                 constraints=(), bounds=None, inst_disp=1.0,
@@ -168,12 +179,6 @@ class Spectrum():
         scipy.optimize.curve_fit, scipy.optimize.leastsq
         """
 
-        p0 = np.array(p0)
-
-        # Sets a pre-made nan vector for nan solutions.
-        npars = len(p0)
-        self.em_model = np.array([np.nan for i in range(npars + 1)])
-
         if function == 'gaussian':
             fit_func = lprof.gauss
             self.fit_func = lprof.gauss
@@ -187,6 +192,10 @@ class Spectrum():
         else:
             raise NameError('Unknown function "{:s}".'.format(function))
 
+        # Sets a pre-made nan vector for nan solutions.
+        npars = len(p0)
+        self.em_model = np.array([np.nan for i in range(npars + 1)])
+
         if fitting_window is None:
             fw = np.ones_like(self.data).astype('bool')
         else:
@@ -198,6 +207,7 @@ class Spectrum():
         zero_spec = np.zeros_like(self.restwl[fw])
 
         valid_pixels = (self.flags == 0) & fw
+        self.valid_pixels = valid_pixels
 
         wl = deepcopy(self.restwl[valid_pixels])
         data = deepcopy(self.data[valid_pixels])
@@ -209,6 +219,8 @@ class Spectrum():
         self.fitwl = self.restwl[fw]
         self.fitstellar = self.stellar[fw]
         self.r = None
+
+        p0 = np.array(self.guessParser(p0))
 
         #
         # Avoids fit if more than 80% of the pixels are flagged.
