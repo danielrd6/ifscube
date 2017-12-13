@@ -292,7 +292,7 @@ class LineFitParser:
 
         fit_opts = {**self.cfg['fit']}
 
-        boolean_args = ['plotfit', 'fit_continuum', 'writefits']
+        boolean_args = ['plotfit', 'fit_continuum', 'writefits', 'verbose']
         for i in boolean_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getboolean('fit', i)
@@ -366,7 +366,10 @@ class LineFitParser:
         line_pars = self.cfg[line]
         for par in self.par_names:
             props = line_pars[par].split(',')
-            self.p0 += [float(props[0])]
+            if props[0] not in ['peak', 'mean']:
+                self.p0 += [float(props[0])]
+            else:
+                self.p0 += [props[0]]
             self._bounds(props)
 
         if 'k_group' in line_pars:
