@@ -377,7 +377,7 @@ class gmosdc:
 
         return h
 
-    def __write_linefit__(self, sol, args):
+    def __write_linefit__(self, args):
 
         outimage = args['outimage']
         # Basic tests and first header
@@ -432,7 +432,7 @@ class gmosdc:
         hdr['object'] = 'parameters'
         hdr['function'] = (function, 'Fitted function')
         hdr['nfunc'] = (total_pars / self.npars, 'Number of functions')
-        hdu = fits.ImageHDU(data=sol, header=hdr)
+        hdu = fits.ImageHDU(data=self.em_model, header=hdr)
         hdu.name = 'SOLUTION'
         h.append(hdu)
 
@@ -461,7 +461,7 @@ class gmosdc:
         hdu.name = 'PARNAMES'
         h.append(hdu)
 
-        h.writeto(outimage)
+        h.writeto(outimage, overwrite=args['overwrite'])
 
     def __write_eqw__(self, eqw, args):
 
@@ -785,7 +785,7 @@ class gmosdc:
 
         plt.show()
 
-    def linefit(self, p0, writefits=False, outimage=None,
+    def linefit(self, p0, writefits=False, outimage=None, overwrite=False,
                 individual_spec=False, refit=False,
                 update_bounds=False, bound_range=.1, spiral_loop=False,
                 spiral_center=None, refit_radius=3, sig_threshold=0,
@@ -1043,7 +1043,7 @@ class gmosdc:
         self.em_model = sol
 
         if writefits:
-            self.__write_linefit__(sol=sol, args=locals())
+            self.__write_linefit__(args=locals())
 
         if individual_spec:
             return (
