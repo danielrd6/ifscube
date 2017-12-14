@@ -909,6 +909,8 @@ class gmosdc:
         self.fitstellar = np.zeros(fit_shape)
         self.resultspec = np.zeros(fit_shape)
         self.fitweights = wcube
+        self.initial_guess = np.zeros((npars,) + self.data.shape[1:])
+        self.fitbounds = np.zeros((npars * 2,) + self.data.shape[1:])
 
         if self.binned:
             v = self.voronoi_tab
@@ -988,16 +990,25 @@ class gmosdc:
                     self.fitspec[:, l, m] = spec.fitspec
                     self.resultspec[:, l, m] = spec.resultspec
                     self.fitstellar[:, l, m] = spec.fitstellar
+                    self.initial_guess[:, l, m] = spec.initial_guess
+                    self.fitbounds[:, l, m] = [
+                        k if k is not None else np.nan
+                        for k in np.array(spec.fitbounds).flatten()]
             else:
                 sol[:, i, j] = spec.em_model
                 self.fitcont[:, i, j] = spec.fitcont
                 self.fitspec[:, i, j] = spec.fitspec
                 self.fitstellar[:, i, j] = spec.fitstellar
                 self.resultspec[:, i, j] = spec.resultspec
+                self.initial_guess[:, i, j] = spec.initial_guess
+                self.fitbounds[:, i, j] = [
+                    k if k is not None else np.nan
+                    for k in np.array(spec.fitbounds).flatten()]
 
         self.fitwl = spec.fitwl
         self.fit_func = spec.fit_func
         self.parnames = spec.parnames
+        self.component_names = spec.component_names
         if spec.fit_func == lprof.gauss:
             function = 'gaussian'
         elif spec.fit_func == lprof.gausshermite:
