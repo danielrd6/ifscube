@@ -364,6 +364,19 @@ class gmosdc:
 
         return cube
 
+    def __fitTable__(self):
+
+        cnames = self.component_names
+        pnames = self.parnames
+
+        c = np.array([[i for j in pnames] for i in cnames]).flatten()
+        p = np.array([[i for i in pnames] for j in cnames]).flatten()
+
+        t = table.Table([c, p], names=('component', 'parameter'))
+        h = fits.table_to_hdu(t)
+
+        return h
+
     def __write_linefit__(self, sol, args):
 
         outimage = args['outimage']
@@ -429,11 +442,23 @@ class gmosdc:
         hdu.name = 'STATUS'
         h.append(hdu)
 
+        # Creates the spatial mask extension
+        hdr['object'] = 'spatial mask'
+        hdu = fits.ImageHDU(data=self.spatial_mask.astype(int), header=hdr)
+        hdu.name = 'MASK2D'
+        h.append(hdu)
+
         # Creates the spaxel indices extension as fits.BinTableHDU.
         hdr['object'] = 'spaxel_coords'
         t = table.Table(self.spec_indices, names=('row', 'column'))
         hdu = fits.table_to_hdu(t)
         hdu.name = 'SPECIDX'
+        h.append(hdu)
+
+        # Creates component and parameter names table.
+        hdr['object'] = 'parameter names'
+        hdu = self.__fitTable__()
+        hdu.name = 'PARNAMES'
         h.append(hdu)
 
         h.writeto(outimage)
@@ -1054,10 +1079,16 @@ class gmosdc:
         self.em_model = fitfile['SOLUTION'].data
         self.fit_status = fitfile['STATUS'].data
         self.fitstellar = fitfile['STELLAR'].data
+
+        try:
+            self.spatial_mask = fitfile['MASK2D'].data.astype('bool')
+        except KeyError:
+            pass
+
         try:
             t = fitfile['SPECIDX'].data
             self.spec_indices = np.array([i for i in t])
-        except:
+        except KeyError:
             pass
 
         fit_info = {}
