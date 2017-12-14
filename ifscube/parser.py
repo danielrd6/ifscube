@@ -325,9 +325,13 @@ class LineFitParser:
 
         if len(props) > 1:
             if (~props[1].isspace()) and (props[1] != ''):
-                low, up = [
-                    float(i) if (i != '') else None
-                    for i in props[1].split(':')]
+                if '+-' in props[1]:
+                    number = float(props[1].split()[-1])
+                    low, up = [float(props[0]) + i for i in [-number, +number]]
+                elif ':' in props[1]:
+                    low, up = [
+                        float(i) if (i != '') else None
+                        for i in props[1].split(':')]
                 self.bounds += [(low, up)]
             else:
                 self.bounds += [(None, None)]
