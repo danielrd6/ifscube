@@ -166,8 +166,6 @@ class cube(cubetools.gmosdc):
 
             # Wavelength vector of the line fit
             fwl = self.fitwl
-            # Rest wavelength vector of the whole data cube
-            rwl = self.restwl
             # Center wavelength coordinate of the fit
             cwl = self.em_model[center_index, i, j]
             # Sigma of the fit
@@ -185,21 +183,18 @@ class cube(cubetools.gmosdc):
 
             else:
 
-                # This 1e-6 is to guarantee that no floating point
-                # errors in the comparison will arise.
-                low_wl = cwl - sf * sig - 1e-6
-                up_wl = cwl + sf * sig + 1e-6
+                low_wl = cwl - sf * sig
+                up_wl = cwl + sf * sig
 
                 cond = (fwl > low_wl) & (fwl < up_wl)
-                cond_data = (rwl > low_wl) & (rwl < up_wl)
-                cond_syn = (rwl >= fwl[0]) & (rwl <= fwl[-1])
 
                 fit = self.fit_func(
                     fwl[cond], self.em_model[par_indexes, i, j])
-                syn = self.syn[cond_data, i, j]
-                data = self.data[cond_data, i, j]
+                syn = self.fitstellar[:, i, j]
+                fitcont = self.fitcont[:, i, j]
+                data = self.fitspec[:, i, j]
 
-                # If the continuum fitting windos are set, use that
+                # If the continuum fitting windows are set, use that
                 # to define the weights vector.
                 if windows is not None:
                     assert len(windows) == 4, 'Windows must be an '\
@@ -214,7 +209,7 @@ class cube(cubetools.gmosdc):
                     weights = np.ones_like(self.fitwl)
 
                 cont = spectools.continuum(
-                    fwl, self.syn[cond_syn, i, j], weights=weights,
+                    fwl, syn + fitcont, weights=weights,
                     degr=1, niterate=3, lower_threshold=3,
                     upper_threshold=3, returns='function')[1][cond]
 
@@ -222,7 +217,7 @@ class cube(cubetools.gmosdc):
                     1. - (fit + cont) / cont, x=fwl[cond])
 
                 eqw_direct[i, j] = trapz(
-                    1. - data / cont, x=fwl[cond])
+                    1. - data[cond] / cont, x=fwl[cond])
 
         eqw_cube = np.array([eqw_model, eqw_direct])
         if outimage is not None:
