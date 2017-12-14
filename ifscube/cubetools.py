@@ -1038,11 +1038,16 @@ class gmosdc:
             hdrext=1, dataext=1)
         self.fitspec = fitfile['FITSPEC'].data
         self.fitcont = fitfile['FITCONT'].data
-        self.resultspec = fitfile['MODEL']
+        self.resultspec = fitfile['MODEL'].data
 
         self.em_model = fitfile['SOLUTION'].data
         self.fit_status = fitfile['STATUS'].data
         self.fitstellar = fitfile['STELLAR'].data
+        try:
+            t = fitfile['SPECIDX'].data
+            self.spec_indices = np.array([i for i in t])
+        except:
+            pass
 
         fit_info = {}
         func_name = fitfile['SOLUTION'].header['function']
