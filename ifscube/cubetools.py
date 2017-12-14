@@ -393,7 +393,7 @@ class gmosdc:
 
         # Creates MEF output.
         h = fits.HDUList()
-        hdu = fits.PrimaryHDU(header=hdr)
+        hdu = fits.PrimaryHDU(header=self.header)
         hdu.name = 'PRIMARY'
         h.append(hdu)
 
