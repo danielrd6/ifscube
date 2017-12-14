@@ -89,7 +89,8 @@ class Spectrum():
                 writefits=False, outimage=None, variance=None,
                 constraints=(), bounds=None, inst_disp=1.0,
                 min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
-                weights=None, verbose=False, fit_continuum=False):
+                weights=None, verbose=False, fit_continuum=False,
+                component_names=None):
         """
         Fits a spectral features.
 
@@ -205,6 +206,11 @@ class Spectrum():
             raise RuntimeError(
                 'Fitting window outside the available wavelength range.')
         zero_spec = np.zeros_like(self.restwl[fw])
+
+        if component_names is None:
+            self.component_names = ['C_{:03d}'.format(i) for i in range(npars)]
+        else:
+            self.component_names = component_names
 
         valid_pixels = (self.flags == 0) & fw
         self.valid_pixels = valid_pixels
