@@ -221,6 +221,8 @@ class Spectrum():
         self.r = None
 
         p0 = np.array(self.guessParser(p0))
+        self.initial_guess = p0
+        self.fitbounds = bounds
 
         #
         # Avoids fit if more than 80% of the pixels are flagged.
