@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from scipy.integrate import trapz
 from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter
-from astropy import constants, units
+from astropy import constants, units, table
 from astropy.io import fits
 import progressbar
 
@@ -427,6 +427,13 @@ class gmosdc:
         hdr['object'] = 'status'
         hdu = fits.ImageHDU(data=self.fit_status, header=hdr)
         hdu.name = 'STATUS'
+        h.append(hdu)
+
+        # Creates the spaxel indices extension as fits.BinTableHDU.
+        hdr['object'] = 'spaxel_coords'
+        t = table.Table(self.spec_indices, names=('row', 'column'))
+        hdu = fits.table_to_hdu(t)
+        hdu.name = 'SPECIDX'
         h.append(hdu)
 
         h.writeto(outimage)
