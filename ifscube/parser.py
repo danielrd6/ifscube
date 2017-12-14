@@ -392,7 +392,7 @@ class LineFitParser:
 
         d = {**vars(self), **self.fit_opts}
         todel = [
-            'cfg', 'component_names', 'par_names', 'fit_opts', 'copts',
+            'cfg', 'par_names', 'fit_opts', 'copts',
             'k_groups', 'k_components', 'k_component_names']
         for i in todel:
             del d[i]
