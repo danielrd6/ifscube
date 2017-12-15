@@ -8,17 +8,10 @@ from copy import deepcopy
 
 import numpy as np
 from numpy import ma
-import matplotlib.pyplot as plt
 from scipy.integrate import trapz
-from scipy.interpolate import interp1d
-from scipy.ndimage import gaussian_filter
-from astropy import constants, units, table
 from astropy.io import fits
-import progressbar
 
-from . import datacube, spectools, onedspec
-from . import plots as ifsplots
-from . import elprofile as lprof
+from . import datacube, spectools
 
 
 def peak_spaxel(cube):
