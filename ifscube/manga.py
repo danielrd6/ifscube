@@ -1,12 +1,14 @@
-from . import cubetools, spectools
-from . import elprofile as lprof
-from astropy.io import fits
-from astropy import wcs
 import numpy as np
 from scipy.integrate import trapz
 
+from astropy import wcs
+from astropy.io import fits
 
-class cube(cubetools.gmosdc):
+from . import datacube, spectools
+from . import elprofile as lprof
+
+
+class cube(datacube.Cube):
 
     def __init__(self, *args, **kwargs):
 
