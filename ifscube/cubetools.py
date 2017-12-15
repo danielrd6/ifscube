@@ -6,6 +6,7 @@ Website: https://github.com/danielrd6/ifscube
 """
 # STDLIB
 from copy import deepcopy
+import warnings
 
 # THIRD PARTY
 import numpy as np
@@ -201,6 +202,16 @@ def scale_bounds(bounds, flux_sf):
     return b
 
 
+# This is only here for backwards compatibility.
 class gmosdc(gmos.cube):
 
-    pass
+    def __init__(self, *args, **kwargs):
+
+        warnings.warn(
+            message='The gmosdc class has been moved to the ifscube.gmos '
+            'module. Please change the instance initialization line from '
+            'cubetools.gmosdc() to gmos.cube()',
+            category=Warning)
+
+        if len(args) > 0:
+            self.__load__(*args, **kwargs)
