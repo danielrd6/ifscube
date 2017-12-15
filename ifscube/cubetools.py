@@ -480,6 +480,12 @@ class gmosdc:
         hdr['sigwidth'] = (
             args['sigma_factor'], 'Line width in units of sigma.')
         hdr['bunit'] = ('angstrom', 'Unit of pixel values.')
+        hdr['l_idx'] = (args['component'], 'Line number in fit output')
+
+        if hasattr(self, 'component_names'):
+            hdr['l_name'] = (
+                self.component_names[args['component']],
+                'Line name')
 
         if args['windows'] is not None:
             hdr['c_blue0'] = (
@@ -1102,6 +1108,12 @@ class gmosdc:
             self.parnames = ('A', 'wl', 's', 'h3', 'h4')
         else:
             raise IOError('Unkwon function name "{:s}"'.format(func_name))
+
+        try:
+            par_table = fitfile['PARNAMES'].data
+            self.component_names = par_table['component'][::self.npars]
+        except KeyError:
+            pass
 
         fit_info['parameters'] = self.npars
         fit_info['components'] = (self.em_model.shape[0] - 1) / self.npars
