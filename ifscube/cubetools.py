@@ -469,11 +469,6 @@ class gmosdc:
         # Basic tests and first header
 
         hdr = fits.Header()
-        try:
-            hdr['REDSHIFT'] = self.redshift
-        except KeyError:
-            hdr['REDSHIFT'] = (self.redshift,
-                               'Redshift used in GMOSDC')
 
         # Creates MEF output.
         h = fits.HDUList()
@@ -1068,6 +1063,8 @@ class gmosdc:
         """
 
         fitfile = fits.open(fname)
+        if not hasattr(self, 'header'):
+            self.header = fitfile[0].header
 
         self.fitwl = spectools.get_wl(
             fname, pix0key='crpix3', wl0key='crval3', dwlkey='cd3_3',
