@@ -1,4 +1,4 @@
-import ifscube.cubetools as ct
+from ifscube import gmos
 import numpy as np
 
 # Definition of line centers
@@ -45,7 +45,7 @@ c = [
 ]
 
 # Loading the spectrum.
-mycube = ct.gmosdc('ngc3081_cube.fits', var_ext=2)
+mycube = gmos.cube('ngc3081_cube.fits', var_ext=2)
 
 # Index of a good spectrum.
 idx = (3, 3)
