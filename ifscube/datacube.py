@@ -930,7 +930,7 @@ class Cube:
 
         fitfile.close()
 
-    def eqw(self, component=0, sigma_factor=3, outimage=None):
+    def eqw(self, component, sigma_factor=3, outimage=None):
         """
         Evaluates the equivalent width of a previous linefit.
 
@@ -941,19 +941,20 @@ class Cube:
         sigma_factor : number
             Radius of integration as a number of line sigmas.
         """
+
+        assert component in self.component_names,\
+            'Line {:s} not found in the fit model.'.format(component)
+
         xy = self.spec_indices
         eqw_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
         eqw_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
 
-        if self.fit_func == lprof.gauss:
-            npars = 3
-        if self.fit_func == lprof.gausshermite:
-            npars = 5
+        npars = self.npars
+        component_index = self.component_names.index(component)
+        par_indexes = np.arange(npars) + npars * component_index
 
-        par_indexes = np.arange(npars) + npars * component
-
-        center_index = 1 + npars * component
-        sigma_index = 2 + npars * component
+        center_index = 1 + npars * component_index
+        sigma_index = 2 + npars * component_index
 
         for i, j in xy:
 
