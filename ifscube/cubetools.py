@@ -6,15 +6,11 @@ Website: https://github.com/danielrd6/ifscube
 """
 # STDLIB
 from copy import deepcopy
-import warnings
 
 # THIRD PARTY
 import numpy as np
 from numpy import ma
 from scipy.integrate import trapz
-
-# LOCAL
-from . import gmos
 
 
 def peak_spaxel(cube):
@@ -203,15 +199,11 @@ def scale_bounds(bounds, flux_sf):
 
 
 # This is only here for backwards compatibility.
-class gmosdc(gmos.cube):
+class gmosdc:
 
     def __init__(self, *args, **kwargs):
 
-        warnings.warn(
-            message='The gmosdc class has been moved to the ifscube.gmos '
+        raise DeprecationWarning(
+            'The gmosdc class has been moved to the ifscube.gmos '
             'module. Please change the instance initialization line from '
-            'cubetools.gmosdc() to gmos.cube()',
-            category=Warning)
-
-        if len(args) > 0:
-            self.__load__(*args, **kwargs)
+            'cubetools.gmosdc() to gmos.cube()')
