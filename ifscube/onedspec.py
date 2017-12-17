@@ -430,14 +430,17 @@ class Spectrum():
 
         if func_name == 'gaussian':
             self.fit_func = lprof.gauss
-            npars = 3
-
-        if func_name == 'gauss_hermite':
+            self.npars = 3
+            self.parnames = ('A', 'wl', 's')
+        elif func_name == 'gauss_hermite':
             self.fit_func = lprof.gausshermite
-            npars = 5
+            self.npars = 5
+            self.parnames = ('A', 'wl', 's', 'h3', 'h4')
+        else:
+            raise RuntimeError('Unkonwn function {:s}'.format(func_name))
 
-        fit_info['parameters'] = npars
-        fit_info['components'] = (self.em_model.shape[0] - 1) / npars
+        fit_info['parameters'] = self.npars
+        fit_info['components'] = (self.em_model.shape[0] - 1) / self.npars
 
         self.fit_info = fit_info
 
@@ -474,14 +477,8 @@ class Spectrum():
         ax.plot(wl, c)
         ax.plot(wl, s)
 
-        if self.fit_func == lprof.gauss:
-            npars = 3
-            parnames = ('A', 'wl', 's')
-        elif self.fit_func == lprof.gausshermite:
-            npars = 5
-            parnames = ('A', 'wl', 's', 'h3', 'h4')
-        else:
-            raise NameError('Unkown fit function.')
+        npars = self.npars
+        parnames = self.parnames
 
         if len(p) > npars:
             for i in np.arange(0, len(p), npars):
