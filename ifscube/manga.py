@@ -1,9 +1,12 @@
+# STDLIB
+
+# THIRD PARTY
 import numpy as np
 from scipy.integrate import trapz
-
 from astropy import wcs
 from astropy.io import fits
 
+# LOCAL
 from . import datacube, spectools
 from . import elprofile as lprof
 
