@@ -1,5 +1,7 @@
+# STDLIB
 from copy import deepcopy
 
+# THIRD PARTY
 import numpy as np
 from numpy import ma
 import matplotlib.pyplot as plt
@@ -10,6 +12,7 @@ from astropy import constants, units, table
 from astropy.io import fits
 import progressbar
 
+# LOCAL
 from . import cubetools, spectools, onedspec
 from . import plots as ifsplots
 from . import elprofile as lprof
