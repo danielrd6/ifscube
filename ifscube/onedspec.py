@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
 from astropy import wcs
-import astropy.io.fits as pf
+from astropy.io import fits
 
 from . import stats, spectools
 from . import elprofile as lprof
@@ -55,7 +55,7 @@ class Spectrum():
     def __load__(self, fname, ext=0, redshift=0, variance=None,
                  flags=None, stellar=None):
 
-        with pf.open(fname) as hdu:
+        with fits.open(fname) as hdu:
             self.data = hdu[ext].data
             self.header = hdu[ext].header
             self.wcs = wcs.WCS(self.header)
@@ -73,6 +73,92 @@ class Spectrum():
     def __dopcor__(self):
 
         self.restwl = self.wl / (1. + self.redshift)
+
+    def __write_linefit__(self, args):
+
+        outimage = args['outimage']
+        # Basic tests and first header
+        if outimage is None:
+            outimage = self.fitsfile.replace('.fits',
+                                             '_linefit.fits')
+        hdr = deepcopy(self.header_data)
+        try:
+            hdr['REDSHIFT'] = self.redshift
+        except KeyError:
+            hdr['REDSHIFT'] = (self.redshift,
+                               'Redshift used in GMOSDC')
+
+        # Creates MEF output.
+        h = fits.HDUList()
+        hdu = fits.PrimaryHDU(header=self.header)
+        hdu.name = 'PRIMARY'
+        h.append(hdu)
+
+        # Creates the fitted spectrum extension
+        hdr = fits.Header()
+        hdr['object'] = ('spectrum', 'Data in this extension')
+        hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
+        hdr['CRVAL3'] = (self.fitwl[0], 'Reference value for wavelength')
+        hdr['CD3_3'] = (np.average(np.diff(self.fitwl)), 'CD3_3')
+        hdu = fits.ImageHDU(data=self.fitspec, header=hdr)
+        hdu.name = 'FITSPEC'
+        h.append(hdu)
+
+        # Creates the fitted continuum extension.
+        hdr['object'] = 'continuum'
+        hdu = fits.ImageHDU(data=self.fitcont, header=hdr)
+        hdu.name = 'FITCONT'
+        h.append(hdu)
+
+        # Creates the stellar continuum extension.
+        hdr['object'] = 'stellar'
+        hdu = fits.ImageHDU(data=self.fitstellar, header=hdr)
+        hdu.name = 'STELLAR'
+        h.append(hdu)
+
+        # Creates the fitted function extension.
+        hdr['object'] = 'modeled_spec'
+        hdu = fits.ImageHDU(data=self.resultspec, header=hdr)
+        hdu.name = 'MODEL'
+        h.append(hdu)
+
+        # Creates the solution extension.
+        function = args['function']
+        total_pars = self.em_model.shape[0] - 1
+
+        hdr['object'] = 'parameters'
+        hdr['function'] = (function, 'Fitted function')
+        hdr['nfunc'] = (total_pars / self.npars, 'Number of functions')
+        hdu = fits.ImageHDU(data=self.em_model, header=hdr)
+        hdu.name = 'SOLUTION'
+        h.append(hdu)
+
+        # Creates the minimize's exit status extension
+        hdr['object'] = 'status'
+        hdu = fits.ImageHDU(data=self.fit_status, header=hdr)
+        hdu.name = 'STATUS'
+        h.append(hdu)
+
+        # Creates the spatial mask extension
+        hdr['object'] = 'spatial mask'
+        hdu = fits.ImageHDU(data=self.spatial_mask.astype(int), header=hdr)
+        hdu.name = 'MASK2D'
+        h.append(hdu)
+
+        # Creates the spaxel indices extension as fits.BinTableHDU.
+        hdr['object'] = 'spaxel_coords'
+        t = table.Table(self.spec_indices, names=('row', 'column'))
+        hdu = fits.table_to_hdu(t)
+        hdu.name = 'SPECIDX'
+        h.append(hdu)
+
+        # Creates component and parameter names table.
+        hdr['object'] = 'parameter names'
+        hdu = self.__fitTable__()
+        hdu.name = 'PARNAMES'
+        h.append(hdu)
+
+        h.writeto(outimage, overwrite=args['overwrite'])
 
     def guessParser(self, p):
 
@@ -331,45 +417,7 @@ class Spectrum():
         self.em_model = p
 
         if writefits:
-
-            # Basic tests and first header
-            if outimage is None:
-                outimage = self.fitsfile.replace('.fits',
-                                                 '_linefit.fits')
-            hdr = deepcopy(self.header)
-
-            # Creates MEF output.
-            h = pf.HDUList()
-            h.append(pf.PrimaryHDU(header=hdr))
-
-            # Creates the fitted spectrum extension
-            hdr = pf.Header()
-            hdr['object'] = ('spectrum', 'Data in this extension')
-            hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
-            hdr['CRVAL3'] = (wl[0], 'Reference value for wavelength')
-            hdr['CD3_3'] = (np.average(np.diff(wl)), 'CD3_3')
-            h.append(pf.ImageHDU(data=self.fitspec, header=hdr))
-
-            # Creates the fitted continuum extension.
-            hdr['object'] = 'continuum'
-            h.append(pf.ImageHDU(data=self.fitcont, header=hdr))
-
-            # Creates the fitted function extension.
-            hdr['object'] = 'fit'
-            h.append(pf.ImageHDU(data=self.resultspec, header=hdr))
-
-            # Creates the solution extension.
-            hdr['object'] = 'parameters'
-            hdr['function'] = (function, 'Fitted function')
-            hdr['nfunc'] = (len(p) / npars_pc, 'Number of functions')
-            h.append(pf.ImageHDU(data=sol, header=hdr))
-
-            # Creates the minimize's exit status extension
-            hdr['object'] = 'status'
-            h.append(pf.ImageHDU(data=self.fit_status, header=hdr))
-
-            h.writeto(outimage)
-
+            self.__write_linefit__(args=locals())
         return sol
 
     def fit_uncertainties(self, snr=10):
@@ -417,15 +465,15 @@ class Spectrum():
         self.fitwl = spectools.get_wl(
             fname, pix0key='crpix0', wl0key='crval0', dwlkey='cd1_1', hdrext=1,
             dataext=1)
-        self.fitspec = pf.getdata(fname, ext=1)
-        self.fitcont = pf.getdata(fname, ext=2)
-        self.resultspec = pf.getdata(fname, ext=3)
+        self.fitspec = fits.getdata(fname, ext=1)
+        self.fitcont = fits.getdata(fname, ext=2)
+        self.resultspec = fits.getdata(fname, ext=3)
 
-        self.em_model = pf.getdata(fname, ext=4)
-        self.fit_status = pf.getdata(fname, ext=5)
+        self.em_model = fits.getdata(fname, ext=4)
+        self.fit_status = fits.getdata(fname, ext=5)
 
         fit_info = {}
-        func_name = pf.getheader(fname, ext=4)['function']
+        func_name = fits.getheader(fname, ext=4)['function']
         fit_info['function'] = func_name
 
         if func_name == 'gaussian':
