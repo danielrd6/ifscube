@@ -297,7 +297,8 @@ class Spectrum():
         zero_spec = np.zeros_like(self.restwl[fw])
 
         if component_names is None:
-            self.component_names = ['C_{:03d}'.format(i) for i in range(npars)]
+            self.component_names = [
+                'C_{:03d}'.format(i) for i in range(npars / npars_pc)]
         else:
             self.component_names = component_names
 
