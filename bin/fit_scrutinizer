@@ -10,6 +10,7 @@ from numpy import ma
 import argparse
 import copy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import ifscube
 import ifscube.cubetools as ct
 from ifscube import manga
 import ifscube.cubetools_astropy as cta
@@ -28,7 +29,7 @@ class mclass:
             with open(args.fitfile, 'rb') as f:
                 cube = pickle.load(f)
         else:
-            cube = ct.gmosdc()
+            cube = ifscube.Cube()
             cube.loadfit(args.fitfile)
 
         self.window = window
