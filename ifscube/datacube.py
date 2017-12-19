@@ -933,7 +933,8 @@ class Cube:
 
         fitfile.close()
 
-    def eqw(self, component, sigma_factor=3, outimage=None):
+    def eqw(self, component=None, sigma_factor=5, continuum_windows=None,
+            outimage=None):
         """
         Evaluates the equivalent width of a previous linefit.
 
@@ -943,6 +944,15 @@ class Cube:
             Component of emission model
         sigma_factor : number
             Radius of integration as a number of line sigmas.
+        windows : iterable
+          Continuum fitting windows in the form
+          [blue0, blue1, red0, red1].
+
+        Returns
+        -------
+        eqw : numpy.ndarray
+          Equivalent widths measured on the emission line model and
+          directly on the observed spectrum, respectively.
         """
 
         assert component in self.component_names,\
@@ -963,8 +973,6 @@ class Cube:
 
             # Wavelength vector of the line fit
             fwl = self.fitwl
-            # Rest wavelength vector of the whole data cube
-            rwl = self.restwl
             # Center wavelength coordinate of the fit
             cwl = self.em_model[center_index, i, j]
             # Sigma of the fit
@@ -982,22 +990,44 @@ class Cube:
 
             else:
 
-                cond = (fwl > cwl - sf * sig) & (fwl < cwl + sf * sig)
-                cond_data = (rwl > cwl - sf * sig) & (rwl < cwl + sf * sig)
+                low_wl = cwl - sf * sig
+                up_wl = cwl + sf * sig
+
+                cond = (fwl > low_wl) & (fwl < up_wl)
 
                 fit = self.fit_func(
                     fwl[cond], self.em_model[par_indexes, i, j])
+                syn = self.fitstellar[:, i, j]
+                fitcont = self.fitcont[:, i, j]
+                data = self.fitspec[:, i, j]
 
-                cont = self.fitcont[cond, i, j]
-                cont_data = interp1d(
-                    fwl, self.fitcont[:, i, j])(rwl[cond_data])
+                # If the continuum fitting windows are set, use that
+                # to define the weights vector.
+                cwin = continuum_windows
+                if cwin is not None:
+                    assert len(cwin) == 4, 'Windows must be an '\
+                        'iterable of the form (blue0, blue1, red0, red1)'
+                    weights = np.zeros_like(self.fitwl)
+                    cwin_cond = (
+                        ((fwl > cwin[0]) & (fwl < cwin[1])) |
+                        ((fwl > cwin[2]) & (fwl < cwin[3]))
+                    )
+                    weights[cwin_cond] = 1
+                else:
+                    weights = np.ones_like(self.fitwl)
 
-                eqw_model[i, j] = trapz(
-                    1. - (fit + cont) / cont, x=fwl[cond])
+                cont = spectools.continuum(
+                    fwl, syn + fitcont, weights=weights,
+                    degr=1, niterate=3, lower_threshold=3,
+                    upper_threshold=3, returns='function')[1][cond]
 
-                eqw_direct[i, j] = trapz(
-                    1. - self.data[cond_data, i, j] / cont_data,
-                    x=rwl[cond_data])
+                # Remember that 1 - (g + c)/c = -g/c, where g is the
+                # line profile and c is the local continuum level.
+                #
+                # That is why we can shorten the equivalent width
+                # definition in the eqw_model integration below.
+                eqw_model[i, j] = trapz(- fit / cont, x=fwl[cond])
+                eqw_direct[i, j] = trapz(1. - data[cond] / cont, x=fwl[cond])
 
         eqw_cube = np.array([eqw_model, eqw_direct])
         if outimage is not None:
