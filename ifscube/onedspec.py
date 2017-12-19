@@ -1,12 +1,15 @@
+# STDLIB
 from copy import deepcopy
 
+# THIRD PARTY
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
-from astropy import wcs
+from astropy import wcs, table
 from astropy.io import fits
 
+# LOCAL
 from . import stats, spectools
 from . import elprofile as lprof
 
