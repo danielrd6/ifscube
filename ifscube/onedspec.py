@@ -58,10 +58,13 @@ class Spectrum():
     def __load__(self, fname, ext=0, redshift=0, variance=None,
                  flags=None, stellar=None):
 
+        self.fitsfile = fname
+        self.redshift = redshift
         with fits.open(fname) as hdu:
             self.data = hdu[ext].data
-            self.header = hdu[ext].header
-            self.wcs = wcs.WCS(self.header)
+            self.header = hdu[0].header
+            self.header_data = hdu[ext].header
+            self.wcs = wcs.WCS(self.header_data)
 
         self.__accessory_data__(variance, flags, stellar)
 
@@ -142,24 +145,11 @@ class Spectrum():
         hdu.name = 'STATUS'
         h.append(hdu)
 
-        # Creates the spatial mask extension
-        hdr['object'] = 'spatial mask'
-        hdu = fits.ImageHDU(data=self.spatial_mask.astype(int), header=hdr)
-        hdu.name = 'MASK2D'
-        h.append(hdu)
-
-        # Creates the spaxel indices extension as fits.BinTableHDU.
-        hdr['object'] = 'spaxel_coords'
-        t = table.Table(self.spec_indices, names=('row', 'column'))
-        hdu = fits.table_to_hdu(t)
-        hdu.name = 'SPECIDX'
-        h.append(hdu)
-
-        # Creates component and parameter names table.
-        hdr['object'] = 'parameter names'
-        hdu = self.__fitTable__()
-        hdu.name = 'PARNAMES'
-        h.append(hdu)
+        # # Creates component and parameter names table.
+        # hdr['object'] = 'parameter names'
+        # hdu = self.__fitTable__()
+        # hdu.name = 'PARNAMES'
+        # h.append(hdu)
 
         h.writeto(outimage, overwrite=args['overwrite'])
 
@@ -179,7 +169,7 @@ class Spectrum():
                 constraints=(), bounds=None, inst_disp=1.0,
                 min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
                 weights=None, verbose=False, fit_continuum=False,
-                component_names=None):
+                component_names=None, overwrite=False):
         """
         Fits a spectral features.
 
