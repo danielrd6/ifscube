@@ -80,6 +80,19 @@ class Spectrum():
 
         self.restwl = self.wl / (1. + self.redshift)
 
+    def __fitTable__(self):
+
+        cnames = self.component_names
+        pnames = self.parnames
+
+        c = np.array([[i for j in pnames] for i in cnames]).flatten()
+        p = np.array([[i for i in pnames] for j in cnames]).flatten()
+
+        t = table.Table([c, p], names=('component', 'parameter'))
+        h = fits.table_to_hdu(t)
+
+        return h
+
     def __write_linefit__(self, args):
 
         outimage = args['outimage']
@@ -134,22 +147,22 @@ class Spectrum():
 
         hdr['object'] = 'parameters'
         hdr['function'] = (function, 'Fitted function')
-        hdr['nfunc'] = (total_pars / self.npars, 'Number of functions')
+        hdr['nfunc'] = (int(total_pars / self.npars), 'Number of functions')
         hdu = fits.ImageHDU(data=self.em_model, header=hdr)
         hdu.name = 'SOLUTION'
         h.append(hdu)
 
-        # Creates the minimize's exit status extension
-        hdr['object'] = 'status'
-        hdu = fits.ImageHDU(data=self.fit_status, header=hdr)
-        hdu.name = 'STATUS'
-        h.append(hdu)
-
-        # # Creates component and parameter names table.
-        # hdr['object'] = 'parameter names'
-        # hdu = self.__fitTable__()
-        # hdu.name = 'PARNAMES'
+        # # Creates the minimize's exit status extension
+        # hdr['object'] = 'status'
+        # hdu = fits.ImageHDU(data=self.fit_status, header=hdr)
+        # hdu.name = 'STATUS'
         # h.append(hdu)
+
+        # Creates component and parameter names table.
+        hdr['object'] = 'parameter names'
+        hdu = self.__fitTable__()
+        hdu.name = 'PARNAMES'
+        h.append(hdu)
 
         h.writeto(outimage, overwrite=args['overwrite'])
 
