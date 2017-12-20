@@ -143,6 +143,7 @@ class Spectrum():
         h.append(hdu)
 
         # Creates the solution extension.
+        hdr = fits.Header()
         function = args['function']
         total_pars = self.em_model.shape[0] - 1
 
@@ -151,6 +152,17 @@ class Spectrum():
         hdr['nfunc'] = (int(total_pars / self.npars), 'Number of functions')
         hdu = fits.ImageHDU(data=self.em_model, header=hdr)
         hdu.name = 'SOLUTION'
+        h.append(hdu)
+
+        # Equivalent width extensions
+        hdr['object'] = 'eqw_model'
+        hdu = fits.ImageHDU(data=self.eqw_model, header=hdr)
+        hdu.name = 'EQW_M'
+        h.append(hdu)
+
+        hdr['object'] = 'eqw_direct'
+        hdu = fits.ImageHDU(data=self.eqw_direct, header=hdr)
+        hdu.name = 'EQW_D'
         h.append(hdu)
 
         # # Creates the minimize's exit status extension
@@ -183,7 +195,7 @@ class Spectrum():
                 constraints=(), bounds=None, inst_disp=1.0,
                 min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
                 weights=None, verbose=False, fit_continuum=False,
-                component_names=None, overwrite=False):
+                component_names=None, overwrite=False, eqw_opts={}):
         """
         Fits a spectral features.
 
@@ -424,7 +436,7 @@ class Spectrum():
             + fit_func(self.fitwl, r['x']) * scale_factor
 
         self.em_model = p
-        self.eqw()
+        self.eqw(**eqw_opts)
 
         if writefits:
             self.__write_linefit__(args=locals())
