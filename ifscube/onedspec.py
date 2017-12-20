@@ -281,6 +281,7 @@ class Spectrum():
             self.parnames = ('A', 'wl', 's', 'h3', 'h4')
         else:
             raise NameError('Unknown function "{:s}".'.format(function))
+        self.npars = npars_pc
 
         # Sets a pre-made nan vector for nan solutions.
         npars = len(p0)
