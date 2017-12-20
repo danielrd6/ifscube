@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
+from scipy.integrate import trapz
 from astropy import wcs, table
 from astropy.io import fits
 
@@ -423,10 +424,107 @@ class Spectrum():
             + fit_func(self.fitwl, r['x']) * scale_factor
 
         self.em_model = p
+        self.eqw()
 
         if writefits:
             self.__write_linefit__(args=locals())
         return sol
+
+    def eqw(self, sigma_factor=5, continuum_windows=None):
+        """
+        Evaluates the equivalent width of a previous linefit.
+
+        Parameters
+        ----------
+        component : number
+            Component of emission model
+        sigma_factor : number
+            Radius of integration as a number of line sigmas.
+        windows : iterable
+          Continuum fitting windows in the form
+          [blue0, blue1, red0, red1].
+
+        Returns
+        -------
+        eqw : numpy.ndarray
+          Equivalent widths measured on the emission line model and
+          directly on the observed spectrum, respectively.
+        """
+
+        eqw_model = np.zeros((len(self.component_names),))
+        eqw_direct = np.zeros_like(eqw_model)
+
+        npars = self.npars
+
+        for component in self.component_names:
+
+            component_index = self.component_names.index(component)
+            par_indexes = np.arange(npars) + npars * component_index
+
+            center_index = 1 + npars * component_index
+            sigma_index = 2 + npars * component_index
+
+            # Wavelength vector of the line fit
+            fwl = self.fitwl
+            # Center wavelength coordinate of the fit
+            cwl = self.em_model[center_index]
+            # Sigma of the fit
+            sig = self.em_model[sigma_index]
+            # Just a short alias for the sigma_factor parameter
+            sf = sigma_factor
+
+            nandata_flag = np.any(np.isnan(self.em_model[par_indexes]))
+            nullcwl_flag = cwl == 0
+
+            if nandata_flag or nullcwl_flag:
+
+                eqw_model = np.nan
+                eqw_direct = np.nan
+
+            else:
+
+                low_wl = cwl - sf * sig
+                up_wl = cwl + sf * sig
+
+                cond = (fwl > low_wl) & (fwl < up_wl)
+
+                fit = self.fit_func(
+                    fwl[cond], self.em_model[par_indexes])
+                syn = self.fitstellar
+                fitcont = self.fitcont
+                data = self.fitspec
+
+                # If the continuum fitting windows are set, use that
+                # to define the weights vector.
+                cwin = continuum_windows
+                if cwin is not None:
+                    assert len(cwin) == 4, 'Windows must be an '\
+                        'iterable of the form (blue0, blue1, red0, red1)'
+                    weights = np.zeros_like(self.fitwl)
+                    cwin_cond = (
+                        ((fwl > cwin[0]) & (fwl < cwin[1])) |
+                        ((fwl > cwin[2]) & (fwl < cwin[3]))
+                    )
+                    weights[cwin_cond] = 1
+                else:
+                    weights = np.ones_like(self.fitwl)
+
+                cont = spectools.continuum(
+                    fwl, syn + fitcont, weights=weights,
+                    degr=1, niterate=3, lower_threshold=3,
+                    upper_threshold=3, returns='function')[1][cond]
+
+                # Remember that 1 - (g + c)/c = -g/c, where g is the
+                # line profile and c is the local continuum level.
+                #
+                # That is why we can shorten the equivalent width
+                # definition in the eqw_model integration below.
+                ci = component_index
+                eqw_model[ci] = trapz(- fit / cont, x=fwl[cond])
+                eqw_direct[ci] = trapz(1. - data[cond] / cont, x=fwl[cond])
+
+            self.eqw_model = eqw_model
+            self.eqw_direct = eqw_direct
 
     def fit_uncertainties(self, snr=10):
 
