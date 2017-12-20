@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # THIRD PARTY
 import numpy as np
+from astropy.io import fits
 
 # LOCAL
 import ifscube.onedspec as ds
@@ -76,3 +77,6 @@ if __name__ == '__main__':
 
     print('Flux      : {:.2e}'.format(myspec.em_model[0]))
     print('Flux error: {:.2e}'.format(myspec.flux_err))
+
+    h = fits.open('ngc6300_nuc_linefit.fits')
+    h.info()
