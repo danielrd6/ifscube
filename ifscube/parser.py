@@ -1,6 +1,8 @@
+# STDLIB
 import configparser
 import copy
 
+# LOCAL
 from . import spectools
 
 
