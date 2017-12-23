@@ -73,7 +73,7 @@ class Spectrum():
         self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
 
         if redshift != 0:
-            self.restwl = self.__dopcor__()
+            self.__dopcor__()
         else:
             self.restwl = self.wl
 
