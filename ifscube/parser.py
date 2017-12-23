@@ -324,7 +324,6 @@ class LineFitParser:
 
     def _eqw(self):
 
-        import pdb; pdb.set_trace()
         self.eqw_opts = self._parse_dict(
             section='equivalent_width',
             float_args=('sigma_factor',))
