@@ -209,6 +209,7 @@ class LineFitParser:
         self.constraints = []
         self.k_groups = []
         self.k_component_names = []
+        self.cwin = {}
 
         if args or kwargs:
             self.__load__(*args, **kwargs)
@@ -226,7 +227,7 @@ class LineFitParser:
         self.par_names = par_names[self.cfg['fit']['function']]
         self.component_names = [
             i for i in self.cfg.sections() if i not in [
-                'continuum', 'minimization', 'fit']]
+                'continuum', 'minimization', 'fit', 'equivalent_width']]
 
         # Each section has to be a line, except for the DEFAULT, MINOPTS,
         # and CONTINUUM sections.
@@ -244,14 +245,21 @@ class LineFitParser:
             self._fit()
         else:
             self.fit_opts = {}
+
         if 'minimization' in self.cfg.sections():
             self._minimization()
         else:
             self.minopts = {}
+
         if 'continuum' in self.cfg.sections():
             self._continuum()
         else:
             self.copts = {}
+
+        if 'equivalent_width' in self.cfg.sections():
+            self._eqw()
+        else:
+            self.eqw_opts = {}
 
     def __idx__(self, cname, pname):
 
@@ -263,7 +271,7 @@ class LineFitParser:
 
         return idx
 
-    def _parse_dict(self, section, float_args, int_args, bool_args):
+    def _parse_dict(self, section, float_args=(), int_args=(), bool_args=()):
 
         d = {**self.cfg[section]}
 
@@ -314,6 +322,15 @@ class LineFitParser:
 
         self.fit_opts = fit_opts
 
+    def _eqw(self):
+
+        import pdb; pdb.set_trace()
+        self.eqw_opts = self._parse_dict(
+            section='equivalent_width',
+            float_args=('sigma_factor',))
+
+        self.eqw_opts['continuum_windows'] = self.cwin
+
     def _continuum(self):
 
         self.copts = self._parse_dict(
@@ -322,6 +339,14 @@ class LineFitParser:
             int_args=['degr', 'niterate'],
             bool_args=[],
         )
+
+    def _continuumWindows(self, line, line_pars):
+
+        if 'continuum_windows' in line_pars:
+            self.cwin[line] = [
+                [int(i) for i in line_pars.get('k_group').split(',')]]
+        else:
+            self.cwin[line] = None
 
     def _bounds(self, props):
 
@@ -390,12 +415,14 @@ class LineFitParser:
             self.k_groups += [line_pars.getint('k_group')]
             self.k_component_names += [line]
 
+        self._continuumWindows(line, line_pars)
+
     def get_vars(self):
 
         d = {**vars(self), **self.fit_opts}
         todel = [
             'cfg', 'par_names', 'fit_opts', 'copts',
-            'k_groups', 'k_components', 'k_component_names']
+            'k_groups', 'k_components', 'k_component_names', 'cwin']
         for i in todel:
             del d[i]
         d['copts'] = self.copts
