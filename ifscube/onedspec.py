@@ -508,7 +508,7 @@ class Spectrum():
 
                 # If the continuum fitting windows are set, use that
                 # to define the weights vector.
-                cwin = continuum_windows
+                cwin = continuum_windows[component]
                 if cwin is not None:
                     assert len(cwin) == 4, 'Windows must be an '\
                         'iterable of the form (blue0, blue1, red0, red1)'
