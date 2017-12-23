@@ -343,7 +343,8 @@ class LineFitParser:
 
         if 'continuum_windows' in line_pars:
             self.cwin[line] = [
-                [int(i) for i in line_pars.get('k_group').split(',')]]
+                float(i) for i in
+                line_pars.get('continuum_windows').split(',')]
         else:
             self.cwin[line] = None
 
