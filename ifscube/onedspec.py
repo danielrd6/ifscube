@@ -518,12 +518,14 @@ class Spectrum():
                         ((fwl > cwin[2]) & (fwl < cwin[3]))
                     )
                     weights[cwin_cond] = 1
+                    nite = 1
                 else:
                     weights = np.ones_like(self.fitwl)
+                    nite = 3
 
                 cont = spectools.continuum(
                     fwl, syn + fitcont, weights=weights,
-                    degr=1, niterate=3, lower_threshold=3,
+                    degr=1, niterate=nite, lower_threshold=3,
                     upper_threshold=3, returns='function')[1][cond]
 
                 # Remember that 1 - (g + c)/c = -g/c, where g is the
