@@ -5,7 +5,6 @@ from copy import deepcopy
 import numpy as np
 from numpy import ma
 import matplotlib.pyplot as plt
-from scipy.integrate import trapz
 from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter
 from astropy import constants, units, table
@@ -818,7 +817,14 @@ class Cube:
             if is_first_spec and (spec.fit_status == 0):
                 is_first_spec = False
 
+            if not hasattr(self, 'eqw_model'):
+                self.eqw_model = np.zeros(
+                    (len(spec.component_names),) + self.fit_status.shape)
+                self.eqw_direct = np.zeros_like(self.eqw_model)
+
             self.fit_status[i, j] = spec.fit_status
+            self.eqw_model[:, i, j] = spec.eqw_model
+            self.eqw_direct[:, i, j] = spec.eqw_direct
 
             if self.binned:
                 for l, m in vor[vor[:, 2] == binNum, :2]:
@@ -827,6 +833,7 @@ class Cube:
                     self.fitspec[:, l, m] = spec.fitspec
                     self.resultspec[:, l, m] = spec.resultspec
                     self.fitstellar[:, l, m] = spec.fitstellar
+                    self.eqw_model
                     self.initial_guess[:, l, m] = spec.initial_guess
                     self.fitbounds[:, l, m] = [
                         k if k is not None else np.nan
@@ -932,108 +939,6 @@ class Cube:
         self.fit_info = fit_info
 
         fitfile.close()
-
-    def eqw(self, component=None, sigma_factor=5, continuum_windows=None,
-            outimage=None):
-        """
-        Evaluates the equivalent width of a previous linefit.
-
-        Parameters
-        ----------
-        component : number
-            Component of emission model
-        sigma_factor : number
-            Radius of integration as a number of line sigmas.
-        windows : iterable
-          Continuum fitting windows in the form
-          [blue0, blue1, red0, red1].
-
-        Returns
-        -------
-        eqw : numpy.ndarray
-          Equivalent widths measured on the emission line model and
-          directly on the observed spectrum, respectively.
-        """
-
-        assert component in self.component_names,\
-            'Line {:s} not found in the fit model.'.format(component)
-
-        xy = self.spec_indices
-        eqw_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
-        eqw_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
-
-        npars = self.npars
-        component_index = self.component_names.index(component)
-        par_indexes = np.arange(npars) + npars * component_index
-
-        center_index = 1 + npars * component_index
-        sigma_index = 2 + npars * component_index
-
-        for i, j in xy:
-
-            # Wavelength vector of the line fit
-            fwl = self.fitwl
-            # Center wavelength coordinate of the fit
-            cwl = self.em_model[center_index, i, j]
-            # Sigma of the fit
-            sig = self.em_model[sigma_index, i, j]
-            # Just a short alias for the sigma_factor parameter
-            sf = sigma_factor
-
-            nandata_flag = np.any(np.isnan(self.em_model[par_indexes, i, j]))
-            nullcwl_flag = cwl == 0
-
-            if nandata_flag or nullcwl_flag:
-
-                eqw_model[i, j] = np.nan
-                eqw_direct[i, j] = np.nan
-
-            else:
-
-                low_wl = cwl - sf * sig
-                up_wl = cwl + sf * sig
-
-                cond = (fwl > low_wl) & (fwl < up_wl)
-
-                fit = self.fit_func(
-                    fwl[cond], self.em_model[par_indexes, i, j])
-                syn = self.fitstellar[:, i, j]
-                fitcont = self.fitcont[:, i, j]
-                data = self.fitspec[:, i, j]
-
-                # If the continuum fitting windows are set, use that
-                # to define the weights vector.
-                cwin = continuum_windows
-                if cwin is not None:
-                    assert len(cwin) == 4, 'Windows must be an '\
-                        'iterable of the form (blue0, blue1, red0, red1)'
-                    weights = np.zeros_like(self.fitwl)
-                    cwin_cond = (
-                        ((fwl > cwin[0]) & (fwl < cwin[1])) |
-                        ((fwl > cwin[2]) & (fwl < cwin[3]))
-                    )
-                    weights[cwin_cond] = 1
-                else:
-                    weights = np.ones_like(self.fitwl)
-
-                cont = spectools.continuum(
-                    fwl, syn + fitcont, weights=weights,
-                    degr=1, niterate=3, lower_threshold=3,
-                    upper_threshold=3, returns='function')[1][cond]
-
-                # Remember that 1 - (g + c)/c = -g/c, where g is the
-                # line profile and c is the local continuum level.
-                #
-                # That is why we can shorten the equivalent width
-                # definition in the eqw_model integration below.
-                eqw_model[i, j] = trapz(- fit / cont, x=fwl[cond])
-                eqw_direct[i, j] = trapz(1. - data[cond] / cont, x=fwl[cond])
-
-        eqw_cube = np.array([eqw_model, eqw_direct])
-        if outimage is not None:
-            self.__write_eqw__(eqw_cube, *locals())
-
-        return eqw_cube
 
     def w80(self, component, sigma_factor=5, individual_spec=False,
             verbose=False, smooth=0, remove_components=[]):
