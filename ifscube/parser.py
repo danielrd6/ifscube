@@ -224,13 +224,14 @@ class LineFitParser:
             gausshermite=('flux', 'wavelength', 'sigma', 'h3', 'h4'),
         )
 
-        self.par_names = par_names[self.cfg['fit']['function']]
+        self.par_names = par_names[
+            self.cfg.get('fit', 'function', fallback='gaussian')]
         self.component_names = [
             i for i in self.cfg.sections() if i not in [
                 'continuum', 'minimization', 'fit', 'equivalent_width']]
 
         # Each section has to be a line, except for the DEFAULT, MINOPTS,
-        # and CONTINUUM sections.
+        # and CONTINUUM sections, and equivalent_width.
         for line in self.component_names:
             self.parse_line(line)
 
@@ -240,26 +241,10 @@ class LineFitParser:
                 self._constraints(prop, line, par)
 
         self._kinematic_constraints()
-
-        if 'fit' in self.cfg.sections():
-            self._fit()
-        else:
-            self.fit_opts = {}
-
-        if 'minimization' in self.cfg.sections():
-            self._minimization()
-        else:
-            self.minopts = {}
-
-        if 'continuum' in self.cfg.sections():
-            self._continuum()
-        else:
-            self.copts = {}
-
-        if 'equivalent_width' in self.cfg.sections():
-            self._eqw()
-        else:
-            self.eqw_opts = {}
+        self._fit()
+        self._minimization()
+        self._continuum()
+        self._eqw()
 
     def __idx__(self, cname, pname):
 
@@ -291,14 +276,21 @@ class LineFitParser:
 
     def _minimization(self):
 
-        self.minopts = self._parse_dict(
-            section='minimization',
-            float_args=['eps', 'ftol'],
-            int_args=['maxiter'],
-            bool_args=['disp'],
-        )
+        if 'minimization' in self.cfg.sections():
+            self.minopts = self._parse_dict(
+                section='minimization',
+                float_args=['eps', 'ftol'],
+                int_args=['maxiter'],
+                bool_args=['disp'],
+            )
+        else:
+            self.minopts = {}
 
     def _fit(self):
+
+        if 'fit' not in self.cfg.sections():
+            self.fit_opts = {}
+            return
 
         fit_opts = {**self.cfg['fit']}
 
@@ -324,20 +316,26 @@ class LineFitParser:
 
     def _eqw(self):
 
-        self.eqw_opts = self._parse_dict(
-            section='equivalent_width',
-            float_args=('sigma_factor',))
+        if 'equivalent_width' in self.cfg.sections():
+            self.eqw_opts = self._parse_dict(
+                section='equivalent_width',
+                float_args=('sigma_factor',))
+        else:
+            self.eqw_opts = {}
 
         self.eqw_opts['continuum_windows'] = self.cwin
 
     def _continuum(self):
 
-        self.copts = self._parse_dict(
-            section='continuum',
-            float_args=['lower_threshold', 'upper_threshold'],
-            int_args=['degr', 'niterate'],
-            bool_args=[],
-        )
+        if 'continuum' in self.cfg.sections():
+            self.copts = self._parse_dict(
+                section='continuum',
+                float_args=['lower_threshold', 'upper_threshold'],
+                int_args=['degr', 'niterate'],
+                bool_args=[],
+            )
+        else:
+            self.copts = {}
 
     def _continuumWindows(self, line, line_pars):
 
