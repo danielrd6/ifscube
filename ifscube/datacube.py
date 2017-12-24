@@ -246,6 +246,17 @@ class Cube:
         hdu.name = 'SOLUTION'
         h.append(hdu)
 
+        # Equivalent width extensions
+        hdr['object'] = 'eqw_model'
+        hdu = fits.ImageHDU(data=self.eqw_model, header=hdr)
+        hdu.name = 'EQW_M'
+        h.append(hdu)
+
+        hdr['object'] = 'eqw_direct'
+        hdu = fits.ImageHDU(data=self.eqw_direct, header=hdr)
+        hdu.name = 'EQW_D'
+        h.append(hdu)
+
         # Creates the minimize's exit status extension
         hdr['object'] = 'status'
         hdu = fits.ImageHDU(data=self.fit_status, header=hdr)
@@ -370,7 +381,7 @@ class Cube:
         wl = deepcopy(self.restwl[fwidx])
         data = deepcopy(self.data[fwidx])
 
-        c = np.zeros(np.shape(data), dtype='float32')
+        c = np.zeros_like(data)
 
         # nspec = len(xy)
 
