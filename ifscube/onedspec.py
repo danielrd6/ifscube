@@ -332,6 +332,8 @@ class Spectrum():
         self.fitwl = self.restwl[fw]
         self.fitstellar = self.stellar[fw]
         self.r = None
+        self.eqw_model = np.nan
+        self.eqw_direct = np.nan
 
         p0 = np.array(self.guessParser(p0))
         self.initial_guess = p0
