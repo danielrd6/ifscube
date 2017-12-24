@@ -913,6 +913,16 @@ class Cube:
         self.fitstellar = fitfile['STELLAR'].data
 
         try:
+            self.eqw_model = fitfile['EQW_M'].data
+        except KeyError:
+            pass
+
+        try:
+            self.eqw_direct = fitfile['EQW_D'].data
+        except KeyError:
+            pass
+
+        try:
             self.spatial_mask = fitfile['MASK2D'].data.astype('bool')
         except KeyError:
             pass
