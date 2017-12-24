@@ -145,6 +145,7 @@ class Spectrum():
         # Creates the solution extension.
         hdr = fits.Header()
         function = args['function']
+        hdr['fitstat'] = self.fit_status
         total_pars = self.em_model.shape[0] - 1
 
         hdr['object'] = 'parameters'
