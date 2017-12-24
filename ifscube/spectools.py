@@ -8,8 +8,12 @@ If the spectrum is specified as an array, the default is to assume that
 arr[:,0] are the wavelength coordinates and arr[:,1] are the flux
 points.
 """
-
+# STDLIB
 import copy
+import warnings
+import re
+
+# THIRD PARTY
 import astropy.io.fits as pf
 import numpy as np
 from scipy.integrate import trapz, quad, cumtrapz
@@ -17,7 +21,6 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import interp1d, UnivariateSpline
 from scipy.optimize import curve_fit, minimize, root
 from astropy import units
-import re
 
 
 def rmbg(x, y, samp, order=1):
@@ -401,14 +404,20 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
 
     for i in range(niterate):
 
-        if len(x) == 0:
-            print('Stopped at iteration: {:d}.'.format(i))
-            break
         res = s(x) - f(x)
         sig = np.std(res)
         rej_cond = (
             (res < upper_threshold * sig) & (res > -lower_threshold * sig)
         )
+
+        if np.sum(rej_cond) <= degr:
+            if verbose:
+                warnings.warn(
+                    'Number of points lower than the polynomial degree. '
+                    'Stopped at iteration {:d}. '
+                    'sig={:.2e}'.format(i, sig))
+            break
+
         x = x[rej_cond]
         weights = weights[rej_cond]
 
@@ -749,7 +758,7 @@ class Constraints():
     def sigma(sa, sb, wla, wlb):
 
         def func(x):
-            return x[sa] / x[wla]  - x[sb] / x[wlb]
+            return x[sa] / x[wla] - x[sb] / x[wlb]
         d = dict(type='eq', fun=func)
 
         return d
