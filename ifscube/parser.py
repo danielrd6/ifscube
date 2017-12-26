@@ -403,7 +403,7 @@ class LineFitParser:
         line_pars = self.cfg[line]
         for par in self.par_names:
             props = line_pars[par].split(',')
-            if props[0] not in ['peak', 'mean']:
+            if props[0] not in ['peak', 'mean', 'median']:
                 self.p0 += [float(props[0])]
             else:
                 self.p0 += [props[0]]

@@ -188,6 +188,8 @@ class Spectrum():
                 p[p.index(i)] = self.data[self.valid_pixels].max()
             elif i == 'mean':
                 p[p.index(i)] = self.data[self.valid_pixels].mean()
+            elif i == 'median':
+                p[p.index(i)] = np.median(self.data[self.valid_pixels])
 
         return p
 
