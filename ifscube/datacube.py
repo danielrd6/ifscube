@@ -189,11 +189,14 @@ class Cube:
 
     def __write_linefit__(self, args):
 
+        suffix = args['suffix']
         outimage = args['outimage']
         # Basic tests and first header
         if outimage is None:
-            outimage = self.fitsfile.replace('.fits',
-                                             '_linefit.fits')
+            if suffix is None:
+                suffix = '_linefit'
+            outimage = self.fitsfile.replace('.fits', suffix + '.fits')
+
         hdr = deepcopy(self.header_data)
         try:
             hdr['REDSHIFT'] = self.redshift
@@ -608,7 +611,7 @@ class Cube:
         plt.show()
 
     def linefit(self, p0, writefits=False, outimage=None, overwrite=False,
-                individual_spec=False, refit=False,
+                individual_spec=False, refit=False, suffix=None,
                 update_bounds=False, bound_range=.1, spiral_loop=False,
                 spiral_center=None, refit_radius=3, sig_threshold=0,
                 par_threshold=0, verbose=False, **kwargs):
