@@ -5,7 +5,7 @@ Author: Daniel Ruschel Dutra
 Website: https://github.com/danielrd6/ifscube
 """
 # STDLIB
-from copy import deepcopy
+import copy
 
 # THIRD PARTY
 import numpy as np
@@ -49,7 +49,7 @@ def nan_to_nearest(d):
     dflat = np.ravel(d)
 
     idx = np.where(dflat.mask)[0]
-    g = deepcopy(dflat)
+    g = copy.deepcopy(dflat)
 
     for i in idx:
         r = np.sqrt((x - x[i]) ** 2 + (y - y[i]) ** 2)[~dflat.mask]
@@ -170,14 +170,14 @@ def bound_updater(p0, bound_range, bounds=None):
 
             if low is not None:
                 if low_new < low:
-                    low_new = deepcopy(low)
+                    low_new = copy.deepcopy(low)
                     high_new = low_new + d
             else:
                 low_new = None
 
             if high is not None:
                 if high_new > high:
-                    high_new = deepcopy(high)
+                    high_new = copy.deepcopy(high)
                     low_new = high_new - d
             else:
                 high_new = None
@@ -189,13 +189,46 @@ def bound_updater(p0, bound_range, bounds=None):
 
 def scale_bounds(bounds, flux_sf):
 
-    b = deepcopy(bounds)
+    b = copy.deepcopy(bounds)
     for i, j in enumerate(b):
         for k in (0, 1):
             if j[k] is not None:
                 j[k] /= flux_sf[i]
 
     return b
+
+
+def rebin(arr, xbin, ybin, combine='sum'):
+
+    assert combine in ['sum', 'mean'],\
+        'The combine parameter must be "sum" or "mean".'
+
+    old_shape = copy.copy(arr.shape)
+    new_shape = (
+        old_shape[0],
+        int(np.ceil(old_shape[1] / ybin)),
+        int(np.ceil(old_shape[2] / xbin)),
+    )
+
+    new = np.zeros(new_shape)
+
+    def combSum(x, i, j):
+        return np.sum(
+            arr[:, i * ybin:(i + 1) * ybin, j * xbin:(j + 1) * xbin],
+            axis=(1, 2))
+
+    def combAvg(x, i, j):
+        return np.mean(
+            arr[:, i * ybin:(i + 1) * ybin, j * xbin:(j + 1) * xbin],
+            axis=(1, 2))
+
+    comb_fun = dict(sum=combSum, mean=combAvg)
+
+    for i in range(new_shape[1]):
+        for j in range(new_shape[2]):
+          new[:, i, j] = comb_fun[combine](arr, i, j)
+
+    return new
 
 
 # This is only here for backwards compatibility.

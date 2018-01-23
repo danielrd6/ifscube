@@ -1258,6 +1258,30 @@ class Cube:
 
         return channelMaps, axes, pmaps
 
+    def spatial_rebin(self, xbin, ybin, combine='mean'):
+        """
+        Spatial undersampling of the datacube.
+
+        Parameters
+        ----------
+        xbin: int
+          Size of the bin in the horizontal direction.
+        ybin: int
+          Size of the bin in the vertical direction.
+        combine: 'mean', 'sum'
+          Type of spectral combination.
+            mean: The spectral flux is averaged over the spatial bin.
+            sum: The spectral flux is summed over the spatial bin.
+
+        Returns
+        -------
+        None.
+        """
+
+        self.data = cubetools.rebin(self.data, xbin, ybin, combine=combine)
+
+        return
+
     def gaussian_smooth(self, sigma=2, writefits=False, outfile=None,
                         clobber=False):
         """
