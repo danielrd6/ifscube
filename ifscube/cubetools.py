@@ -97,10 +97,14 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
           The integrated flux of the cube times the filter.
         """
 
+        assert (wl[0] < wl0 - fwhm / 2) and (wl[-1] > wl0 + fwhm / 2),\
+            'Wavelength limits outside wavelength vector.'
+
         if filtertype == 'box':
             arrfilt = np.array(
                 (wl >= wl0 - fwhm / 2.) & (wl <= wl0 + fwhm / 2.),
                 dtype='float')
+
             arrfilt /= trapz(arrfilt, wl)
         elif filtertype == 'gaussian':
             s = fwhm / (2. * np.sqrt(2. * np.log(2.)))
