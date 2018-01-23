@@ -128,9 +128,9 @@ class Cube:
             # confidence.
             self.ncubes = hdulist[ncubes_ext].data
         else:
-            self.ncubes = np.ones_like(self.data)
+            self.ncubes = np.ones(self.data.shape, dtype='int')
 
-        self.flags = np.zeros_like(self.data)
+        self.flags = np.zeros_like(self.data, dtype='int')
         self.flags[self.ncubes <= 0] = 1
 
         try:
@@ -1278,7 +1278,29 @@ class Cube:
         None.
         """
 
-        self.data = cubetools.rebin(self.data, xbin, ybin, combine=combine)
+        m = self.flags.astype('bool')
+
+        self.data = cubetools.rebin(
+            self.data, xbin, ybin, combine=combine, mask=m)
+        self.ncubes = cubetools.rebin(
+            self.ncubes, xbin, ybin, combine='sum').astype('int')
+
+        self.flags = (
+            cubetools.rebin(
+                self.flags, xbin, ybin, combine='sum') == xbin * ybin
+        ).astype('int')
+
+        if hasattr('self', 'noise_cube'):
+            self.noise_cube = np.sqrt(
+                cubetools.rebin(
+                    np.square(self.noise_cube), xbin, ybin, combine='sum',
+                    mask=m)
+            )
+
+            if combine == 'mean':
+                self.noise_cube /= self.ncubes
+
+            self.variance = np.square(self.noise_cube)
 
         return
 
