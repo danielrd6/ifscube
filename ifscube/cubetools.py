@@ -198,7 +198,7 @@ def scale_bounds(bounds, flux_sf):
     return b
 
 
-def rebin(arr, xbin, ybin, combine='sum'):
+def rebin(arr, xbin, ybin, combine='sum', mask=None):
 
     assert combine in ['sum', 'mean'],\
         'The combine parameter must be "sum" or "mean".'
@@ -212,21 +212,24 @@ def rebin(arr, xbin, ybin, combine='sum'):
 
     new = np.zeros(new_shape)
 
+    if mask is not None:
+        data = ma.array(data=arr, mask=mask)
+    else:
+        data = ma.array(data=arr)
+
     def combSum(x, i, j):
-        return np.sum(
-            arr[:, i * ybin:(i + 1) * ybin, j * xbin:(j + 1) * xbin],
+        return x[:, i * ybin:(i + 1) * ybin, j * xbin:(j + 1) * xbin].sum(
             axis=(1, 2))
 
     def combAvg(x, i, j):
-        return np.mean(
-            arr[:, i * ybin:(i + 1) * ybin, j * xbin:(j + 1) * xbin],
+        return x[:, i * ybin:(i + 1) * ybin, j * xbin:(j + 1) * xbin].mean(
             axis=(1, 2))
 
     comb_fun = dict(sum=combSum, mean=combAvg)
 
     for i in range(new_shape[1]):
         for j in range(new_shape[2]):
-          new[:, i, j] = comb_fun[combine](arr, i, j)
+            new[:, i, j] = comb_fun[combine](data, i, j)
 
     return new
 
