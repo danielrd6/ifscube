@@ -1294,8 +1294,7 @@ class Cube:
             self.noise_cube = np.sqrt(
                 cubetools.rebin(
                     np.square(self.noise_cube), xbin, ybin, combine='sum',
-                    mask=m)
-            )
+                    mask=m))
 
             if combine == 'mean':
                 self.noise_cube /= self.ncubes
