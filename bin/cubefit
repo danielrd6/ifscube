@@ -6,7 +6,7 @@ import argparse
 
 # LOCAL
 from ifscube import manga
-# from ifscube import gmos
+from ifscube import gmos
 from ifscube import parser
 
 
@@ -16,7 +16,7 @@ def lock(fname):
     return
 
 
-def dofit(fname, linefit_args, overwrite):
+def dofit(fname, linefit_args, overwrite, cubetype):
 
     galname = fname.split('/')[-1]
 
@@ -48,7 +48,10 @@ def dofit(fname, linefit_args, overwrite):
         if os.path.isfile(outname):
             return
 
-    a = manga.cube(fname)
+    if cubetype == 'manga':
+        a = manga.cube(fname)
+    elif cubetype == 'gmos':
+        a = gmos.cube(fname)
 
     try:
         a.linefit(**linefit_args)
@@ -71,7 +74,8 @@ if __name__ == '__main__':
     ap.add_argument(
         '--overwrite', action='store_true',
         help='Overwrites previous fit with the same name.')
-
+    ap.add_argument(
+        '--cubetype', type=str, default='gmos', help='"gmos" or "manga".')
     args = ap.parse_args()
 
     l = glob.glob(args.datacube)
@@ -81,4 +85,5 @@ if __name__ == '__main__':
     linefit_args = c.get_vars()
 
     for i in l:
-        dofit(i, linefit_args, overwrite=args.overwrite)
+        dofit(
+            i, linefit_args, overwrite=args.overwrite, cubetype=args.cubetype)
