@@ -294,6 +294,11 @@ class LineFitParser:
 
         fit_opts = {**self.cfg['fit']}
 
+        tuple_args = ['individual_spec', 'spiral_center']
+        for i in tuple_args:
+            if (i in fit_opts) and (fit_opts[i] != 'peak'):
+                fit_opts[i] = tuple([int(i) for i in fit_opts[i].split(',')])
+
         boolean_args = [
             'writefits', 'refit', 'update_bounds', 'spiral_loop', 'verbose',
             'fit_continuum']
