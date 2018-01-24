@@ -15,7 +15,7 @@ from scipy.integrate import trapz
 
 def peak_spaxel(cube):
     im = cube.sum(axis=0)
-    y, x = [int(i) for i in np.where(im == im.max())]
+    y, x = [int(i) for i in np.where(im == im[~np.isnan(im)].max())]
     return x, y
 
 
