@@ -410,10 +410,19 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
             (res < upper_threshold * sig) & (res > -lower_threshold * sig)
         )
 
-        if np.sum(rej_cond) <= degr:
+        if (np.sum(rej_cond) <= degr):
             if verbose:
                 warnings.warn(
                     'Number of points lower than the polynomial degree. '
+                    'Stopped at iteration {:d}. '
+                    'sig={:.2e}'.format(i, sig))
+            break
+
+        if (np.sum(weights == 0.0) <= degr):
+            if verbose:
+                warnings.warn(
+                    'Number of non-zero values in weights vector is lower'
+                    ' than the polynomial degree. '
                     'Stopped at iteration {:d}. '
                     'sig={:.2e}'.format(i, sig))
             break
