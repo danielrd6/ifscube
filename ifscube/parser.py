@@ -294,10 +294,23 @@ class LineFitParser:
 
         fit_opts = {**self.cfg['fit']}
 
-        tuple_args = ['individual_spec', 'spiral_center']
-        for i in tuple_args:
-            if (i in fit_opts) and (fit_opts[i] != 'peak'):
-                fit_opts[i] = tuple([int(i) for i in fit_opts[i].split(',')])
+        key = 'individual_spec'
+        if key in fit_opts:
+            if fit_opts[key] == 'peak':
+                pass
+            else:
+                try:
+                    fit_opts[key] = self.cfg.getboolean('fit', key)
+                    assert fit_opts[key] is not True,\
+                        '*individual_spec* must be "peak", "no" or a pair of'\
+                        ' spaxel coordinates "x, y".'
+                except ValueError:
+                    fit_opts[key] = tuple(
+                        [int(i) for i in fit_opts[key].split(',')])
+
+        key = 'spiral_center'
+        if key in fit_opts:
+            fit_opts[key] = tuple([int(i) for i in fit_opts[key].split(',')])
 
         boolean_args = [
             'writefits', 'refit', 'update_bounds', 'spiral_loop', 'verbose',
