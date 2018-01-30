@@ -1,6 +1,12 @@
+# STDLIB
+import copy
+
+# THIRD PARTY
 import numpy as np
-from copy import deepcopy
+from numpy import ma
 from scipy.optimize import minimize
+
+# LOCAL
 
 
 def gauss2d(x, y, p):
@@ -66,7 +72,7 @@ def match_mosaic(img, method="2dgaussian"):
 
     """
 
-    im = deepcopy(img)
+    im = copy.deepcopy(img)
     sol = im * 0.0
 
     if method == "2dgaussian":
@@ -93,3 +99,36 @@ def match_mosaic(img, method="2dgaussian"):
         sol = im / gauss2d(x, y, r['x'])
 
     return sol, r
+
+
+def rebin(arr, xbin, ybin, combine='sum', mask=None):
+
+    assert combine in ['sum', 'mean'],\
+        'The combine parameter must be "sum" or "mean".'
+
+    old_shape = copy.copy(arr.shape)
+    new_shape = (
+        int(np.ceil(old_shape[0] / ybin)),
+        int(np.ceil(old_shape[1] / xbin)),
+    )
+
+    new = np.zeros(new_shape)
+
+    if mask is not None:
+        data = ma.array(data=arr, mask=mask)
+    else:
+        data = ma.array(data=arr)
+
+    def combSum(x, i, j):
+        return x[i * ybin:(i + 1) * ybin, j * xbin:(j + 1) * xbin].sum()
+
+    def combAvg(x, i, j):
+        return x[i * ybin:(i + 1) * ybin, j * xbin:(j + 1) * xbin].mean()
+
+    comb_fun = dict(sum=combSum, mean=combAvg)
+
+    for i in range(new_shape[0]):
+        for j in range(new_shape[1]):
+            new[i, j] = comb_fun[combine](data, i, j)
+
+    return new
