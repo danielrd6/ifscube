@@ -1301,6 +1301,10 @@ class Cube:
 
             self.variance = np.square(self.noise_cube)
 
+        # FIXME: For now I am ignoring the spatial mask
+        self.spatial_mask = None
+        self.__set_spec_indices__()
+
         return
 
     def gaussian_smooth(self, sigma=2, writefits=False, outfile=None,
