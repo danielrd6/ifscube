@@ -8,7 +8,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import patheffects
 from scipy.interpolate import interp1d
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, center_of_mass
 from astropy import constants, units, table
 from astropy.io import fits
 import progressbar
@@ -1485,13 +1485,13 @@ class Cube:
                 int(spatial_center[1] - spatial_width / 2):
                     int(spatial_center[1] + spatial_width / 2) + 1
             ]
-            # coords = center_of_mass(ma.masked_invalid(projection_crop))
+            coords = center_of_mass(ma.masked_invalid(projection_crop))
         elif (center_type == 'peak'):
             idx = np.nanargmax(projection_crop, axis=None)
             coords = np.unravel_index(idx, projection_crop.shape)
         elif (center_type == 'centroid'):
             pass
-            # coords = center_of_mass(ma.masked_invalid(projection_crop))
+            coords = center_of_mass(ma.masked_invalid(projection_crop))
         else:
             raise ValueError(
                 'ERROR! Parameter center_type "{:s}" not understood.'
