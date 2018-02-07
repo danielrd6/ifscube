@@ -6,6 +6,7 @@ import numpy as np
 from numpy import ma
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib import patheffects
 from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter
 from astropy import constants, units, table
@@ -1308,10 +1309,10 @@ class Cube:
                         [pos_x, pos_x + scale_size], [pos_y, pos_y], '-',
                         lw=3, color=text_color,
                         path_effects=[
-                            mpl.patheffects.Stroke(
+                            patheffects.Stroke(
                                 linewidth=4.5, foreground=stroke_color,
                                 alpha=0.3),
-                            mpl.patheffects.Normal()])
+                            patheffects.Normal()])
                     ax.annotate(
                         scale_text, xy=(
                             pos_x + scale_size / 2., pos_y + delt_y),
@@ -1320,11 +1321,11 @@ class Cube:
                         color=text_color,
                         weight='bold',
                         path_effects=[
-                            mpl.patheffects.Stroke(
+                            patheffects.Stroke(
                                 linewidth=1.5,
                                 foreground=stroke_color,
                                 alpha=0.3),
-                            mpl.patheffects.Normal()])
+                            patheffects.Normal()])
 
             if (northArrow != {}):
                 north_pa = 90. + northArrow['north_pa']
@@ -1350,11 +1351,11 @@ class Cube:
                         [y_north, arrow_pos[0], y_east], '-',
                         lw=3, color=text_color,
                         path_effects=[
-                            mpl.patheffects.Stroke(
+                            patheffects.Stroke(
                                 linewidth=4.5,
                                 foreground=stroke_color,
                                 alpha=0.3),
-                            mpl.patheffects.Normal()])
+                            patheffects.Normal()])
                     l_ang = -15
                     y_letter_n = arrow_pos[0] + 1.15 * arrSize * np.sin(
                         np.deg2rad(north_pa + l_ang))
@@ -1371,11 +1372,11 @@ class Cube:
                         weight='bold',
                         color=text_color,
                         path_effects=[
-                            mpl.patheffects.Stroke(
+                            patheffects.Stroke(
                                 linewidth=1.5,
                                 foreground=stroke_color,
                                 alpha=0.3),
-                            mpl.patheffects.Normal()])
+                            patheffects.Normal()])
                     plt.text(
                         x_letter_e, y_letter_e, 'E',
                         ha='center',
@@ -1383,19 +1384,19 @@ class Cube:
                         weight='bold',
                         color=text_color,
                         path_effects=[
-                            mpl.patheffects.Stroke(
+                            patheffects.Stroke(
                                 linewidth=1.5,
                                 foreground=stroke_color,
                                 alpha=0.3),
-                            mpl.patheffects.Normal()])
+                            patheffects.Normal()])
 
             ax.annotate(
                 '{:.0f}'.format((wlc - lambda0) / lambda0 * 2.99792e+5),
                 xy=(0.1, 0.8), xycoords='axes fraction', weight='bold',
                 color=text_color, path_effects=[
-                    mpl.patheffects.Stroke(
+                    patheffects.Stroke(
                         linewidth=1.5, foreground=stroke_color, alpha=0.3),
-                    mpl.patheffects.Normal()])
+                    patheffects.Normal()])
             if i % side != 0:
                 ax.set_yticklabels([])
             if i / float((otherside - 1) * side) < 1:
@@ -1745,11 +1746,11 @@ class Cube:
                         lw=3,
                         color=text_color,
                         path_effects=[
-                            mpl.patheffects.Stroke(
+                            patheffects.Stroke(
                                 linewidth=4.5,
                                 foreground=stroke_color,
                                 alpha=0.3),
-                            mpl.patheffects.Normal()])
+                            patheffects.Normal()])
                     ax.annotate(
                         scale_text, xy=(
                             pos_x + scale_size / 2., pos_y + delt_y),
@@ -1758,11 +1759,11 @@ class Cube:
                         color=text_color,
                         weight='bold',
                         path_effects=[
-                            mpl.patheffects.Stroke(
+                            patheffects.Stroke(
                                 linewidth=1.5,
                                 foreground=stroke_color,
                                 alpha=0.3),
-                            mpl.patheffects.Normal()])
+                            patheffects.Normal()])
 
             if (northArrow != {}):
                 north_pa = 90. + northArrow['north_pa']
@@ -1788,10 +1789,10 @@ class Cube:
                         [y_north, arrow_pos[0], y_east], '-',
                         lw=3, color=text_color,
                         path_effects=[
-                            mpl.patheffects.Stroke(
+                            patheffects.Stroke(
                                 linewidth=4.5, foreground=stroke_color,
                                 alpha=0.3),
-                            mpl.patheffects.Normal()])
+                            patheffects.Normal()])
                     l_ang = -15
                     y_letter_n = arrow_pos[0] + 1.15 * arrSize * np.sin(
                         np.deg2rad(north_pa + l_ang))
@@ -1808,10 +1809,10 @@ class Cube:
                         weight='bold',
                         color=text_color,
                         path_effects=[
-                            mpl.patheffects.Stroke(
+                            patheffects.Stroke(
                                 linewidth=1.5, foreground=stroke_color,
                                 alpha=0.3),
-                            mpl.patheffects.Normal()])
+                            patheffects.Normal()])
                     plt.text(
                         x_letter_e, y_letter_e, 'E',
                         ha='center',
@@ -1819,19 +1820,19 @@ class Cube:
                         weight='bold',
                         color=text_color,
                         path_effects=[
-                            mpl.patheffects.Stroke(
+                            patheffects.Stroke(
                                 linewidth=1.5, foreground=stroke_color,
                                 alpha=0.3),
-                            mpl.patheffects.Normal()])
+                            patheffects.Normal()])
 
             ax.annotate(
                 '{:.0f}'.format(
                     (wlc_r - lambdas[0]) / lambdas[0] * 2.99792e+5),
                 xy=(0.1, 0.8), xycoords='axes fraction', weight='bold',
                 color=text_color, path_effects=[
-                    mpl.patheffects.Stroke(
+                    patheffects.Stroke(
                         linewidth=1.5, foreground=stroke_color, alpha=0.3),
-                    mpl.patheffects.Normal()])
+                    patheffects.Normal()])
             if i % side != 0:
                 ax.set_yticklabels([])
             if i / float((otherside - 1) * side) < 1:
