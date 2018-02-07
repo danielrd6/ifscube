@@ -1,12 +1,17 @@
-from . import cubetools, spectools
-from . import elprofile as lprof
-from astropy.io import fits
-from astropy import wcs
+# STDLIB
+
+# THIRD PARTY
 import numpy as np
 from scipy.integrate import trapz
+from astropy import wcs
+from astropy.io import fits
+
+# LOCAL
+from . import datacube, spectools
+from . import elprofile as lprof
 
 
-class cube(cubetools.gmosdc):
+class cube(datacube.Cube):
 
     def __init__(self, *args, **kwargs):
 
@@ -15,7 +20,7 @@ class cube(cubetools.gmosdc):
 
     def __load__(self, fitsfile, redshift=0):
 
-        self.filename = fitsfile
+        self.fitsfile = fitsfile
         self.redshift = redshift
 
         # Opens the FITS file.
@@ -27,6 +32,7 @@ class cube(cubetools.gmosdc):
         self.fobs_norm = hdu['FOBS_NORM'].data
         self.noise_cube = hdu['F_ERR'].data
         self.flag_cube = hdu['F_FLAG'].data
+        self.flags = self.flag_cube
         # self.weights = hdu['F_WEI'].data
 
         self.data *= self.fobs_norm
@@ -42,6 +48,11 @@ class cube(cubetools.gmosdc):
 
         self.cont = hdu['F_SYN'].data * self.fobs_norm
         self.syn = hdu['F_SYN'].data * self.fobs_norm
+
+        self.variance = np.square(self.noise_cube)
+        self.stellar = self.syn
+
+        self.weights = np.ones_like(self.data)
 
         hdu.close()
 
@@ -117,109 +128,3 @@ class cube(cubetools.gmosdc):
             self.restwl = self.wl / (1. + self.redshift)
         else:
             self.restwl = self.wl
-
-    def eqw(self, component, sigma_factor=5, windows=None, outimage=None):
-        """
-        Evaluates the equivalent width of a previous linefit.
-
-        Parameters
-        ----------
-        component : number
-          Component of emission model.
-        sigma_factor : number
-          Radius of integration as a number of line sigmas.
-        windows : iterable
-          Continuum fitting windows in the form
-          [blue0, blue1, red0, red1].
-
-        Returns
-        -------
-        eqw : numpy.ndarray
-          Equivalent widths measured on the emission line model and
-          directly on the observed spectrum, respectively.
-        """
-
-        xy = self.spec_indices
-        eqw_model = np.zeros(np.shape(self.em_model)[1:])
-        eqw_direct = np.zeros_like(eqw_model)
-
-        eqw_model[self.spatial_mask] = np.nan
-        eqw_direct[self.spatial_mask] = np.nan
-
-        if self.fit_func == lprof.gauss:
-            npars = 3
-        if self.fit_func == lprof.gausshermite:
-            npars = 5
-
-        par_indexes = np.arange(npars) + npars * component
-
-        center_index = 1 + npars * component
-        sigma_index = 2 + npars * component
-
-        for i, j in xy:
-
-            # Wavelength vector of the line fit
-            fwl = self.fitwl
-            # Rest wavelength vector of the whole data cube
-            rwl = self.restwl
-            # Center wavelength coordinate of the fit
-            cwl = self.em_model[center_index, i, j]
-            # Sigma of the fit
-            sig = self.em_model[sigma_index, i, j]
-            # Just a short alias for the sigma_factor parameter
-            sf = sigma_factor
-
-            nandata_flag = np.any(np.isnan(self.em_model[par_indexes, i, j]))
-            nullcwl_flag = cwl == 0
-
-            if nandata_flag or nullcwl_flag or (self.fit_status[i, j] != 0):
-
-                eqw_model[i, j] = np.nan
-                eqw_direct[i, j] = np.nan
-
-            else:
-
-                # This 1e-6 is to guarantee that no floating point
-                # errors in the comparison will arise.
-                low_wl = cwl - sf * sig - 1e-6
-                up_wl = cwl + sf * sig + 1e-6
-
-                cond = (fwl > low_wl) & (fwl < up_wl)
-                cond_data = (rwl > low_wl) & (rwl < up_wl)
-                cond_syn = (rwl >= fwl[0]) & (rwl <= fwl[-1])
-
-                fit = self.fit_func(
-                        fwl[cond], self.em_model[par_indexes, i, j])
-                syn = self.syn[cond_data, i, j]
-                data = self.data[cond_data, i, j]
-
-                # If the continuum fitting windos are set, use that
-                # to define the weights vector.
-                if windows is not None:
-                    assert len(windows) == 4, 'Windows must be an '\
-                        'iterable of the form (blue0, blue1, red0, red1)'
-                    weights = np.zeros_like(self.fitwl)
-                    windows_cond = (
-                        ((fwl > windows[0]) & (fwl < windows[1])) |
-                        ((fwl > windows[2]) & (fwl < windows[3]))
-                    )
-                    weights[windows_cond] = 1
-                else:
-                    weights = np.ones_like(self.fitwl)
-
-                cont = spectools.continuum(
-                    fwl, self.syn[cond_syn, i, j], weights=weights,
-                    degr=1, niterate=3, lower_threshold=3,
-                    upper_threshold=3, returns='function')[1][cond]
-
-                eqw_model[i, j] = trapz(
-                    1. - (fit + cont) / cont, x=fwl[cond])
-
-                eqw_direct[i, j] = trapz(
-                    1. - data / cont, x=fwl[cond])
-
-        eqw_cube = np.array([eqw_model, eqw_direct])
-        if outimage is not None:
-            self.__write_eqw__(eqw_cube, locals())
-
-        return eqw_cube
