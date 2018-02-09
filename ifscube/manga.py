@@ -58,15 +58,16 @@ class cube(datacube.Cube):
 
     def __flags__(self):
 
-        # _unused = 0x0001
+        _unused = 0x0001
         no_data = 0x0002
         bad_pix = 0x0004
         ccd_gap = 0x0008
-        # telluric = 0x0010
-        # seg_has_badpixels = 0x0020
-        # low_sn = 0x0040
+        telluric = 0x0010
+        seg_has_badpixels = 0x0020
+        low_sn = 0x0040
 
-        no_obs = no_data | bad_pix | ccd_gap
+        no_obs = no_data | bad_pix | ccd_gap | _unused | telluric\
+            | seg_has_badpixels | low_sn
 
         self.flags = self.flag_cube & no_obs
 
