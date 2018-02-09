@@ -574,7 +574,7 @@ class Cube:
 
         # fig = plt.figure(1)
         if ax is None:
-            fig = plt.figure()
+            fig = plt.figure(1)
             ax = fig.add_subplot(111)
 
         if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
@@ -609,6 +609,12 @@ class Cube:
 
             ax.fill_between(self.restwl, sg - n, sg + n, edgecolor='',
                             alpha=0.2, color='green')
+
+        if hasattr(self, 'flags')\
+                and ~hasattr(x, '__iter__')\
+                and ~hasattr(y, '__iter__'):
+            sflags = self.flags[:, y, x].astype('bool')
+            ax.scatter(self.restwl[sflags], s[sflags], marker='x', color='red')
 
         plt.show()
 
