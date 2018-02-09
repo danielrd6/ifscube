@@ -293,10 +293,11 @@ class LineFitParser:
             return
 
         fit_opts = {**self.cfg['fit']}
+        string_values = ['peak', 'cofm']
 
         key = 'individual_spec'
         if key in fit_opts:
-            if fit_opts[key] == 'peak':
+            if fit_opts[key] in string_values:
                 pass
             else:
                 try:
@@ -310,7 +311,7 @@ class LineFitParser:
 
         key = 'spiral_center'
         if key in fit_opts:
-            if fit_opts[key] == 'peak':
+            if fit_opts[key] in string_values:
                 pass
             else:
                 fit_opts[key] = tuple(
