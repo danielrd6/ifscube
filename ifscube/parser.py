@@ -310,7 +310,11 @@ class LineFitParser:
 
         key = 'spiral_center'
         if key in fit_opts:
-            fit_opts[key] = tuple([int(i) for i in fit_opts[key].split(',')])
+            if fit_opts[key] == 'peak':
+                pass
+            else:
+                fit_opts[key] = tuple(
+                    [int(i) for i in fit_opts[key].split(',')])
 
         boolean_args = [
             'writefits', 'refit', 'update_bounds', 'spiral_loop', 'verbose',
