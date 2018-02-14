@@ -3,6 +3,7 @@
 import glob
 import os
 import argparse
+import ctypes
 
 # LOCAL
 from ifscube import manga
@@ -76,6 +77,10 @@ if __name__ == '__main__':
         help='Overwrites previous fit with the same name.')
     ap.add_argument(
         '--cubetype', type=str, default='gmos', help='"gmos" or "manga".')
+    ap.add_argument(
+        '-t', '--mklthreads', type=int, default=1,
+        help='Number of threads for numpy routines.')
+
     args = ap.parse_args()
 
     l = glob.glob(args.datacube)
@@ -83,6 +88,11 @@ if __name__ == '__main__':
 
     c = parser.LineFitParser(args.config)
     linefit_args = c.get_vars()
+
+    mkl_rt = ctypes.CDLL('libmkl_rt.so')
+    mkl_rt.mkl_set_num_threads(
+        ctypes.byref(
+            ctypes.c_int(args.mklthreads)))
 
     for i in l:
         dofit(
