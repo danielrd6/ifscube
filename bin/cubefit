@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # STDLIB
-import glob
 import os
 import argparse
 import ctypes
@@ -73,7 +72,7 @@ def dofit(fname, linefit_args, overwrite, cubetype):
 if __name__ == '__main__':
 
     ap = argparse.ArgumentParser()
-    ap.add_argument('datacube', help='Data cube to be fit.')
+    ap.add_argument('datacube', help='Data cube to be fit.', nargs='*')
     ap.add_argument('-c', '--config', type=str, help='Config file.')
     ap.add_argument(
         '--overwrite', action='store_true',
@@ -86,9 +85,6 @@ if __name__ == '__main__':
 
     args = ap.parse_args()
 
-    l = glob.glob(args.datacube)
-    l.sort()
-
     c = parser.LineFitParser(args.config)
     linefit_args = c.get_vars()
 
@@ -97,6 +93,6 @@ if __name__ == '__main__':
         ctypes.byref(
             ctypes.c_int(args.mklthreads)))
 
-    for i in l:
+    for i in args.datacube:
         dofit(
             i, linefit_args, overwrite=args.overwrite, cubetype=args.cubetype)
