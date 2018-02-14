@@ -198,7 +198,8 @@ class Spectrum():
                 constraints=(), bounds=None, inst_disp=1.0,
                 min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
                 weights=None, verbose=False, fit_continuum=False,
-                component_names=None, overwrite=False, eqw_opts={}):
+                component_names=None, overwrite=False, eqw_opts={},
+                trivial=False):
         """
         Fits a spectral features.
 
@@ -275,6 +276,10 @@ class Spectrum():
             the emission lines. Setting this option to False will
             cause the algorithm to look for self.cont, which should
             contain a data cube of continua.
+        trivial : boolean
+            Attempts a fit with a trivial solution, and if the rms is
+            smaller than the fit with the intial guess, selects the
+            trivial fit as the correct solution.
 
         Returns
         -------
@@ -421,6 +426,19 @@ class Spectrum():
 
         r = minimize(res, x0=p0, method=min_method, bounds=sbounds,
                      constraints=constraints, options=minopts)
+
+        # Perform the fit a second time with the RMS as the flux
+        # initial guess. This was added after a number of fits returned
+        # high flux values even when no lines were present.
+        fit_rms = res(r.x)
+        trivial_p0 = [
+            fit_rms if self.parnames[i % npars_pc] == 'A' else p0[i]
+            for i in range(len(p0))]
+        if res(trivial_p0) < res(r.x):
+            r = minimize(res, x0=trivial_p0, method=min_method,
+                         bounds=sbounds, constraints=constraints,
+                         options=minopts)
+
         self.r = r
 
         if verbose and r.status != 0:
