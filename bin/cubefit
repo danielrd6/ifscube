@@ -47,6 +47,8 @@ def dofit(fname, linefit_args, overwrite, cubetype):
             os.remove(outname)
     else:
         if os.path.isfile(outname):
+            if os.path.isfile(lockname):
+                os.remove(lockname)
             return
 
     if cubetype == 'manga':
@@ -54,6 +56,7 @@ def dofit(fname, linefit_args, overwrite, cubetype):
     elif cubetype == 'gmos':
         a = gmos.cube(fname)
 
+    linefit_args['outimage'] = outname
     try:
         a.linefit(**linefit_args)
     except IOError:
