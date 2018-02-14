@@ -86,7 +86,6 @@ if __name__ == '__main__':
     args = ap.parse_args()
 
     c = parser.LineFitParser(args.config)
-    linefit_args = c.get_vars()
 
     mkl_rt = ctypes.CDLL('libmkl_rt.so')
     mkl_rt.mkl_set_num_threads(
@@ -94,5 +93,6 @@ if __name__ == '__main__':
             ctypes.c_int(args.mklthreads)))
 
     for i in args.datacube:
+        linefit_args = c.get_vars()
         dofit(
             i, linefit_args, overwrite=args.overwrite, cubetype=args.cubetype)
