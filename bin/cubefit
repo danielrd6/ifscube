@@ -35,6 +35,10 @@ def dofit(fname, linefit_args, overwrite, cubetype):
             suffix = '_linefit'
         outname = galname.replace('.fits', suffix + '.fits')
 
+    if not overwrite:
+        if os.path.isfile(outname):
+            return
+
     lockname = outname + '.lock'
     if os.path.isfile(lockname):
         return
