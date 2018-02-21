@@ -15,7 +15,7 @@ setup(
     version=__version__,
     packages=['ifscube'],
     package_data=packdata,
-    scripts=['bin/fit_scrutinizer', 'bin/cubefit'],
+    scripts=['bin/fit_scrutinizer', 'bin/cubefit', 'bin/specfit'],
     description="Fit emssision lines",
     author="Daniel Ruschel Dutra",
     author_email="druscheld@gmail.com",
@@ -24,7 +24,7 @@ setup(
     license='GPLv3',
     ext_modules=[ext1],
     classifiers=[
-      'Programming Language :: Python :: 2.7'
+      'Programming Language :: Python :: 3.5'
     ],
     install_requires=[
         'numpy>=1.12.0',
