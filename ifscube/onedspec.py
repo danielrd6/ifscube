@@ -117,9 +117,9 @@ class Spectrum():
         # Creates the fitted spectrum extension
         hdr = fits.Header()
         hdr['object'] = ('spectrum', 'Data in this extension')
-        hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
-        hdr['CRVAL3'] = (self.fitwl[0], 'Reference value for wavelength')
-        hdr['CD3_3'] = (np.average(np.diff(self.fitwl)), 'CD3_3')
+        hdr['CRPIX1'] = (1, 'Reference pixel for wavelength')
+        hdr['CRVAL1'] = (self.fitwl[0], 'Reference value for wavelength')
+        hdr['CD1_1'] = (np.average(np.diff(self.fitwl)), 'CD1_1')
         hdu = fits.ImageHDU(data=self.fitspec, header=hdr)
         hdu.name = 'FITSPEC'
         h.append(hdu)
@@ -605,18 +605,24 @@ class Spectrum():
         Nothing.
         """
 
-        self.fitwl = spectools.get_wl(
-            fname, pix0key='crpix0', wl0key='crval0', dwlkey='cd1_1', hdrext=1,
-            dataext=1)
-        self.fitspec = fits.getdata(fname, ext=1)
-        self.fitcont = fits.getdata(fname, ext=2)
-        self.resultspec = fits.getdata(fname, ext=3)
+        # self.fitwl = spectools.get_wl(
+        #     fname, pix0key='crpix0', wl0key='crval0', dwlkey='cd1_1',
+        #     hdrext=1, dataext=1)
+        h = fits.open(fname)
 
-        self.em_model = fits.getdata(fname, ext=4)
-        self.fit_status = fits.getdata(fname, ext=5)
+        self.fitspec = h['FITSPEC'].data
+        self.fitcont = h['FITCONT'].data
+        self.resultspec = h['MODEL'].data
+        self.em_model = h['SOLUTION'].data
+        self.fit_status = h['SOLUTION'].header['fitstat']
+        func_name = h['SOLUTION'].header['function']
+
+        fitwcs = wcs.WCS(h['FITSPEC'].header)
+        self.fitwl = fitwcs.wcs_pix2world(np.arange(len(self.fitspec)), 0)[0]
+
+        h.close()
 
         fit_info = {}
-        func_name = fits.getheader(fname, ext=4)['function']
         fit_info['function'] = func_name
 
         if func_name == 'gaussian':
