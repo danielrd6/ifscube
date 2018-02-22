@@ -33,45 +33,49 @@ class Spectrum():
         if len(args) > 0:
             self.__load__(*args, **kwargs)
 
-    def __accessory_data__(self, variance, flags, stellar):
+    def __accessory_data__(self, hdu, variance, flags, stellar):
 
-        if variance is not None:
-            assert variance.shape == self.data.shape, 'Variance spectrum must'\
-                ' have the same shape of the spectrum itself.'
-            self.variance = variance
-        else:
-            self.variance = np.ones_like(self.data)
+        def shmess(name):
+            s = '{:s} spectrum must have the same shape of the spectrum itself'
+            return s.format(name)
 
-        if flags is not None:
-            assert flags.shape == self.data.shape, 'Flag spectrum must have '\
-                'the same shape of the spectrum itself.'
-            self.flags = flags
-        else:
-            self.flags = np.zeros_like(self.data)
+        self.variance = np.ones_like(self.data)
+        self.flags = np.zeros_like(self.data)
+        self.stellar = np.zeros_like(self.data)
 
-        if stellar is not None:
-            assert flags.shape == self.data.shape, 'Stellar population'\
-                ' spectrum must have the same shape of the spectrum itself.'
-            self.stellar = stellar
-        else:
-            self.stellar = np.zeros_like(self.data)
+        acc_data = [self.variance, self.flags, self.stellar]
+        ext_names = [variance, flags, stellar]
+        labels = ['Variance', 'Flags', 'Synthetic']
 
-    def __load__(self, fname, ext=0, redshift=0, variance=None,
-                 flags=None, stellar=None):
+        for i, j, lab in zip(acc_data, ext_names, labels):
+
+            if j is not None:
+                if isinstance(j, str):
+                    if variance in hdu:
+                        i = hdu[j]
+                elif isinstance(j, np.ndarray):
+                    i = j
+
+                assert i.shape == self.data.shape, shmess(lab)
+
+    def __load__(self, fname, scidata='SCI', variance=None,
+                 flags=None, stellar=None, primary='PRIMARY',
+                 redshift=0):
 
         self.fitsfile = fname
 
         with fits.open(fname) as hdu:
-            self.data = hdu[ext].data
-            self.header = hdu[ext].header
-            self.header_data = hdu[ext].header
+            self.data = hdu[scidata].data
+            self.header = hdu[primary].header
+            self.header_data = hdu[scidata].header
             self.wcs = wcs.WCS(self.header_data)
-            if 'redshift' in hdu[ext].header:
-                self.redshift = hdu[ext].header['REDSHIFT']
-            else:
-                self.redshift = redshift
 
-        self.__accessory_data__(variance, flags, stellar)
+            self.__accessory_data__(hdu, variance, flags, stellar)
+
+        if 'redshift' in self.header:
+            self.redshift = self.header['REDSHIFT']
+        else:
+            self.redshift = redshift
 
         self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
         self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
