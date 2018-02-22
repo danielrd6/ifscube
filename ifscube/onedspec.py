@@ -60,19 +60,23 @@ class Spectrum():
                  flags=None, stellar=None):
 
         self.fitsfile = fname
-        self.redshift = redshift
+
         with fits.open(fname) as hdu:
             self.data = hdu[ext].data
-            self.header = hdu[0].header
+            self.header = hdu[ext].header
             self.header_data = hdu[ext].header
             self.wcs = wcs.WCS(self.header_data)
+            if 'redshift' in hdu[ext].header:
+                self.redshift = hdu[ext].header['REDSHIFT']
+            else:
+                self.redshift = redshift
 
         self.__accessory_data__(variance, flags, stellar)
 
         self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
         self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
 
-        if redshift != 0:
+        if self.redshift != 0:
             self.__dopcor__()
         else:
             self.restwl = self.wl
