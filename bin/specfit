@@ -100,7 +100,6 @@ if __name__ == '__main__':
 
     for i in args.datacube:
         linefit_args = c.get_vars()
-        import pdb; pdb.set_trace()
         dofit(
             i, linefit_args, overwrite=args.overwrite, cubetype=args.cubetype,
             plot=args.plot, loading=c.loading_opts)
