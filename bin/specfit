@@ -15,7 +15,7 @@ def lock(fname):
     return
 
 
-def dofit(fname, linefit_args, overwrite, cubetype, plot=False):
+def dofit(fname, linefit_args, overwrite, cubetype, loading, plot=False):
 
     galname = fname.split('/')[-1]
 
@@ -53,7 +53,7 @@ def dofit(fname, linefit_args, overwrite, cubetype, plot=False):
                 os.remove(lockname)
             return
 
-    a = onedspec.Spectrum(fname)
+    a = onedspec.Spectrum(fname, **loading)
 
     linefit_args['outimage'] = outname
     try:
@@ -100,6 +100,7 @@ if __name__ == '__main__':
 
     for i in args.datacube:
         linefit_args = c.get_vars()
+        import pdb; pdb.set_trace()
         dofit(
             i, linefit_args, overwrite=args.overwrite, cubetype=args.cubetype,
-            plot=args.plot)
+            plot=args.plot, loading=c.loading_opts)
