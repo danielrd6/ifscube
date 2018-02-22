@@ -228,7 +228,8 @@ class LineFitParser:
             self.cfg.get('fit', 'function', fallback='gaussian')]
         self.component_names = [
             i for i in self.cfg.sections() if i not in [
-                'continuum', 'minimization', 'fit', 'equivalent_width']]
+                'continuum', 'minimization', 'fit', 'equivalent_width',
+                'loading']]
 
         # Each section has to be a line, except for the DEFAULT, MINOPTS,
         # and CONTINUUM sections, and equivalent_width.
@@ -245,6 +246,7 @@ class LineFitParser:
         self._minimization()
         self._continuum()
         self._eqw()
+        self._loading()
 
     def __idx__(self, cname, pname):
 
@@ -336,6 +338,15 @@ class LineFitParser:
             fit_opts['fitting_window'] = tuple([float(i) for i in a])
 
         self.fit_opts = fit_opts
+
+    def _loading(self):
+
+        if 'loading' not in self.cfg.sections():
+            self.loading_opts = {}
+            return
+
+        loading_opts = {**self.cfg['loading']}
+        self.loading_opts = loading_opts
 
     def _eqw(self):
 
@@ -442,7 +453,7 @@ class LineFitParser:
 
         d = {**vars(self), **self.fit_opts}
         todel = [
-            'cfg', 'par_names', 'fit_opts', 'copts',
+            'cfg', 'par_names', 'fit_opts', 'copts', 'loading_opts',
             'k_groups', 'k_components', 'k_component_names', 'cwin']
         for i in todel:
             del d[i]
