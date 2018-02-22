@@ -687,15 +687,16 @@ class Spectrum():
                 ('{:10.2e}' + (npars - 1) * '{:10.2f}' + '\n')
                 .format(*p[i:i + npars]))
 
+        if output == 'stdout':
+            print(pars)
+
         if show:
             plt.show()
 
-        if output == 'stdout':
-            print(pars)
         if output == 'return':
             return pars
-
-        return
+        else:
+            return
 
     def plotspec(self, overplot=True):
 
