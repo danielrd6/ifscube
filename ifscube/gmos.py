@@ -1,6 +1,7 @@
 # Third party
 import numpy as np
 from astropy.io import fits
+from astropy import wcs
 
 # Local
 from . import datacube
@@ -20,8 +21,9 @@ class cube(datacube.Cube):
             self.__load__(*args, **kwargs)
 
     def __load__(self, fitsfile, redshift=None, vortab=None,
-                 dataext=1, hdrext=0, var_ext=None, ncubes_ext=None,
-                 nan_spaxels='all', spatial_mask=None):
+                 dataext='SCI', hdrext='PRIMARY', var_ext=None,
+                 ncubes_ext=None, nan_spaxels='all',
+                 spatial_mask=None):
         """
         Initializes the class and loads basic information onto the
         object.
@@ -61,6 +63,9 @@ class cube(datacube.Cube):
         hdulist = fits.open(fitsfile)
 
         self.data = hdulist[dataext].data
+        self.header_data = hdulist[dataext].header
+        self.header = hdulist[hdrext].header
+        self.hdrext = hdrext
 
         if nan_spaxels is not None:
             if nan_spaxels == 'all':
@@ -69,13 +74,9 @@ class cube(datacube.Cube):
                 self.nanSapxels = np.any(self.data == 0, 0)
             self.data[:, self.nanSpaxels] = np.nan
 
-        self.header_data = hdulist[dataext].header
-        self.header = hdulist[hdrext].header
-        self.hdrext = hdrext
-
-        self.wl = spectools.get_wl(
-            fitsfile, hdrext=dataext, dimension=0, dwlkey='CD3_3',
-            wl0key='CRVAL3', pix0key='CRPIX3')
+        self.wcs = wcs.WCS(self.header_data)
+        self.wl = self.wcs.sub(axes=(3,)).wcs_pix2world(
+            np.arange(self.data.shape[0]), 0)[0]
 
         if redshift is None:
             try:
