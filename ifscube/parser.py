@@ -221,7 +221,7 @@ class LineFitParser:
 
         par_names = dict(
             gaussian=('flux', 'wavelength', 'sigma'),
-            gausshermite=('flux', 'wavelength', 'sigma', 'h3', 'h4'),
+            gauss_hermite=('flux', 'wavelength', 'sigma', 'h3', 'h4'),
         )
 
         self.par_names = par_names[
