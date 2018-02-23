@@ -850,10 +850,6 @@ class Cube:
                     (len(spec.component_names),) + self.fit_status.shape)
                 self.eqw_direct = np.zeros_like(self.eqw_model)
 
-            self.fit_status[i, j] = spec.fit_status
-            self.eqw_model[:, i, j] = spec.eqw_model
-            self.eqw_direct[:, i, j] = spec.eqw_direct
-
             if self.binned:
                 for l, m in vor[vor[:, 2] == binNum, :2]:
                     sol[:, l, m] = spec.em_model
@@ -861,7 +857,9 @@ class Cube:
                     self.fitspec[:, l, m] = spec.fitspec
                     self.resultspec[:, l, m] = spec.resultspec
                     self.fitstellar[:, l, m] = spec.fitstellar
-                    self.eqw_model
+                    self.fit_status[l, m] = spec.fit_status
+                    self.eqw_model[:, l, m] = spec.eqw_model
+                    self.eqw_direct[:, l, m] = spec.eqw_direct
                     self.initial_guess[:, l, m] = spec.initial_guess
                     self.fitbounds[:, l, m] = [
                         k if k is not None else np.nan
@@ -872,6 +870,9 @@ class Cube:
                 self.fitspec[:, i, j] = spec.fitspec
                 self.fitstellar[:, i, j] = spec.fitstellar
                 self.resultspec[:, i, j] = spec.resultspec
+                self.fit_status[i, j] = spec.fit_status
+                self.eqw_model[:, i, j] = spec.eqw_model
+                self.eqw_direct[:, i, j] = spec.eqw_direct
                 self.initial_guess[:, i, j] = spec.initial_guess
                 self.fitbounds[:, i, j] = [
                     k if k is not None else np.nan
