@@ -732,6 +732,11 @@ class Cube:
         else:
             fw_mask = np.ones_like(self.restwl).astype('bool')
             fit_npixels = self.restwl.size
+
+        # A few assertions
+        assert np.any(self.data[fw_mask]),\
+            'No valid data within the fitting window.'
+
         fit_shape = (fit_npixels,) + self.data.shape[1:]
 
         self.fit_status = np.ones(np.shape(self.data)[1:], dtype='int') * -1
