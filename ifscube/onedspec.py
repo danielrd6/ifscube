@@ -51,17 +51,16 @@ class Spectrum():
 
             if j is not None:
                 if isinstance(j, str):
-                    if variance in hdu:
-                        i = hdu[j]
+                    if j in hdu:
+                        assert hdu[j].data.shape == self.data.shape,\
+                            shmess(lab)
+                        i[:] = hdu[j].data
                 elif isinstance(j, np.ndarray):
-                    i = j
-
-                assert i.shape == self.data.shape, shmess(lab)
+                    i[:] = j
 
     def __load__(self, fname, scidata='SCI', variance=None,
                  flags=None, stellar=None, primary='PRIMARY',
                  redshift=0):
-
         self.fitsfile = fname
 
         with fits.open(fname) as hdu:
@@ -79,6 +78,12 @@ class Spectrum():
 
         self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
         self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
+        try:
+            if self.header_data['cunit1'] == 'm':
+                self.wl *= 1.e+10
+                self.delta_lambda *= 1.e+10
+        except KeyError:
+            pass
 
         if self.redshift != 0:
             self.__dopcor__()
@@ -104,11 +109,14 @@ class Spectrum():
 
     def __write_linefit__(self, args):
 
+        suffix = args['suffix']
         outimage = args['outimage']
         # Basic tests and first header
         if outimage is None:
-            outimage = self.fitsfile.replace('.fits',
-                                             '_linefit.fits')
+            if suffix is None:
+                suffix = '_linefit'
+            outimage = self.fitsfile.replace('.fits', suffix + '.fits')
+
         hdr = deepcopy(self.header_data)
         try:
             hdr['REDSHIFT'] = self.redshift
@@ -207,7 +215,7 @@ class Spectrum():
                 min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
                 weights=None, verbose=False, fit_continuum=False,
                 component_names=None, overwrite=False, eqw_opts={},
-                trivial=False):
+                trivial=False, suffix=None):
         """
         Fits a spectral features.
 
@@ -623,6 +631,7 @@ class Spectrum():
         self.resultspec = h['MODEL'].data
         self.em_model = h['SOLUTION'].data
         self.fit_status = h['SOLUTION'].header['fitstat']
+        self.fitstellar = h['STELLAR'].data
         func_name = h['SOLUTION'].header['function']
 
         fitwcs = wcs.WCS(h['FITSPEC'].header)
@@ -677,17 +686,19 @@ class Spectrum():
         wl = self.fitwl
         f = self.fit_func
         s = self.fitspec
+        star = self.fitstellar
 
-        ax.plot(wl, c + f(wl, p))
-        ax.plot(wl, c)
         ax.plot(wl, s)
+        ax.plot(wl, star)
+        ax.plot(wl, c + star)
+        ax.plot(wl, c + star + f(wl, p))
 
         npars = self.npars
         parnames = self.parnames
 
         if len(p) > npars:
             for i in np.arange(0, len(p), npars):
-                ax.plot(wl, c + f(wl, p[i: i + npars]), 'k--')
+                ax.plot(wl, c + star + f(wl, p[i: i + npars]), 'k--')
 
         pars = (npars * '{:10s}' + '\n').format(*parnames)
         for i in np.arange(0, len(p), npars):
