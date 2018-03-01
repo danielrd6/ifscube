@@ -247,6 +247,8 @@ class Cube:
         hdr['object'] = 'parameters'
         hdr['function'] = (function, 'Fitted function')
         hdr['nfunc'] = (total_pars / self.npars, 'Number of functions')
+        hdr['fit_x0'] = self.fit_x0
+        hdr['fit_y0'] = self.fit_y0
         hdu = fits.ImageHDU(data=self.em_model, header=hdr)
         hdu.name = 'SOLUTION'
         h.append(hdu)
@@ -808,6 +810,8 @@ class Cube:
                     center_of_mass(self.data[fw_mask].sum(axis=0))]
             xy = self.__spiral__(xy, spiral_center=spiral_center)
 
+        self.fit_x0, self.fit_y0 = xy[0]
+
         if verbose:
             iterador = progressbar.ProgressBar()(xy)
         else:
@@ -934,6 +938,11 @@ class Cube:
         self.em_model = fitfile['SOLUTION'].data
         self.fit_status = fitfile['STATUS'].data
         self.fitstellar = fitfile['STELLAR'].data
+
+        if 'fit_x0' in fitfile['SOLUTION'].header:
+            self.fit_x0 = fitfile['SOLUTION'].header['fit_x0']
+        if 'fit_y0' in fitfile['SOLUTION'].header:
+            self.fit_y0 = fitfile['SOLUTION'].header['fit_y0']
 
         try:
             self.eqw_model = fitfile['EQW_M'].data
@@ -1082,7 +1091,8 @@ class Cube:
 
         return np.array([w80_model, w80_direct])
 
-    def plotfit(self, x, y, show=True, axis=None, output='stdout'):
+    def plotfit(self, x=None, y=None, show=True, axis=None,
+                output='stdout'):
         """
         Plots the spectrum and features just fitted.
 
@@ -1104,6 +1114,11 @@ class Cube:
             ax = fig.add_subplot(111)
         else:
             ax = axis
+
+        if x is None:
+            x = self.fit_x0
+        if y is None:
+            y = self.fit_y0
 
         p = self.em_model[:-1, y, x]
         c = self.fitcont[:, y, x]
