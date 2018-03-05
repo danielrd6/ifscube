@@ -341,12 +341,14 @@ class LineFitParser:
 
     def _loading(self):
 
-        if 'loading' not in self.cfg.sections():
+        if 'loading' in self.cfg.sections():
+            self.loading_opts = self._parse_dict(
+                section='loading',
+                float_args=('redshift',))
+        else:
             self.loading_opts = {}
-            return
 
-        loading_opts = {**self.cfg['loading']}
-        self.loading_opts = loading_opts
+        return
 
     def _eqw(self):
 
