@@ -60,9 +60,9 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
             return
 
     if cubetype == 'manga':
-        a = manga.cube(fname)
+        a = manga.cube(fname, **loading)
     elif cubetype == 'gmos':
-        a = gmos.cube(fname)
+        a = gmos.cube(fname, **loading)
 
     linefit_args['outimage'] = outname
     try:
