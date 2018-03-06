@@ -419,10 +419,10 @@ class Spectrum():
         # Scaling the flux in the spectrum, the initial guess and the
         # bounds to bring everything close to unity.
         #
-        scale_factor = np.mean(s)
-        if scale_factor <= 0:
-            self.fit_status = 97
-            return
+        scale_factor = np.abs(np.mean(s))
+        # if scale_factor <= 0:
+        #     self.fit_status = 97
+        #     return
         s /= scale_factor
         if not np.all(v == 1.):
             v /= scale_factor ** 2
