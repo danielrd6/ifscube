@@ -86,13 +86,16 @@ class Spectrum():
             pass
 
         if self.redshift != 0:
-            self.__dopcor__()
+            self.restwl = self.__dopcor__(
+                self.redshift, self.wl, self.data)
         else:
             self.restwl = self.wl
 
-    def __dopcor__(self):
+    @staticmethod
+    def __dopcor__(z, wl, flux):
 
-        self.restwl = self.wl / (1. + self.redshift)
+        restwl = wl / (1. + z)
+        return restwl
 
     def __fitTable__(self):
 
