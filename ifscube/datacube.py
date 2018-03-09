@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib import patheffects
 from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter, center_of_mass
-from astropy import constants, units, table
+from astropy import constants, units, table, wcs
 from astropy.io import fits
 import progressbar
 
@@ -26,128 +26,125 @@ class Cube:
     """
 
     def __init__(self, *args, **kwargs):
+        """
+        Instatiates the class. If any arguments are given they will be
+        passed to the __load__ method.
+        """
 
         if len(args) > 0:
             self.__load__(*args, **kwargs)
 
-    def __load__(self, fitsfile, redshift=None, vortab=None,
-                 dataext=1, hdrext=0, var_ext=None, ncubes_ext=None,
-                 nan_spaxels='all', spatial_mask=None):
+    def __accessory_data__(self, hdu, variance, flags, stellar,
+                           weights, spatial_mask):
+
+        def shmess(name):
+            s = '{:s} spectrum must have the same shape of the spectrum itself'
+            return s.format(name)
+
+        self.variance = np.ones_like(self.data)
+        self.flags = np.zeros_like(self.data).astype('bool')
+        self.stellar = np.zeros_like(self.data)
+        self.weights = np.ones_like(self.data)
+        self.spatial_mask = np.zeros(self.data.shape[1:]).astype('bool')
+
+        acc_data = [
+            self.variance, self.flags, self.stellar, self.weights,
+            self.spatial_mask]
+        ext_names = [variance, flags, stellar, weights, spatial_mask]
+        labels = ['Variance', 'Flags', 'Synthetic', 'Weights', 'Spatial Mask']
+
+        for i, j, lab in zip(acc_data, ext_names, labels):
+
+            if j is not None:
+                if isinstance(j, str):
+                    if j in hdu:
+                        assert hdu[j].data.shape == self.data.shape,\
+                            shmess(lab)
+                        i[:] = hdu[j].data
+                elif isinstance(j, np.ndarray):
+                    i[:] = j
+
+    def __load__(self, fname, scidata='SCI', primary='PRIMARY',
+                 variance=None, flags=None, stellar=None, weights=None,
+                 redshift=None, vortab=None, nan_spaxels='all',
+                 spatial_mask=None, spectral_dimension=3):
         """
-        Initializes the class and loads basic information onto the
+        and loads basic information onto the
         object.
 
         Parameters:
         -----------
-        fitstile : string
+        fname : string
             Name of the FITS file containing the GMOS datacube. This
             should be the standard output from the GFCUBE task of the
             GEMINI-GMOS IRAF package.
+        scidata: integer or string
+            Extension of the FITS file containing the scientific data.
+        primary: integer or string
+            Extension of the FITS file containing the basic header.
+        flags: integer or string
+            Extension of the FITS file containing the flags. If the
+            pixel value evaluates to True, such as any number other
+            than 0, than it is considered a flagged pixel. Good pixels
+            should be marked by zeros, meaning that they are not
+            flagged.
+        vortab : integer or string
+            Extension containing the voronoi binning table.
+        variance: integer or string
+            Extension of the FITS file containing the variance cube.
         redshift : float
             Value of redshift (z) of the source, if no Doppler
             correction has been applied to the spectra yet.
-        vortab : string
-            Name of the file containing the Voronoi binning table
-        dataext: integer
-            Extension of the FITS file containing the scientific data.
-        hdrext: integer
-            Extension of the FITS file containing the basic header.
-        var_ext: integer
-            Extension of the FITS file containing the variance cube.
         nan_spaxels: None, 'any', 'all'
             Mark spaxels as NaN if any or all pixels are equal to
             zero.
-
 
         Returns:
         --------
         Nothing.
         """
 
-        self.dataext = dataext
-        self.var_ext = var_ext
-        self.ncubes_ext = ncubes_ext
-        self.spatial_mask = spatial_mask
+        self.fitsfile = fname
 
-        hdulist = fits.open(fitsfile)
+        with fits.open(fname) as hdu:
+            self.data = hdu[scidata].data
+            self.header = hdu[primary].header
+            self.header_data = hdu[scidata].header
+            self.wcs = wcs.WCS(self.header_data)
 
-        self.data = hdulist[dataext].data
+            self.__accessory_data__(
+                hdu, variance, flags, stellar, weights, spatial_mask)
 
-        if nan_spaxels is not None:
-            if nan_spaxels == 'all':
-                self.nanSpaxels = np.all(self.data == 0, 0)
-            if nan_spaxels == 'any':
-                self.nanSapxels = np.any(self.data == 0, 0)
-            self.data[:, self.nanSpaxels] = np.nan
-
-        self.header_data = hdulist[dataext].header
-        self.header = hdulist[hdrext].header
-        self.hdrext = hdrext
-
-        self.wl = spectools.get_wl(
-            fitsfile, hdrext=dataext, dimension=0, dwlkey='CD3_3',
-            wl0key='CRVAL3', pix0key='CRPIX3')
-
-        if redshift is None:
-            try:
-                redshift = self.header['REDSHIFT']
-            except KeyError:
-                print(
-                    'WARNING! Redshift not given and not found in the image' +
-                    ' header. Using redshift = 0.')
-                redshift = 0.0
-        self.restwl = self.wl / (1. + redshift)
-
-        if var_ext is not None:
-            # The noise for each pixel in the cube
-            self.noise_cube = hdulist[var_ext].data
-            self.variance = np.square(self.noise_cube)
-
-            # An image of the mean noise, collapsed over the
-            # wavelength dimension.
-            self.noise = np.nanmean(hdulist[var_ext].data, 0)
-
-            # Image of the mean signal
-            self.signal = np.nanmean(self.data, 0)
-
-            # Maybe this step is redundant, I have to check it later.
-            # Guarantees that both noise and signal images have
-            # the appropriate spaxels set to nan.
-            self.noise[self.nanSpaxels] = np.nan
-            self.signal[self.nanSpaxels] = np.nan
-
-            self.noise[np.isinf(self.noise)] =\
-                self.signal[np.isinf(self.noise)]
+        if 'redshift' in self.header:
+            self.redshift = self.header['REDSHIFT']
         else:
-            self.variance = np.ones_like(self.data)
+            self.redshift = redshift
 
-        if ncubes_ext is not None:
-            # The self.ncubes variable describes how many different
-            # pixels contributed to the final combined pixel. This can
-            # also serve as a flag, when zero cubes contributed to the
-            # pixel. Additionaly, it may be useful to mask regions that
-            # are present in only one observation, for greater
-            # confidence.
-            self.ncubes = hdulist[ncubes_ext].data
+        if nan_spaxels == 'all':
+            self.nan_mask = np.all(self.data == 0, 0)
+        elif nan_spaxels == 'any':
+            self.nan_mask = np.any(self.data == 0, 0)
         else:
-            self.ncubes = np.ones(self.data.shape, dtype='int')
+            self.nan_mask = np.zeros(self.data.shape[1:]).astype('bool')
+        self.spatial_mask |= self.nan_mask
 
-        self.flags = np.zeros_like(self.data, dtype='int')
-        self.flags[self.ncubes <= 0] = 1
+        self.wl = self.wcs.sub(
+            (spectral_dimension,)).wcs_pix2world(
+                np.arange(len(self.data)), 0)[0]
+
+        if self.redshift != 0:
+            self.restwl = onedspec.Spectrum.__dopcor__(
+                self.redshift, self.wl, self.data)
+        else:
+            self.restwl = self.wl
 
         try:
             if self.header['VORBIN']:
-                vortab = fits.open(fitsfile)['VOR'].data
+                vortab = fits.getdata(fname)['VOR'].data
                 self.voronoi_tab = vortab
                 self.binned = True
         except KeyError:
             self.binned = False
-
-        self.fitsfile = fitsfile
-        self.redshift = redshift
-
-        self.stellar = np.zeros_like(self.data)
-        self.weights = np.zeros_like(self.data)
 
         self.__set_spec_indices__()
 
