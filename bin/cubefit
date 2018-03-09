@@ -8,6 +8,7 @@ import ctypes
 from ifscube import manga
 from ifscube import gmos
 from ifscube import parser
+from ifscube import Cube
 
 
 def mklock(fname):
@@ -63,6 +64,8 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
         a = manga.cube(fname, **loading)
     elif cubetype == 'gmos':
         a = gmos.cube(fname, **loading)
+    else:
+        a = Cube(fname, **loading)
 
     linefit_args['outimage'] = outname
     try:
