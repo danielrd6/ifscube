@@ -71,7 +71,8 @@ class whan_diagram:
         self.x = ma.log10(self.flux_n2 / self.flux_ha)
         self.y = ma.log10(self.wha)
 
-    def plot(self, ax=None, fig=None, text_opts={}, **kwargs):
+    def plot(self, ax=None, fig=None, text_opts={}, xlim=None,
+             ylim=None, **kwargs):
 
         if fig is None and ax is None:
             fig = plt.figure(1, figsize=(6, 6))
@@ -80,9 +81,12 @@ class whan_diagram:
             ax = fig.add_subplot(111)
         ax.set_xlabel(r'$\log_{10}$ [N II]/H$\alpha$')
         ax.set_ylabel(r'$\log_{10} {\rm W}_{{\rm H}\alpha}$ ($\AA$)')
- 
-        ax.set_xlim(-1, .6)
-        ax.set_ylim(-1, 2)
+
+        if xlim is not None:
+            ax.set_xlim(xlim)
+        if ylim is not None:
+            ax.set_ylim(ylim)
+
         inv = ax.transAxes.inverted()
 
         # wha < 3 ==> Retired and passive galaxies
