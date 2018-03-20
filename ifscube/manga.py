@@ -2,13 +2,11 @@
 
 # THIRD PARTY
 import numpy as np
-from scipy.integrate import trapz
 from astropy import wcs
 from astropy.io import fits
 
 # LOCAL
-from . import datacube, spectools
-from . import elprofile as lprof
+from . import datacube, onedspec
 
 
 class cube(datacube.Cube):
@@ -129,3 +127,43 @@ class cube(datacube.Cube):
             self.restwl = self.wl / (1. + self.redshift)
         else:
             self.restwl = self.wl
+
+
+class IntegratedSpectrum(onedspec.Spectrum):
+
+    def __init__(self, *args, **kwargs):
+
+        if len(args) > 0:
+            self.__load__(*args, **kwargs)
+
+    def __load__(self, fname):
+
+        self.fitsfile = fname
+
+        with fits.open(self.fitsfile) as hdu:
+            self.header = hdu['PRIMARY']
+            t = hdu['INTEG_SPEC'].data
+
+        self.data = t['f_obs']
+        self.variance = np.square(t['f_err'])
+        self.flags = t['f_flag']
+        self.stellar = t['f_syn']
+
+        self.wl = t['l_obs']
+        self.delta_lambda = 1.0
+
+        self.redshift = 0.0
+
+        # A wcs will be needed to save the fits
+        self._wcs_from_table()
+
+    def _wcs_from_table(self):
+
+        w = wcs.WCS(naxis=1)
+
+        w.wcs.crval = np.array([self.wl[0]])
+        w.wcs.crpix = np.array([0])
+        w.wcs.pc = np.array([[self.delta_lambda]])
+        w.wcs.ctype = ['LAMBDA']
+
+        self.wcs = w
