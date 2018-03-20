@@ -120,12 +120,12 @@ class Spectrum():
                 suffix = '_linefit'
             outimage = self.fitsfile.replace('.fits', suffix + '.fits')
 
-        hdr = deepcopy(self.header_data)
+        hdr = self.header
         try:
             hdr['REDSHIFT'] = self.redshift
         except KeyError:
             hdr['REDSHIFT'] = (self.redshift,
-                               'Redshift used in GMOSDC')
+                               'Redshift used in IFSCUBE')
 
         # Creates MEF output.
         h = fits.HDUList()
