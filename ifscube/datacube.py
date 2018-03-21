@@ -805,6 +805,8 @@ class Cube:
                 spiral_center = [
                     int(np.round(i, 0)) for i in
                     center_of_mass(self.data[fw_mask].sum(axis=0))]
+                if verbose:
+                    print(spiral_center)
             xy = self.__spiral__(xy, spiral_center=spiral_center)
 
         self.fit_x0, self.fit_y0 = xy[0]
