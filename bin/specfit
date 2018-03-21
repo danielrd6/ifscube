@@ -96,9 +96,9 @@ if __name__ == '__main__':
         '-l', '--lock', action='store_true', default=False,
         help='Ignore the presence of the lock file.')
     ap.add_argument(
-        '-b', '--cubetype', type=str, default='None',
+        '-b', '--cubetype', type=str, default=None,
         help='Chooses a specific loading module. Currently available options'
-        'are:\n intmanga: manga integrade spectrum.')
+        'are:\n intmanga: manga integrated spectrum.')
     ap.add_argument(
         '-t', '--mklthreads', type=int, default=1,
         help='Number of threads for numpy routines.')
