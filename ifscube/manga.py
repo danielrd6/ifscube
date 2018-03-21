@@ -76,13 +76,13 @@ class cube(datacube.Cube):
         bad_pix = 0x0004
         ccd_gap = 0x0008
         telluric = 0x0010
-        seg_has_badpixels = 0x0020
+        # seg_has_badpixels = 0x0020
         low_sn = 0x0040
 
-        starlight_masked = 0x0100
+        # starlight_masked = 0x0100
         starlight_failed_run = 0x0200
         starlight_no_data = 0x0400
-        starlight_clipped = 0x0800
+        # starlight_clipped = 0x0800
 
         # Compound flags
         no_obs = _unused | no_data | bad_pix | ccd_gap
@@ -136,20 +136,35 @@ class IntegratedSpectrum(onedspec.Spectrum):
         if len(args) > 0:
             self.__load__(*args, **kwargs)
 
+    def __flags__(self, flags):
+
+        _unused = 0x0001
+        no_data = 0x0002
+        bad_pix = 0x0004
+        ccd_gap = 0x0008
+        telluric = 0x0010
+        low_sn = 0x0040
+
+        no_obs = no_data | bad_pix | ccd_gap | _unused | telluric | low_sn
+
+        self.flags = flags & no_obs
+
     def __load__(self, fname):
 
         self.fitsfile = fname
 
         with fits.open(self.fitsfile) as hdu:
             self.header = hdu['PRIMARY']
-            t = hdu['INTEG_SPEC'].data
+            t = hdu['INTEG_SPECTRA'].data
 
         self.data = t['f_obs']
         self.variance = np.square(t['f_err'])
-        self.flags = t['f_flag']
         self.stellar = t['f_syn']
 
+        self.__flags__(t['f_flag'])
+
         self.wl = t['l_obs']
+        self.restwl = t['l_obs']
         self.delta_lambda = 1.0
 
         self.redshift = 0.0
