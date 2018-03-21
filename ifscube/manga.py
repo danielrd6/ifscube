@@ -71,25 +71,25 @@ class cube(datacube.Cube):
 
     def __spec_indices__(self):
 
-        # _unused = 0x0001
+        _unused = 0x0001
         no_data = 0x0002
         bad_pix = 0x0004
         ccd_gap = 0x0008
-        # telluric = 0x0010
-        # seg_has_badpixels = 0x0020
-        # low_sn = 0x0040
+        telluric = 0x0010
+        seg_has_badpixels = 0x0020
+        low_sn = 0x0040
 
-        # starlight_masked = 0x0100
+        starlight_masked = 0x0100
         starlight_failed_run = 0x0200
         starlight_no_data = 0x0400
-        # starlight_clipped = 0x0800
+        starlight_clipped = 0x0800
 
         # Compound flags
-        no_obs = no_data | bad_pix | ccd_gap
-        # before_starlight = no_obs | telluric | low_sn
+        no_obs = _unused | no_data | bad_pix | ccd_gap
+        before_starlight = no_obs | telluric | low_sn
         no_starlight = starlight_no_data | starlight_failed_run
 
-        flags = no_obs | no_starlight
+        flags = before_starlight | no_starlight
         bad_lyx = (self.flag_cube & flags) > 0
         spatial_mask = (
             np.sum(bad_lyx, 0) > len(self.restwl) * 0.8
