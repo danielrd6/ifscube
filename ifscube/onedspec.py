@@ -629,6 +629,7 @@ class Spectrum():
         #     hdrext=1, dataext=1)
         h = fits.open(fname)
 
+        self.header = h['PRIMARY'].header
         self.fitspec = h['FITSPEC'].data
         self.fitcont = h['FITCONT'].data
         self.resultspec = h['MODEL'].data
