@@ -638,6 +638,9 @@ class Spectrum():
         self.fitstellar = h['STELLAR'].data
         func_name = h['SOLUTION'].header['function']
 
+        self.eqw_model = h['EQW_M'].data
+        self.eqw_direct = h['EQW_D'].data
+
         fitwcs = wcs.WCS(h['FITSPEC'].header)
         self.fitwl = fitwcs.wcs_pix2world(np.arange(len(self.fitspec)), 0)[0]
 
