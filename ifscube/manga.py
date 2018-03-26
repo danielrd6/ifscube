@@ -154,7 +154,7 @@ class IntegratedSpectrum(onedspec.Spectrum):
         self.fitsfile = fname
 
         with fits.open(self.fitsfile) as hdu:
-            self.header = hdu['PRIMARY']
+            self.header = hdu['PRIMARY'].header
             t = hdu['INTEG_SPECTRA'].data
 
         self.data = t['f_obs']
