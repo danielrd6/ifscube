@@ -95,7 +95,8 @@ if __name__ == '__main__':
         help='Plots the resulting fit.')
     ap.add_argument(
         '-l', '--lock', action='store_true', default=False,
-        help='Ignore the presence of the lock file.')
+        help='Creates lock file to prevent multiple jobs from acessing the'
+        ' same file at the same time.')
     ap.add_argument(
         '-b', '--cubetype', type=str, default=None,
         help='Chooses a specific loading module. Currently available options'
