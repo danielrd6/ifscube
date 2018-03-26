@@ -59,6 +59,7 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
                     os.remove(lockname)
             return
 
+    # NOTE: This should be made more generic in the future.
     if cubetype is None:
         a = onedspec.Spectrum(fname, **loading)
     elif cubetype == 'intmanga':
