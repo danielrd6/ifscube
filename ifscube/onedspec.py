@@ -641,8 +641,6 @@ class Spectrum():
         fitwcs = wcs.WCS(h['FITSPEC'].header)
         self.fitwl = fitwcs.wcs_pix2world(np.arange(len(self.fitspec)), 0)[0]
 
-        h.close()
-
         fit_info = {}
         fit_info['function'] = func_name
 
@@ -657,16 +655,18 @@ class Spectrum():
         else:
             raise RuntimeError('Unkonwn function {:s}'.format(func_name))
 
+        fit_info['parameters'] = self.npars
+        fit_info['components'] = (self.em_model.shape[0] - 1) / self.npars
+
+        self.fit_info = fit_info
+
         try:
             par_table = h['PARNAMES'].data
             self.component_names = par_table['component'][::self.npars]
         except KeyError:
             pass
 
-        fit_info['parameters'] = self.npars
-        fit_info['components'] = (self.em_model.shape[0] - 1) / self.npars
-
-        self.fit_info = fit_info
+        h.close()
 
     def plotfit(self, show=True, axis=None, output='stdout'):
         """
