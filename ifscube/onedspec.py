@@ -340,6 +340,12 @@ class Spectrum():
                 'Fitting window outside the available wavelength range.')
         zero_spec = np.zeros_like(self.restwl[fw])
 
+        assert self.restwl[fw].min() < np.min(p0[1::npars_pc]),\
+            'Attempting to fit a spectral feature below the fitting window.'
+
+        assert self.restwl[fw].max() > np.max(p0[1::npars_pc]),\
+            'Attempting to fit a spectral feature above the fitting window.'
+
         if component_names is None:
             self.component_names = [
                 'C_{:03d}'.format(i) for i in range(int(npars / npars_pc))]
