@@ -321,13 +321,14 @@ class LineFitParser:
 
         boolean_args = [
             'writefits', 'refit', 'update_bounds', 'spiral_loop', 'verbose',
-            'fit_continuum']
+            'fit_continuum', 'optimize_fit']
         for i in boolean_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getboolean('fit', i)
 
         float_args = [
-            'refit_radius', 'sig_threshold', 'inst_disp']
+            'refit_radius', 'sig_threshold', 'inst_disp',
+            'optimization_window']
         for i in float_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getfloat('fit', i)
