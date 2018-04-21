@@ -741,15 +741,21 @@ class Spectrum():
         npars = self.npars
         parnames = self.parnames
 
+        # NOTE: This is only here for backwards compatibility with
+        # fits that were run before component names were written to
+        # a FITS table.
+        if not hasattr(self, 'component_names'):
+            self.component_names = [str(i) for i in range(0, len(p) / npars)]
+
         if len(p) > npars:
             for i in np.arange(0, len(p), npars):
                 ax.plot(wl, c + star + f(wl, p[i: i + npars]), 'k--')
 
-        pars = (npars * '{:10s}' + '\n').format(*parnames)
+        pars = ((npars + 1) * '{:12s}' + '\n').format('Name', *parnames)
         for i in np.arange(0, len(p), npars):
             pars += (
-                ('{:10.2e}' + (npars - 1) * '{:10.2f}' + '\n')
-                .format(*p[i:i + npars]))
+                ('{:12s}{:12.2e}' + (npars - 1) * '{:12.2f}' + '\n')
+                .format(self.component_names[int(i / npars)], *p[i:i + npars]))
 
         if output == 'stdout':
             print(pars)
