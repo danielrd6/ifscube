@@ -214,8 +214,6 @@ class Spectrum():
 
     def optimize_mask(self, wl, p0, width=20):
 
-        import pdb; pdb.set_trace()
-
         npars_pc = len(self.parnames) 
         npars = len(p0)
 
