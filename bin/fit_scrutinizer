@@ -136,7 +136,7 @@ class mclass:
         self.connect_id = self.canvas.mpl_connect(
             'motion_notify_event', self.onclick)
 
-    def getim(self, fitstatus_mask=True):
+    def getim(self):
         
         ncomps = self.n_components
         npars = self.n_parameters
@@ -226,15 +226,12 @@ class mclass:
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    # parser.add_argument(
-    #     '-d', '--gmos-datacube', type=str, help='GMOS data cube.')
-    # parser.add_argument(
-    #     '-m', '--manga-datacube', type=str, help='Manga data cube.')
+
     parser.add_argument(
         '-f', '--fitfile', type=str, help='Result of the fit')
     parser.add_argument(
-        '--fitstatus_mask', type=bool, help='Apply fit status mask.',
-        default=True)
+        '-m', '--fitstatus_mask', help='Apply fit status mask.',
+        action='store_true')
     parser.add_argument(
         '-a', '--astropy', action='store_true',
         help='Fitfile refers to an astropy modeling fit.')
