@@ -41,7 +41,7 @@ class mclass:
             window, text='Plot on click', command=self.singleplot)
 
         self.text = Tk.Text(
-            window, bg='white', height=10, width=80, font=('Helvetica', 12))
+            window, bg='white', height=10, width=80, font=('Fixedsys', 12))
 
         l_par = Tk.Listbox(window, selectmode='single', exportselection=0)
         l_component = Tk.Listbox(
