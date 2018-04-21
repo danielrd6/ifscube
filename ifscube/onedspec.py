@@ -214,7 +214,7 @@ class Spectrum():
 
     def optimize_mask(self, wl, p0, width=20):
 
-        npars_pc = len(self.parnames) 
+        npars_pc = len(self.parnames)
         npars = len(p0)
 
         mask = np.zeros_like(wl).astype(bool)
@@ -223,9 +223,20 @@ class Spectrum():
             lam = p0[i + 1]
             s = p0[i + 2]
 
+            low_lam = (lam - width * s)
+            up_lam = (lam + width * s)
+
+            assert low_lam > wl[0],\
+                'ERROR in optimization mask. Lower limit in optimization '\
+                'window is below the lowest available wavelength.'
+
+            assert up_lam < wl[-1],\
+                'ERROR in optimization mask. Upper limit in optimization '\
+                'window is above the highest available wavelength.'
+
             wl_lims = [
-                wl[wl < lam - width * s][-1],
-                wl[wl > lam + width * s][0]]
+                wl[wl < low_lam][-1],
+                wl[wl > up_lam][0]]
             idx = [np.where(wl == i)[0][0] for i in wl_lims]
 
             mask[idx[0]:idx[1]] = True
@@ -238,7 +249,8 @@ class Spectrum():
                 min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
                 weights=None, verbose=False, fit_continuum=False,
                 component_names=None, overwrite=False, eqw_opts={},
-                trivial=False, suffix=None, optimize_fit=False):
+                trivial=False, suffix=None, optimize_fit=False,
+                optimization_window=10):
         """
         Fits a spectral features.
 
@@ -462,12 +474,13 @@ class Spectrum():
         # Optimization mask
         #
         if optimize_fit:
-            opt_mask = self.optimize_mask(wl, p0)
+            opt_mask = self.optimize_mask(wl, p0, width=optimization_window)
         else:
             opt_mask = np.ones_like(wl).astype(bool)
         #
         # Here the actual fit begins
         #
+
         def res(x):
             m = fit_func(wl[opt_mask], x)
             a = w[opt_mask] * (s[opt_mask] - m) ** 2
