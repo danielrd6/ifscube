@@ -1152,12 +1152,19 @@ class Cube:
                     / 10. ** norm_factor
                 ax.plot(wl, modeled_spec, 'k--')
 
+        # NOTE: This is only here for backwards compatibility with
+        # fits that were run before component names were written to
+        # a FITS table.
+        if not hasattr(self, 'component_names'):
+            self.component_names = [str(i) for i in range(0, len(p) / npars)]
+
         pars = ('Red_Chi2: {:.3f}\n'.format(self.em_model[-1, y, x]))
-        pars += (npars * '{:10s}' + '\n').format(*parnames)
+
+        pars = ((npars + 1) * '{:12s}' + '\n').format('Name', *parnames)
         for i in np.arange(0, len(p), npars):
             pars += (
-                ('{:10.2e}' + (npars - 1) * '{:10.2f}' + '\n')
-                .format(*p[i:i + npars]))
+                ('{:<12s}{:>12.2e}' + (npars - 1) * '{:>12.2f}' + '\n')
+                .format(self.component_names[int(i / npars)], *p[i:i + npars]))
 
         if show:
             plt.show()
