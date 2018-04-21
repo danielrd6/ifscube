@@ -212,13 +212,35 @@ class Spectrum():
 
         return p
 
+    def optimize_mask(self, wl, p0, width=20):
+
+        import pdb; pdb.set_trace()
+
+        npars_pc = len(self.parnames) 
+        npars = len(p0)
+
+        mask = np.zeros_like(wl).astype(bool)
+
+        for i in range(0, npars, npars_pc):
+            lam = p0[i + 1]
+            s = p0[i + 2]
+
+            wl_lims = [
+                wl[wl < lam - width * s][-1],
+                wl[wl > lam + width * s][0]]
+            idx = [np.where(wl == i)[0][0] for i in wl_lims]
+
+            mask[idx[0]:idx[1]] = True
+
+        return mask
+
     def linefit(self, p0, function='gaussian', fitting_window=None,
                 writefits=False, outimage=None, variance=None,
                 constraints=(), bounds=None, inst_disp=1.0,
                 min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
                 weights=None, verbose=False, fit_continuum=False,
                 component_names=None, overwrite=False, eqw_opts={},
-                trivial=False, suffix=None):
+                trivial=False, suffix=None, optimize_fit=False):
         """
         Fits a spectral features.
 
@@ -439,13 +461,19 @@ class Spectrum():
         sbounds = scale_bounds(bounds, scale_factor, npars_pc)
 
         #
+        # Optimization mask
+        #
+        if optimize_fit:
+            opt_mask = self.optimize_mask(wl, p0)
+        else:
+            opt_mask = np.ones_like(wl).astype(bool)
+        #
         # Here the actual fit begins
         #
         def res(x):
-            m = fit_func(wl, x)
-            # Should I divide this by the sum of the weights?
-            a = w * (s - m) ** 2
-            b = a / v
+            m = fit_func(wl[opt_mask], x)
+            a = w[opt_mask] * (s[opt_mask] - m) ** 2
+            b = a / v[opt_mask]
             rms = np.sqrt(np.sum(b))
             return rms
 
