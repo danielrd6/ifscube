@@ -1166,13 +1166,13 @@ class Cube:
                 ('{:<12s}{:>12.2e}' + (npars - 1) * '{:>12.2f}' + '\n')
                 .format(self.component_names[int(i / npars)], *p[i:i + npars]))
 
-        if show:
-            plt.show()
-
         if output == 'stdout':
             print(pars)
         if output == 'return':
             return pars
+
+        if show:
+            plt.show()
 
         return ax
 
