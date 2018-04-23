@@ -3,6 +3,11 @@
 import os
 import argparse
 import ctypes
+import configparser
+
+# third party
+from astropy.io import fits
+from astropy import table
 
 # LOCAL
 from . import manga
@@ -18,8 +23,26 @@ def mklock(fname):
     return
 
 
+def append_config(config_file, outname):
+
+    c = configparser.ConfigParser()
+    c.read(config_file)
+    t = table.Table(names=['parameters', 'values'], dtype=('S64', 'S64'))
+
+    for i in c.sections():
+        for j in c[i]:
+            t.add_row(('{:s}.{:s}'.format(i, j), c[i][j]))
+
+    with fits.open(outname) as outfits:
+        outfits.append(fits.BinTableHDU(data=t))
+        outfits[-1].name = 'FITCONFIG'
+        outfits.writeto(outname, overwrite=True)
+
+    return
+
+
 def dofit(fname, linefit_args, overwrite, cubetype, loading,
-          fit_type, plot=False, lock=False):
+          fit_type, config_file_name, plot=False, lock=False):
 
     galname = fname.split('/')[-1]
 
@@ -70,7 +93,7 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
         elif cubetype == 'gmos':
             a = gmos.cube(fname, **loading)
 
-    elif fit_type == 'spec': 
+    elif fit_type == 'spec':
 
         if cubetype is None:
             a = onedspec.Spectrum(fname, **loading)
@@ -85,6 +108,8 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
             if os.path.isfile(lockname):
                 os.remove(lockname)
         return
+
+    append_config(config_file_name, outname)
 
     if plot:
         a.plotfit()
@@ -132,4 +157,4 @@ def main(fit_type):
         dofit(
             i, linefit_args, overwrite=args.overwrite, cubetype=args.cubetype,
             plot=args.plot, loading=c.loading_opts, lock=args.lock,
-            fit_type=fit_type)
+            fit_type=fit_type, config_file_name=args.config)
