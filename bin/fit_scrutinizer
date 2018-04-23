@@ -1,21 +1,22 @@
 #!/usr/bin/python
+# stdlib
+import argparse
+import copy
+import dill as pickle
+import tkinter as Tk
+
+# third party
 import matplotlib
 matplotlib.use('TkAgg')
-
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
 import numpy as np
 from numpy import ma
-import argparse
-import copy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+# local
 import ifscube
-import ifscube.cubetools as ct
-from ifscube import manga
-import ifscube.cubetools_astropy as cta
-import tkinter as Tk
-import dill as pickle
 
 
 class mclass:
@@ -47,9 +48,6 @@ class mclass:
         l_component = Tk.Listbox(
             window, selectmode='single', exportselection=0)
 
-        for i in ['Flux', 'Velocity', 'Sigma', 'h3', 'h4']:
-            l_par.insert('end', i)
-
         if args.astropy:
             try:
                 n_components = len(cube.fit_func._submodels)
@@ -65,11 +63,22 @@ class mclass:
             n_components, n_parameters = [
                 int(cube.fit_info[i]) for i in ['components', 'parameters']]
 
+        if hasattr(cube, 'parnames'): 
+            for i in cube.parnames:
+                l_par.insert('end', i)
+        else:
+            for i in ['Flux', 'Velocity', 'Sigma', 'h3', 'h4'][0:n_parameters]:
+                l_par.insert('end', i)
+
         self.n_components = n_components
         self.n_parameters = n_parameters
 
-        for i in range(n_components):
-            l_component.insert('end', i)
+        if hasattr(cube, 'component_names'):
+            for i in cube.component_names:
+                l_component.insert('end', i)
+        else:
+            for i in range(n_components):
+                l_component.insert('end', i)
 
         self.fig = Figure(figsize=(6, 6))
         self.fitplot = Figure(figsize=(12, 6))
@@ -137,8 +146,8 @@ class mclass:
             'motion_notify_event', self.onclick)
 
     def getim(self):
-        
-        ncomps = self.n_components
+
+        # ncomps = self.n_components
         npars = self.n_parameters
 
         par = self.l_par.curselection()[0]
@@ -150,7 +159,7 @@ class mclass:
             m = (
                 (self.cube.fit_status != 0) |
                 (np.any(np.isnan(self.cube.em_model), 0))
-                )
+            )
         else:
             m = np.any(np.isnan(self.cube.em_model), 0)
 
