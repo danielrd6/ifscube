@@ -212,7 +212,7 @@ class Spectrum():
 
         return p
 
-    def optimize_mask(self, wl, p0, width=20):
+    def optimize_mask(self, wl, p0, width=20, catch_error=False):
 
         npars_pc = len(self.parnames)
         npars = len(p0)
@@ -226,13 +226,19 @@ class Spectrum():
             low_lam = (lam - width * s)
             up_lam = (lam + width * s)
 
-            assert low_lam > wl[0],\
-                'ERROR in optimization mask. Lower limit in optimization '\
-                'window is below the lowest available wavelength.'
+            if catch_error:
 
-            assert up_lam < wl[-1],\
-                'ERROR in optimization mask. Upper limit in optimization '\
-                'window is above the highest available wavelength.'
+                assert low_lam > wl[0],\
+                    'ERROR in optimization mask. Lower limit in optimization '\
+                    'window is below the lowest available wavelength.'
+
+                assert up_lam < wl[-1],\
+                    'ERROR in optimization mask. Upper limit in optimization '\
+                    'window is above the highest available wavelength.'
+
+            else:
+                if (low_lam < wl[0]) or (up_lam > wl[-1]):
+                    continue
 
             wl_lims = [
                 wl[wl < low_lam][-1],
