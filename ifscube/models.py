@@ -117,18 +117,23 @@ class DiskRotation(Fittable2DModel):
     This equation was taken from Bertola et al. 1991 (ApJ, 373, 369B).
     """
 
-    inputs = ('r', 'phi',)
+    inputs = ('x', 'y',)
     outputs = ('v',)
 
     amplitude = Parameter(default=100)
     c_0 = Parameter(default=1)
     p = Parameter(default=1)
-    phi_0 = Parameter(default=0)
-    theta = Parameter(default=0)
+    phi_0 = Parameter(default=45)
+    theta = Parameter(default=45)
     v_sys = Parameter(default=0)
+    x_0 = Parameter(default=0)
+    y_0 = Parameter(default=0)
 
     @staticmethod
-    def evaluate(r, phi, amplitude, c_0, p, phi_0, theta, v_sys):
+    def evaluate(x, y, amplitude, c_0, p, phi_0, theta, v_sys, x_0, y_0):
+
+        r = np.sqrt((x - x_0) ** 2 + (y - y_0) ** 2)
+        phi = np.arctan2((x - x_0), (y - y_0))
 
         cop = np.cos(phi - phi_0)
         sip = np.sin(phi - phi_0)
