@@ -103,13 +103,12 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
     linefit_args['outimage'] = outname
     try:
         a.linefit(**linefit_args)
+        append_config(config_file_name, outname)
     except IOError:
         if lock:
             if os.path.isfile(lockname):
                 os.remove(lockname)
         return
-
-    append_config(config_file_name, outname)
 
     if plot:
         a.plotfit()
