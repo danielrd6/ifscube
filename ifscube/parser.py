@@ -349,6 +349,10 @@ class LineFitParser:
         else:
             self.loading_opts = {}
 
+        for key in self.loading_opts.keys():
+            if self.loading_opts[key] == 'None':
+                self.loading_opts[key] = None
+
         return
 
     def _eqw(self):
