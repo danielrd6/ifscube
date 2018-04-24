@@ -23,6 +23,14 @@ def mklock(fname):
     return
 
 
+def clear_lock(lockname):
+
+    if os.path.isfile(lockname):
+        os.remove(lockname)
+
+    return
+
+
 def append_config(config_file, outname):
 
     c = configparser.ConfigParser()
@@ -80,8 +88,7 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
     else:
         if os.path.isfile(outname):
             if lock:
-                if os.path.isfile(lockname):
-                    os.remove(lockname)
+                clear_lock(lockname)
             return
 
     if fit_type == 'cube':
@@ -106,16 +113,14 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
         append_config(config_file_name, outname)
     except IOError:
         if lock:
-            if os.path.isfile(lockname):
-                os.remove(lockname)
+            clear_lock(lockname)
         return
 
     if plot:
         a.plotfit()
 
     if lock:
-        if os.path.isfile(lockname):
-            os.remove(lockname)
+        clear_lock(lockname)
 
     return
 
