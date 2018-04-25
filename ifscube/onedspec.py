@@ -391,6 +391,9 @@ class Spectrum():
             self.component_names = component_names
 
         valid_pixels = (self.flags == 0) & fw
+
+        assert np.any(valid_pixels), 'No valid pixels in spectrum.'
+
         self.valid_pixels = valid_pixels
 
         wl = deepcopy(self.restwl[valid_pixels])
