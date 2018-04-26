@@ -286,7 +286,13 @@ class Cube:
         hdu.name = 'PARNAMES'
         h.append(hdu)
 
+        original_cube = fits.open(self.fitsfile)
+        for ext_name in ['vor', 'vorplus']:
+            if ext_name in original_cube:
+                h.append(original_cube[ext_name])
+
         h.writeto(outimage, overwrite=args['overwrite'])
+        original_cube.close()
 
     def __write_eqw__(self, eqw, args):
 
