@@ -392,8 +392,6 @@ class Spectrum():
 
         valid_pixels = (self.flags == 0) & fw
 
-        assert np.any(valid_pixels), 'No valid pixels in spectrum.'
-
         self.valid_pixels = valid_pixels
 
         wl = deepcopy(self.restwl[valid_pixels])
@@ -416,7 +414,7 @@ class Spectrum():
         #
         # Avoids fit if more than 80% of the pixels are flagged.
         #
-        if np.sum(~valid_pixels[fw]) > 0.8 * valid_pixels[fw].size:
+        if np.sum(~valid_pixels[fw]) > (0.8 * valid_pixels[fw].size):
             self.fit_status = 98
             return
 
