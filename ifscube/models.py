@@ -133,7 +133,7 @@ class DiskRotation(Fittable2DModel):
     def evaluate(x, y, amplitude, c_0, p, phi_0, theta, v_sys, x_0, y_0):
 
         r = np.sqrt((x - x_0) ** 2 + (y - y_0) ** 2)
-        phi = np.arctan2((x - x_0), (y - y_0))
+        phi = np.arctan2((y - y_0), (x - x_0))
 
         cop = np.cos(phi - phi_0)
         sip = np.sin(phi - phi_0)
