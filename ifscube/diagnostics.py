@@ -111,4 +111,4 @@ class whan_diagram:
         ax.text(.95, .1, 'Passive galaxies', ha='right',
                 transform=ax.transAxes, **text_opts)
 
-        ax.scatter(self.x, self.y, marker='.', color='k', **kwargs)
+        ax.scatter(self.x, self.y, **kwargs)
