@@ -44,7 +44,9 @@ class cube(datacube.Cube):
         self.__flags__()
         self.__spec_indices__()
 
-        self.cont = hdu['F_SYN'].data * self.fobs_norm
+        # NOTE: This was probably a leftover and has been
+        # commented out.
+        # self.cont = hdu['F_SYN'].data * self.fobs_norm
         self.syn = hdu['F_SYN'].data * self.fobs_norm
 
         self.variance = np.square(self.noise_cube)
