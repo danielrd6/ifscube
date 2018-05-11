@@ -2203,7 +2203,7 @@ class Cube:
                         vel=0, sigma=180, fwhm_gal=2, fwhm_model=1.8,
                         noise=0.05, individual_spec=False, plotfit=False,
                         quiet=False, deg=4, mask=None, cushion=100.,
-                        moments=4):
+                        moments=4, overwrite=False):
         """
         Executes pPXF fitting of the stellar spectrum over the whole
         data cube.
@@ -2444,7 +2444,7 @@ class Cube:
                 fits.ImageHDU(
                     data=self.ppxf_goodpixels, header=hdr, name='GOODPIX'))
 
-            h.writeto(outimage)
+            h.writeto(outimage, overwrite=overwrite)
 
     def ppxf_plot(self, xy, axis=None):
 
