@@ -2231,14 +2231,14 @@ class Cube:
         """
 
         try:
-            import ppxf
+            from ppxf import ppxf
         except ImportError:
             raise ImportError(
                 'Could not find the ppxf module. '
                 'Please add it to your PYTHONPATH.')
 
         try:
-            import ppxf_util
+            from ppxf import ppxf_util
         except ImportError:
             raise ImportError(
                 'Could not find the ppxf_util module. '
