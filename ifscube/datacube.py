@@ -140,7 +140,7 @@ class Cube:
 
         try:
             if self.header['VORBIN']:
-                vortab = fits.getdata(fname)['VOR'].data
+                vortab = fits.getdata(fname, 'VOR')
                 self.voronoi_tab = vortab
                 self.binned = True
         except KeyError:
