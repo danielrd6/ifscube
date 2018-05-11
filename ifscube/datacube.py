@@ -106,6 +106,13 @@ class Cube:
 
         self.fitsfile = fname
 
+        exts = [
+            'scidata', 'primary', 'variance', 'flags', 'stellar', 'weights',
+            'vortab', 'spatial_mask']
+        self.extension_names = {}
+        for key in exts:
+            self.extension_names[key] = locals()[key]
+
         with fits.open(fname) as hdu:
             self.data = hdu[scidata].data
             self.header = hdu[primary].header
@@ -482,29 +489,41 @@ class Cube:
             and a 3 order polynomial.
         """
 
-        noise = np.zeros(np.shape(self.data)[1:], dtype='float32')
-        signal = np.zeros(np.shape(self.data)[1:], dtype='float32')
         snrwindow = (self.restwl >= wl_range[0]) &\
             (self.restwl <= wl_range[1])
-        data = deepcopy(self.data)
 
-        wl = self.restwl[snrwindow]
+        # FIXME: This is only here because I am always setting
+        # a variance attribute, when it really shouldn't be.
+        # The correct behaviour should be to check if variance is set.
+        # if hasattr(self, 'variance'):
+        if not np.all(self.variance == 1.):
+            noise = np.nanmean(
+                np.sqrt(self.variance[snrwindow, :, :]), axis=0)
+            signal = np.nanmean(
+                self.data[snrwindow, :, :], axis=0)
 
-        if copts is None:
-            copts = {'niterate': 0, 'degr': 3, 'upper_threshold': 3,
-                     'lower_threshold': 3, 'returns': 'function'}
         else:
-            copts['returns'] = 'function'
+            noise = np.zeros(np.shape(self.data)[1:])
+            signal = np.zeros(np.shape(self.data)[1:])
+            data = deepcopy(self.data)
 
-        for i, j in self.spec_indices:
-            if any(data[snrwindow, i, j]) and\
-                    all(~np.isnan(data[snrwindow, i, j])):
-                s = data[snrwindow, i, j]
-                cont = spectools.continuum(wl, s, **copts)[1]
-                noise[i, j] = np.nanstd(s - cont)
-                signal[i, j] = np.nanmean(cont)
+            wl = self.restwl[snrwindow]
+
+            if copts is None:
+                copts = {'niterate': 0, 'degr': 3, 'upper_threshold': 3,
+                         'lower_threshold': 3, 'returns': 'function'}
             else:
-                noise[i, j], signal[i, j] = np.nan, np.nan
+                copts['returns'] = 'function'
+
+            for i, j in self.spec_indices:
+                if any(data[snrwindow, i, j]) and\
+                        all(~np.isnan(data[snrwindow, i, j])):
+                    s = data[snrwindow, i, j]
+                    cont = spectools.continuum(wl, s, **copts)[1]
+                    noise[i, j] = np.nanstd(s - cont)
+                    signal[i, j] = np.nanmean(cont)
+                else:
+                    noise[i, j], signal[i, j] = np.nan, np.nan
 
         self.noise = noise
         self.signal = signal
@@ -1989,8 +2008,7 @@ class Cube:
         return gdata, gvar
 
     def voronoi_binning(self, targetsnr=10.0, writefits=False,
-                        outfile=None, clobber=False, writevortab=True,
-                        dataext=1):
+                        outfile=None, overwrite=False):
         """
         Applies Voronoi binning to the data cube, using Cappellari's
         Python implementation.
@@ -2005,10 +2023,8 @@ class Cube:
             Name of the output FITS file. If 'None' then the name of
             the original FITS file containing the data cube will be used
             as a root name, with '.bin' appended to it.
-        clobber : boolean
+        overwrite : boolean
             Overwrites files with the same name given in 'outfile'.
-        writevortab : boolean
-            Saves an ASCII table with the binning recipe.
 
         Returns:
         --------
@@ -2016,7 +2032,7 @@ class Cube:
         """
 
         try:
-            from voronoi_2d_binning import voronoi_2d_binning
+            from vorbin.voronoi_2d_binning import voronoi_2d_binning
         except ImportError:
             raise ImportError(
                 'Could not find the voronoi_2d_binning module. '
@@ -2025,27 +2041,20 @@ class Cube:
             x = np.shape(self.noise)
         except AttributeError:
             print(
-                'This function requires prior execution of the snr_eval' +
+                'This function requires prior execution of the snr_eval ' +
                 'method.')
             return
 
         # Initializing the binned arrays as zeros.
         try:
-            b_data = np.zeros(np.shape(self.data), dtype='float32')
+            b_data = np.zeros(np.shape(self.data))
         except AttributeError as err:
             err.args += (
                 'Could not access the data attribute of the gmosdc object.',)
             raise err
 
         try:
-            b_ncubes = np.zeros(np.shape(self.ncubes), dtype='float32')
-        except AttributeError as err:
-            err.args += (
-                'Could not access the ncubes attribute of the gmosdc object.',)
-            raise err
-
-        try:
-            b_noise = np.zeros(np.shape(self.noise_cube), dtype='float32')
+            b_variance = np.zeros(np.shape(self.variance))
         except AttributeError as err:
             err.args += (
                 'Could not access the noise_cube attribute of the gmosdc '
@@ -2072,7 +2081,7 @@ class Cube:
 
         # For every nan in the original cube, fill with nan the
         # binned cubes.
-        for i in [b_data, b_ncubes, b_noise]:
+        for i in [b_data, b_variance]:
             i[:, ynan, xnan] = np.nan
 
         for i in np.arange(binNum.max() + 1):
@@ -2094,23 +2103,15 @@ class Cube:
                     Ellipsis, samebin_coords[:, 0], samebin_coords[:, 1]
                 )
 
-                # The binned spectra should be the average of the
+                # The binned spectra should be the sum of the
                 # flux densities.
-                b_data[binned_idx] = np.average(
-                    self.data[unbinned_idx], axis=1)
+                b_data[binned_idx] = np.sum(self.data[unbinned_idx], axis=1)
 
-                # Ncubes must be the sum, since they represent how many
-                # original pixels have contributed to each pixel in the
-                # binned cube. In the unbinned data this is identical
-                # to the number of individual exposures that contribute
-                # to a given pixel.
-                b_ncubes[binned_idx] = np.sum(
-                    self.ncubes[unbinned_idx], axis=1)
-
-                # The resulting noise is defined as the quadratic sum
-                # of the original noise.
-                b_noise[binned_idx] = np.sqrt(np.sum(np.square(
-                    self.noise_cube[unbinned_idx]), axis=1))
+                # The resulting variance is defined as the sum
+                # of the original variance, such that the noise
+                # is the quadratic sum of the original noise.
+                b_variance[binned_idx] = np.sum(
+                    self.variance[unbinned_idx], axis=1)
 
         if writefits:
 
@@ -2127,12 +2128,11 @@ class Cube:
             hdr['VORBIN'] = (True, 'Processed by Voronoi binning?')
             hdr['VORTSNR'] = (targetsnr, 'Target SNR for Voronoi binning.')
 
-            hdulist[self.hdrext].header = hdr
+            hdulist[self.extension_names['primary']].header = hdr
 
             # Storing the binned data in the HDUList
-            hdulist[self.dataext].data = b_data
-            hdulist[self.var_ext].data = b_noise
-            hdulist[self.ncubes_ext].data = b_ncubes
+            hdulist[self.extension_names['scidata']].data = b_data
+            hdulist[self.extension_names['variance']].data = b_variance
 
             # Write a FITS table with the description of the
             # tesselation process.
@@ -2161,7 +2161,7 @@ class Cube:
             if outfile is None:
                 outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])
 
-            hdulist.writeto(outfile, clobber=clobber)
+            hdulist.writeto(outfile, overwrite=overwrite)
 
         self.binned_cube = b_data
 
@@ -2180,7 +2180,7 @@ class Cube:
                 np.shape(self.em_model)
             except AttributeError:
                 print(
-                    'ERROR! This function requires the gmosdc.em_model' +
+                    'ERROR! This function requires the Cube.em_model' +
                     ' attribute to be defined.')
                 return
 
