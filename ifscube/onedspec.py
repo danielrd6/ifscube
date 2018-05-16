@@ -394,13 +394,6 @@ class Spectrum():
 
         self.valid_pixels = valid_pixels
 
-        #
-        # Avoids fit if more than 80% of the pixels are flagged.
-        #
-        if np.sum(~valid_pixels[fw]) > (0.8 * valid_pixels[fw].size):
-            self.fit_status = 98
-            return
-
         wl = deepcopy(self.restwl[valid_pixels])
         data = deepcopy(self.data[valid_pixels])
         stellar = deepcopy(self.stellar[valid_pixels])
@@ -417,6 +410,13 @@ class Spectrum():
         p0 = np.array(self.guessParser(p0))
         self.initial_guess = p0
         self.fitbounds = bounds
+
+        #
+        # Avoids fit if more than 80% of the pixels are flagged.
+        #
+        if np.sum(~valid_pixels[fw]) > (0.8 * valid_pixels[fw].size):
+            self.fit_status = 98
+            return
 
         if weights is None:
             weights = np.ones_like(data)
