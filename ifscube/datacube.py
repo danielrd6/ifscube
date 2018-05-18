@@ -2008,7 +2008,7 @@ class Cube:
         return gdata, gvar
 
     def voronoi_binning(self, targetsnr=10.0, writefits=False,
-                        outfile=None, overwrite=False):
+                        outfile=None, overwrite=False, plot=False):
         """
         Applies Voronoi binning to the data cube, using Cappellari's
         Python implementation.
@@ -2076,7 +2076,8 @@ class Cube:
         signal, noise = np.ravel(s)[valid_spaxels], np.ravel(n)[valid_spaxels]
 
         binNum, xNode, yNode, xBar, yBar, sn, nPixels, scale = \
-            voronoi_2d_binning(x, y, signal, noise, targetsnr, plot=1, quiet=0)
+            voronoi_2d_binning(
+                x, y, signal, noise, targetsnr, plot=plot, quiet=0)
         v = np.column_stack([y, x, binNum])
 
         # For every nan in the original cube, fill with nan the
