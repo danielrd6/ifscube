@@ -11,10 +11,7 @@ pipelines:
         caches:
           - pip
         script: # Modify the commands below to build your repository.
-          - apt-get update &&\
-                apt-get install -y --no-install-recommends\
-                gfortran 
+          - apt-get update && apt-get install -y --no-install-recommends gfortran 
           - pip install numpy
           - pip install .
-          - specfit -c ifscube/examples/halpha.cfg\
-                ifscube/examples/manga_onedspec.fits 
+          - specfit -c ifscube/examples/halpha.cfg ifscube/examples/manga_onedspec.fits 
