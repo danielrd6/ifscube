@@ -14,4 +14,8 @@ pipelines:
           - apt-get update && apt-get install -y --no-install-recommends gfortran 
           - pip install numpy
           - pip install .
-          - specfit -c ifscube/examples/halpha.cfg ifscube/examples/manga_onedspec.fits 
+          - cd ifscube/examples/
+          - specfit --overwrite -c halpha.cfg manga_onedspec.fits 
+          - cubefit --overwrite -c halpha_cube.cfg ngc3081_cube.fits
+          - python voronoi_ppxf.py
+          - cubefit --overwrite -c halpha_cube.cfg ngc3081_cube.bin.fits
