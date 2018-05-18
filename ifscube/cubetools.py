@@ -266,6 +266,30 @@ def rebin(arr, xbin, ybin, combine='sum', mask=None):
     return new
 
 
+def aperture_spectrum(arr, x0=None, y0=None, radius=3, combine='sum'):
+
+    y, x = np.indices(arr.shape[1:])
+
+    if x0 is None:
+        x0 = x.mean()
+    if y0 is None:
+        y0 = x.mean()
+
+    x -= x0
+    y -= y0
+    r = np.sqrt(x**2 + y**2)
+
+    new_arr = ma.masked_invalid(arr)
+    new_arr.mask |= (r > radius)
+
+    if combine == 'sum':
+        s = new_arr.sum(axis=(1, 2))
+    elif combine == 'sqrt_sum':
+        s = np.sqrt((np.square(new_arr)).sum(axis=(1, 2)))
+
+    return s
+
+
 # This is only here for backwards compatibility.
 class gmosdc:
 
