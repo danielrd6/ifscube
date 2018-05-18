@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # stdlib
 import glob
+import site
 
 # third party
 from astropy.io import fits
@@ -38,7 +39,8 @@ if __name__ == '__main__':
     mycube.snr_eval(wl_range=(5650, 5750))
 
     # Actual binning.
-    mycube.voronoi_binning(targetsnr=3, writefits=True, overwrite=True)
+    mycube.voronoi_binning(
+        targetsnr=3, writefits=True, overwrite=True, plot=False)
 
     #
     # pPXF fitting
@@ -51,8 +53,7 @@ if __name__ == '__main__':
     # package via pip, everything from site-packages on should be
     # the same.
     wl, base = load_models(
-        '/dados/anaconda3/envs/astroconda/lib/python3.5/site-packages/'
-        'ppxf/miles_models/Mun*fits')
+        site.getsitepackages()[0] + '/ppxf/miles_models/Mun*fits')
 
     # Loads the Voronoi binned cube.
     mycube = Cube('ngc3081_cube.bin.fits', variance='ERR', scidata='SCI',
