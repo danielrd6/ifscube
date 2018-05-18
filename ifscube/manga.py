@@ -88,7 +88,8 @@ class cube(datacube.Cube):
 
         # Compound flags
         no_obs = _unused | no_data | bad_pix | ccd_gap
-        before_starlight = no_obs | telluric | low_sn
+        # before_starlight = no_obs | telluric | low_sn
+        before_starlight = no_obs
         no_starlight = starlight_no_data | starlight_failed_run
 
         flags = before_starlight | no_starlight
