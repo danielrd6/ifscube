@@ -14,8 +14,15 @@ from scipy.integrate import trapz
 
 
 def peak_spaxel(cube):
+
     im = cube.sum(axis=0)
-    y, x = [int(i) for i in np.where(im == im[~np.isnan(im)].max())]
+    y_max, x_max = np.where(im == im[~np.isnan(im)].max())
+
+    assert y_max.size == 1,\
+        'More than one spaxel with flux equal to the maximum. '\
+        'Consider using center of mass for the center spaxel. '
+
+    y, x = [int(i) for i in (y_max, x_max)]
     return x, y
 
 
