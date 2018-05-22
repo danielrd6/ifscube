@@ -1,28 +1,37 @@
 #!/usr/bin/python
+# stdlib
+import argparse
+import copy
+import dill as pickle
+import tkinter as Tk
+
+# third party
 import matplotlib
 matplotlib.use('TkAgg')
-
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
 import numpy as np
 from numpy import ma
-import argparse
-import copy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import ifscube.cubetools as ct
-import Tkinter as Tk
-import pdb
+
+# local
+import ifscube
 
 
 class mclass:
 
-    def __init__(self,  window, datacube, fitfile, fitstatus_mask):
+    def __init__(self, window, args):
 
-        self.fitstatus_mask = fitstatus_mask
+        self.fitstatus_mask = args.fitstatus_mask
+        self.astropy = args.astropy
 
-        cube = ct.gmosdc(datacube)
-        cube.loadfit(fitfile)
+        if self.astropy:
+            with open(args.fitfile, 'rb') as f:
+                cube = pickle.load(f)
+        else:
+            cube = ifscube.Cube()
+            cube.loadfit(args.fitfile)
 
         self.window = window
         self.buttonPlot = Tk.Button(
@@ -33,17 +42,43 @@ class mclass:
             window, text='Plot on click', command=self.singleplot)
 
         self.text = Tk.Text(
-            window, bg='white', height=10, width=80, font=('Helvetica', 12))
+            window, bg='white', height=10, width=80, font=('Fixedsys', 12))
 
         l_par = Tk.Listbox(window, selectmode='single', exportselection=0)
         l_component = Tk.Listbox(
             window, selectmode='single', exportselection=0)
 
-        for i in ['Flux', 'Velocity', 'Sigma', 'h3', 'h4']:
-            l_par.insert('end', i)
+        if args.astropy:
+            try:
+                n_components = len(cube.fit_func._submodels)
+            except AttributeError:
+                n_components = 1
 
-        for i in range(cube.fit_info['components']):
-            l_component.insert('end', i)
+            if n_components > 1:
+                n_parameters = len(cube.fit_func[0].parameters)
+            else:
+                n_parameters = len(cube.fit_func.parameters)
+
+        else:
+            n_components, n_parameters = [
+                int(cube.fit_info[i]) for i in ['components', 'parameters']]
+
+        if hasattr(cube, 'parnames'): 
+            for i in cube.parnames:
+                l_par.insert('end', i)
+        else:
+            for i in ['Flux', 'Velocity', 'Sigma', 'h3', 'h4'][0:n_parameters]:
+                l_par.insert('end', i)
+
+        self.n_components = n_components
+        self.n_parameters = n_parameters
+
+        if hasattr(cube, 'component_names'):
+            for i in cube.component_names:
+                l_component.insert('end', i)
+        else:
+            for i in range(n_components):
+                l_component.insert('end', i)
 
         self.fig = Figure(figsize=(6, 6))
         self.fitplot = Figure(figsize=(12, 6))
@@ -110,10 +145,10 @@ class mclass:
         self.connect_id = self.canvas.mpl_connect(
             'motion_notify_event', self.onclick)
 
-    def getim(self, fitstatus_mask=True):
+    def getim(self):
 
-        npars, ncomps = [
-            self.cube.fit_info[i] for i in ('parameters', 'components')]
+        # ncomps = self.n_components
+        npars = self.n_parameters
 
         par = self.l_par.curselection()[0]
         comp = self.l_component.curselection()[0]
@@ -124,7 +159,7 @@ class mclass:
             m = (
                 (self.cube.fit_status != 0) |
                 (np.any(np.isnan(self.cube.em_model), 0))
-                )
+            )
         else:
             m = np.any(np.isnan(self.cube.em_model), 0)
 
@@ -153,8 +188,6 @@ class mclass:
         a.cla()
         self.cax.cla()
 
-        # pdb.set_trace()
-
         d, cm = self.getim()
 
         if cm == 'Spectral_r':
@@ -174,7 +207,7 @@ class mclass:
 
         try:
             i, j = [int(np.floor(x) + 0.5) for x in (event.xdata, event.ydata)]
-            if np.any(np.array([i, j] < 0)):
+            if np.any(np.array([i, j]) < 0):
                 self.text.delete('1.0', 'end')
                 self.text.insert('insert', 'Index Error!')
                 return
@@ -202,15 +235,18 @@ class mclass:
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
+
     parser.add_argument(
-        'datacube', type=str, help='The original data cube.')
+        '-f', '--fitfile', type=str, help='Result of the fit')
     parser.add_argument(
-        'fitfile', type=str, help='Result of the fit')
+        '-m', '--fitstatus_mask', help='Apply fit status mask.',
+        action='store_true')
     parser.add_argument(
-        '--fitstatus_mask', type=bool, help='Apply fit status mask.')
+        '-a', '--astropy', action='store_true',
+        help='Fitfile refers to an astropy modeling fit.')
     args = parser.parse_args()
 
     window = Tk.Tk()
     window.title('IFSCUBE Fit Scrutinizer')
-    start = mclass(window, args.datacube, args.fitfile, args.fitstatus_mask)
+    start = mclass(window, args)
     window.mainloop()

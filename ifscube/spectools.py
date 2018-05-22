@@ -8,15 +8,19 @@ If the spectrum is specified as an array, the default is to assume that
 arr[:,0] are the wavelength coordinates and arr[:,1] are the flux
 points.
 """
-
+# STDLIB
 import copy
+import warnings
+import re
+
+# THIRD PARTY
 import astropy.io.fits as pf
 import numpy as np
-from scipy.integrate import trapz, quad
+from scipy.integrate import trapz, quad, cumtrapz
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import interp1d, UnivariateSpline
-from scipy.optimize import curve_fit, minimize
-import re
+from scipy.optimize import curve_fit, minimize, root
+from astropy import units
 
 
 def rmbg(x, y, samp, order=1):
@@ -170,11 +174,11 @@ def blackbody(x, T, coordinate='wavelength'):
     if coordinate == 'wavelength':
         def b(x, t):
             return 2. * h * c**2. / x**5 * \
-                    (1. / (np.exp(h * c / (x * kb * t)) - 1.))
+                (1. / (np.exp(h * c / (x * kb * t)) - 1.))
     elif coordinate == 'frequency':
         def b(x, t):
             return 2 * h * c**2 / \
-                    x**5 * (np.exp((h * c) / (x * kb * t)) - 1)**(-1)
+                x**5 * (np.exp((h * c) / (x * kb * t)) - 1)**(-1)
 
     return b(x, T)
 
@@ -349,7 +353,8 @@ def dopcor(wl, z):
 
 
 def continuum(x, y, returns='ratio', degr=6, niterate=5,
-              lower_threshold=2, upper_threshold=3, verbose=False):
+              lower_threshold=2, upper_threshold=3, verbose=False,
+              weights=None):
     """
     Builds a polynomial continuum from segments of a spectrum,
     given in the form of wl and flux arrays.
@@ -391,17 +396,39 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
     xfull = copy.deepcopy(x)
     s = interp1d(x, y)
 
+    if weights is None:
+        weights = np.ones_like(x)
+
     def f(x):
-        return np.polyval(np.polyfit(x, s(x), deg=degr), x)
+        return np.polyval(np.polyfit(x, s(x), deg=degr, w=weights), x)
 
     for i in range(niterate):
 
-        if len(x) == 0:
-            print('Stopped at iteration: {:d}.'.format(i))
-            break
-        sig = np.std(s(x) - f(x))
         res = s(x) - f(x)
-        x = x[(res < upper_threshold * sig) & (res > -lower_threshold * sig)]
+        sig = np.std(res)
+        rej_cond = (
+            (res < upper_threshold * sig) & (res > -lower_threshold * sig)
+        )
+
+        if (np.sum(rej_cond) <= degr):
+            if verbose:
+                warnings.warn(
+                    'Number of points lower than the polynomial degree. '
+                    'Stopped at iteration {:d}. '
+                    'sig={:.2e}'.format(i, sig))
+            break
+
+        if (np.sum(weights == 0.0) >= degr):
+            if verbose:
+                warnings.warn(
+                    'Number of non-zero values in weights vector is lower'
+                    ' than the polynomial degree. '
+                    'Stopped at iteration {:d}. '
+                    'sig={:.2e}'.format(i, sig))
+            break
+
+        x = x[rej_cond]
+        weights = weights[rej_cond]
 
     if verbose:
         print('Final number of points used in the fit: {:d}'
@@ -409,16 +436,16 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
         print('Rejection ratio: {:.2f}'
               .format(1. - float(len(x)) / float(len(xfull))))
 
-    p = np.polyfit(x, s(x), deg=degr)
+    p = np.polyfit(x, s(x), deg=degr, w=weights)
 
-    if returns == 'ratio':
-        return xfull, s(xfull) / np.polyval(p, xfull)
+    out = dict(
+        ratio=(xfull, s(xfull) / np.polyval(p, xfull)),
+        difference=(xfull, s(xfull) - np.polyval(p, xfull)),
+        function=(xfull, np.polyval(p, xfull)),
+        polynomial=p,
+    )
 
-    if returns == 'difference':
-        return xfull, s(xfull) - np.polyval(p, xfull)
-
-    if returns == 'function':
-        return xfull, np.polyval(p, xfull)
+    return out[returns]
 
 
 def eqw(wl, flux, lims, cniterate=5):
@@ -637,3 +664,110 @@ def specphotometry(spec, filt, intlims=(8, 13), coords='wavelength',
         return phot, float(fcenter['x'])
     else:
         return phot
+
+
+def w80eval(wl, spec, wl0, smooth=0, **min_args):
+    """
+    Evaluates the W80 parameter of a given emission fature.
+
+    Parameters
+    ----------
+    wl : array-like
+      Wavelength vector.
+    spec : array-like
+      Flux vector.
+    wl0 : number
+      Central wavelength of the emission feature.
+    **min_args : dictionary
+      Options passed directly to the scipy.optimize.minimize.
+
+    Returns
+    -------
+    w80 : number
+      The resulting w80 parameter.
+
+    Description
+    -----------
+    W80 is the width in velocity space which encompasses 80% of the
+    light emitted in a given spectral feature. It is widely used as
+    a proxy for identifying outflows of ionized gas in active galaxies.
+    For instance, see Zakamska+2014 MNRAS.
+    """
+
+    # First we begin by transforming from wavelength space to velocity
+    # space.
+
+    velocity = (wl * units.angstrom).to(
+        units.km / units.s,
+        equivalencies=units.doppler_relativistic(wl0 * units.angstrom),
+    )
+
+    # Linearly interpolates spectrum in the velocity coordinates
+    s = interp1d(velocity, spec)
+
+    # Normalized cumulative integral curve of the emission feature.
+    cumulative = cumtrapz(spec, velocity, initial=0)
+    # cumulative /= cumulative.max()
+    cumulative /= cumulative[-1]
+
+    # This returns a function that will be used by the scipy.optimize.root
+    # routine below. There is a possibilty for smoothing the cumulative curve
+    # after performing the integration, which might be useful for very noisy
+    # data.
+    def cumulative_fun(cumulative, d):
+        c = gaussian_filter1d(cumulative, smooth, mode='constant')
+        return interp1d(velocity, c - d, bounds_error=False)
+
+    # In order to have a good initial guess, the code will find the
+    # the Half-Width at Half Maximum (hwhm) of the specified feature.
+
+    for i in np.linspace(0, velocity[-1]):
+        if s(i) <= spec.max() / 2:
+            hwhm = i
+            break
+
+    # In some cases, when the spectral feature has a very low
+    # amplitude, the algorithm might have trouble finding the half
+    # width at half maximum (hwhm), which is used as an initial guess
+    # for the w80. In such cases the loop above will reach the end of
+    # the spectrum without finding a value below half the amplitude of
+    # the spectral feature, and consequently the *hwhm* variable will
+    # not be set.  This next conditional expression sets w80 to
+    # numpy.nan when such events occur.
+
+    if 'hwhm' in locals():
+        # Finds the velocity of the 10-percentile
+        r0 = root(cumulative_fun(cumulative, .1), -hwhm).x
+        # Finds the velocity of the 90-percentile
+        r1 = root(cumulative_fun(cumulative, .9), +hwhm).x
+        # W80 is the difference between the two.
+        w80 = r1 - r0
+        return w80, r0, r1, velocity, s(velocity)
+    else:
+        w80 = np.nan
+        return w80, np.nan, np.nan, velocity, s(velocity)
+
+
+class Constraints():
+
+    def __init__(self, function='gaussian'):
+
+        pass
+
+    @staticmethod
+    def redshift(wla, wlb, rest0, rest1):
+
+        def func(x):
+            return (x[wla] / rest0) - (x[wlb] / rest1)
+        d = dict(type='eq', fun=func)
+
+        return d
+
+    @staticmethod
+    def sigma(sa, sb, wla, wlb):
+
+        def func(x):
+            return x[sa] / x[wla] - x[sb] / x[wlb]
+        d = dict(type='eq', fun=func)
+
+        return d
