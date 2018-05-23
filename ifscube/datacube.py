@@ -122,11 +122,6 @@ class Cube:
             self.__accessory_data__(
                 hdu, variance, flags, stellar, weights, spatial_mask)
 
-        if 'redshift' in self.header:
-            self.redshift = self.header['REDSHIFT']
-        else:
-            self.redshift = redshift
-
         if nan_spaxels == 'all':
             self.nan_mask = np.all(self.data == 0, 0)
         elif nan_spaxels == 'any':
@@ -139,11 +134,15 @@ class Cube:
             (spectral_dimension,)).wcs_pix2world(
                 np.arange(len(self.data)), 0)[0]
 
-        if self.redshift != 0:
-            self.restwl = onedspec.Spectrum.__dopcor__(
-                self.redshift, self.wl, self.data)
+        if redshift is not None:
+            self.redshift = redshift
+        elif 'redshift' in self.header:
+            self.redshift = self.header['REDSHIFT']
         else:
-            self.restwl = self.wl
+            self.redshift = 0
+
+        self.restwl = onedspec.Spectrum.__dopcor__(
+            self.redshift, self.wl, self.data)
 
         try:
             if self.header['VORBIN']:

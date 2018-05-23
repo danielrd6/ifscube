@@ -60,7 +60,7 @@ class Spectrum():
 
     def __load__(self, fname, scidata='SCI', variance=None,
                  flags=None, stellar=None, primary='PRIMARY',
-                 redshift=0):
+                 redshift=None):
         self.fitsfile = fname
 
         with fits.open(fname) as hdu:
@@ -71,11 +71,6 @@ class Spectrum():
 
             self.__accessory_data__(hdu, variance, flags, stellar)
 
-        if 'redshift' in self.header:
-            self.redshift = self.header['REDSHIFT']
-        else:
-            self.redshift = redshift
-
         self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
         self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
         try:
@@ -85,11 +80,18 @@ class Spectrum():
         except KeyError:
             pass
 
-        if self.redshift != 0:
-            self.restwl = self.__dopcor__(
-                self.redshift, self.wl, self.data)
+        # Setting the redshift.
+        # Redshift from arguments takes precedence over redshift
+        # from the image header.
+        if redshift is not None:
+            self.redshift = redshift
+        elif 'redshift' in self.header:
+            self.redshift = self.header['REDSHIFT']
         else:
-            self.restwl = self.wl
+            self.redshift = 0
+
+        self.restwl = self.__dopcor__(
+            self.redshift, self.wl, self.data)
 
     @staticmethod
     def __dopcor__(z, wl, flux):
