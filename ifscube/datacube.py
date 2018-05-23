@@ -28,13 +28,13 @@ class Cube:
     def __init__(self, *args, **kwargs):
         """
         Instatiates the class. If any arguments are given they will be
-        passed to the __load__ method.
+        passed to the _load method.
         """
 
         if len(args) > 0:
-            self.__load__(*args, **kwargs)
+            self._load(*args, **kwargs)
 
-    def __accessory_data__(self, hdu, variance, flags, stellar,
+    def _accessory_data(self, hdu, variance, flags, stellar,
                            weights, spatial_mask):
 
         def shmess(name):
@@ -64,7 +64,7 @@ class Cube:
                 elif isinstance(j, np.ndarray):
                     i[:] = j
 
-    def __load__(self, fname, scidata='SCI', primary='PRIMARY',
+    def _load(self, fname, scidata='SCI', primary='PRIMARY',
                  variance=None, flags=None, stellar=None, weights=None,
                  redshift=None, vortab=None, nan_spaxels='all',
                  spatial_mask=None, spectral_dimension=3):
@@ -119,7 +119,7 @@ class Cube:
             self.header_data = hdu[scidata].header
             self.wcs = wcs.WCS(self.header_data)
 
-            self.__accessory_data__(
+            self._accessory_data(
                 hdu, variance, flags, stellar, weights, spatial_mask)
 
         if nan_spaxels == 'all':
@@ -141,7 +141,7 @@ class Cube:
         else:
             self.redshift = 0
 
-        self.restwl = onedspec.Spectrum.__dopcor__(
+        self.restwl = onedspec.Spectrum.dopcor(
             self.redshift, self.wl, self.data)
 
         try:
@@ -152,9 +152,9 @@ class Cube:
         except KeyError:
             self.binned = False
 
-        self.__set_spec_indices__()
+        self._set_spec_indices()
 
-    def __set_spec_indices__(self):
+    def _set_spec_indices(self):
 
         if self.spatial_mask is None:
             self.spatial_mask = np.zeros_like(self.data[0]).astype('bool')
@@ -166,7 +166,7 @@ class Cube:
                 np.indices(np.shape(self.data)[1:])[1][~self.spatial_mask]),
         ])
 
-    def __arg2cube__(self, arg, cube):
+    def _arg2cube(self, arg, cube):
 
         if len(np.shape(arg)) == 0:
             cube *= arg
@@ -179,7 +179,7 @@ class Cube:
 
         return cube
 
-    def __fitTable__(self):
+    def _fitTable(self):
 
         cnames = self.component_names
         pnames = self.parnames
@@ -192,7 +192,7 @@ class Cube:
 
         return h
 
-    def __write_linefit__(self, args):
+    def _write_linefit(self, args):
 
         suffix = args['suffix']
         outimage = args['outimage']
@@ -288,7 +288,7 @@ class Cube:
 
         # Creates component and parameter names table.
         hdr['object'] = 'parameter names'
-        hdu = self.__fitTable__()
+        hdu = self._fitTable()
         hdu.name = 'PARNAMES'
         h.append(hdu)
 
@@ -300,7 +300,7 @@ class Cube:
         h.writeto(outimage, overwrite=args['overwrite'])
         original_cube.close()
 
-    def __write_eqw__(self, eqw, args):
+    def _write_eqw(self, eqw, args):
 
         outimage = args['outimage']
         # Basic tests and first header
@@ -350,7 +350,7 @@ class Cube:
 
         h.writeto(outimage)
 
-    def __spiral__(self, xy, spiral_center=None):
+    def _spiral(self, xy, spiral_center=None):
 
         if self.binned:
             y, x = xy[:, 0], xy[:, 1]
@@ -770,7 +770,7 @@ class Cube:
         vcube = self.variance
         variance = kwargs.get('variance', None)
         if variance is not None:
-            vcube = self.__arg2cube__(variance, vcube)
+            vcube = self._arg2cube(variance, vcube)
 
         #
         # Set the weight cube.
@@ -778,7 +778,7 @@ class Cube:
         wcube = self.weights
         weights = kwargs.get('weights', None)
         if weights is not None:
-            wcube = self.__arg2cube__(weights, wcube)
+            wcube = self._arg2cube(weights, wcube)
 
         #
         # Set the flags cube.
@@ -786,7 +786,7 @@ class Cube:
         flag_cube = self.flags
         flags = kwargs.get('flags', None)
         if flags is not None:
-            flag_cube = self.__arg2cube__(flags, flag_cube)
+            flag_cube = self._arg2cube(flags, flag_cube)
 
         npars = len(p0)
         sol = np.zeros((npars + 1,) + self.data.shape[1:])
@@ -831,7 +831,7 @@ class Cube:
                     center_of_mass(self.data[fw_mask].sum(axis=0))]
                 if verbose:
                     print(spiral_center)
-            xy = self.__spiral__(xy, spiral_center=spiral_center)
+            xy = self._spiral(xy, spiral_center=spiral_center)
 
         self.fit_x0, self.fit_y0 = xy[0]
 
@@ -923,7 +923,7 @@ class Cube:
         self.em_model = sol
 
         if writefits:
-            self.__write_linefit__(args=locals())
+            self._write_linefit(args=locals())
 
         if individual_spec:
             return (
@@ -1958,7 +1958,7 @@ class Cube:
 
         # FIXME: For now I am ignoring the spatial mask
         self.spatial_mask = None
-        self.__set_spec_indices__()
+        self._set_spec_indices()
 
         return
 
