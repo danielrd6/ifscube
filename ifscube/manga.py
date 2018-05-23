@@ -14,9 +14,9 @@ class cube(datacube.Cube):
     def __init__(self, *args, **kwargs):
 
         if len(args) > 0:
-            self.__load__(*args, **kwargs)
+            self._load(*args, **kwargs)
 
-    def __load__(self, fitsfile, redshift=0):
+    def _load(self, fitsfile, redshift=0):
 
         self.fitsfile = fitsfile
         self.redshift = redshift
@@ -40,9 +40,9 @@ class cube(datacube.Cube):
 
         self.binned = False
 
-        self.__getwl__()
-        self.__flags__()
-        self.__spec_indices__()
+        self._getwl()
+        self._flags()
+        self._spec_indices()
 
         # NOTE: This was probably a leftover and has been
         # commented out.
@@ -56,7 +56,7 @@ class cube(datacube.Cube):
 
         hdu.close()
 
-    def __flags__(self):
+    def _flags(self):
 
         _unused = 0x0001
         no_data = 0x0002
@@ -71,7 +71,7 @@ class cube(datacube.Cube):
 
         self.flags = self.flag_cube & no_obs
 
-    def __spec_indices__(self):
+    def _spec_indices(self):
 
         _unused = 0x0001
         no_data = 0x0002
@@ -107,7 +107,7 @@ class cube(datacube.Cube):
                 np.indices(np.shape(self.data)[1:])[1][~spatial_mask]),
         ])
 
-    def __getwl__(self):
+    def _getwl(self):
         """
         Builds a wavelength vector based on the wcs object created in
         the __init__ method.
@@ -137,9 +137,9 @@ class IntegratedSpectrum(onedspec.Spectrum):
     def __init__(self, *args, **kwargs):
 
         if len(args) > 0:
-            self.__load__(*args, **kwargs)
+            self._load(*args, **kwargs)
 
-    def __flags__(self, flags):
+    def _flags(self, flags):
 
         _unused = 0x0001
         no_data = 0x0002
@@ -152,7 +152,7 @@ class IntegratedSpectrum(onedspec.Spectrum):
 
         self.flags = flags & no_obs
 
-    def __load__(self, fname):
+    def _load(self, fname):
 
         self.fitsfile = fname
 
@@ -164,7 +164,7 @@ class IntegratedSpectrum(onedspec.Spectrum):
         self.variance = np.square(t['f_err'])
         self.stellar = t['f_syn']
 
-        self.__flags__(t['f_flag'])
+        self._flags(t['f_flag'])
 
         self.wl = t['l_obs']
         self.restwl = t['l_obs']
