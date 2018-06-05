@@ -35,7 +35,7 @@ class Cube:
             self._load(*args, **kwargs)
 
     def _accessory_data(self, hdu, variance, flags, stellar,
-                           weights, spatial_mask):
+                        weights, spatial_mask):
 
         def shmess(name):
             s = '{:s} spectrum must have the same shape of the spectrum itself'
@@ -65,9 +65,9 @@ class Cube:
                     i[:] = j
 
     def _load(self, fname, scidata='SCI', primary='PRIMARY',
-                 variance=None, flags=None, stellar=None, weights=None,
-                 redshift=None, vortab=None, nan_spaxels='all',
-                 spatial_mask=None, spectral_dimension=3):
+              variance=None, flags=None, stellar=None, weights=None,
+              redshift=None, vortab=None, nan_spaxels='all',
+              spatial_mask=None, spectral_dimension=3):
         """
         and loads basic information onto the
         object.
@@ -578,6 +578,13 @@ class Cube:
             fits.writeto(outimage, data=outim, header=hdr)
 
         return outim
+
+    def aperture_spectrum(self, x=None, y=None, radius=1.):
+
+        if x is None:
+            x = self.spec_indices[:, 1].mean()
+        if y is None:
+            y = self.spec_indices[:, 0].mean()
 
     def plotspec(self, x, y, noise_smooth=30, ax=None):
         """
