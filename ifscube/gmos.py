@@ -1,3 +1,6 @@
+# stdlib
+import copy
+
 # Third party
 import numpy as np
 from astropy.io import fits
@@ -5,7 +8,6 @@ from astropy import wcs
 
 # Local
 from . import datacube
-from . import spectools
 
 
 class cube(datacube.Cube):
@@ -18,12 +20,12 @@ class cube(datacube.Cube):
     def __init__(self, *args, **kwargs):
 
         if len(args) > 0:
-            self.__load__(*args, **kwargs)
+            self._load(*args, **kwargs)
 
-    def __load__(self, fitsfile, redshift=None, vortab=None,
-                 dataext='SCI', hdrext='PRIMARY', var_ext='ERR',
-                 ncubes_ext='NCUBE', nan_spaxels='all',
-                 spatial_mask=None):
+    def _load(self, fitsfile, redshift=None, vortab=None,
+              dataext='SCI', hdrext='PRIMARY', var_ext='ERR',
+              ncubes_ext='NCUBE', nan_spaxels='all',
+              spatial_mask=None):
         """
         Initializes the class and loads basic information onto the
         object.
@@ -140,7 +142,7 @@ class cube(datacube.Cube):
         self.stellar = np.zeros_like(self.data)
         self.weights = np.zeros_like(self.data)
 
-        self.__set_spec_indices__()
+        self._set_spec_indices()
 
     def voronoi_binning(self, targetsnr=10.0, writefits=False,
                         outfile=None, clobber=False, writevortab=True,
@@ -213,7 +215,7 @@ class cube(datacube.Cube):
         xnan = np.ravel(np.indices(np.shape(self.signal))[1])[~valid_spaxels]
         ynan = np.ravel(np.indices(np.shape(self.signal))[0])[~valid_spaxels]
 
-        s, n = deepcopy(self.signal), deepcopy(self.noise)
+        s, n = copy.deepcopy(self.signal), copy.deepcopy(self.noise)
 
         s[s <= 0] = np.average(self.signal[self.signal > 0])
         n[n <= 0] = np.average(self.signal[self.signal > 0]) * .5

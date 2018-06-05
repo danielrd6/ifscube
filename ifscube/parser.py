@@ -16,8 +16,8 @@ class ConstraintParser:
         self._containers = '()[]{}'
         self._spacer = ' \t\n\r'
 
-        self.__limits__()
-        self.__classify__()
+        self._limits()
+        self._classify()
         self._getConstraintType()
 
     @staticmethod
@@ -29,7 +29,7 @@ class ConstraintParser:
         except ValueError:
             return False
 
-    def __what__(self, c):
+    def _what(self, c):
 
         if c.isalpha():
             group = 'alpha'
@@ -44,14 +44,14 @@ class ConstraintParser:
 
         return group
 
-    def __limits__(self):
+    def _limits(self):
 
         previous = ''
         lim = []
 
         for i, c in enumerate(self.expr):
 
-            current = self.__what__(c)
+            current = self._what(c)
             if current != previous:
                 lim += [i]
                 previous = copy.copy(current)
@@ -60,7 +60,7 @@ class ConstraintParser:
 
         self.lim = lim
 
-    def __classify__(self):
+    def _classify(self):
 
         operators = []
         variables = []
@@ -73,11 +73,11 @@ class ConstraintParser:
                 variables += [c]
             elif self.isnumber(c):
                 numbers += [c]
-            elif self.__what__(c) == 'operator':
+            elif self._what(c) == 'operator':
                 operators += [c]
-            elif self.__what__(c) == 'container':
+            elif self._what(c) == 'container':
                 containers += [c]
-            elif self.__what__(c) == 'unknown':
+            elif self._what(c) == 'unknown':
                 continue
 
         self.numbers = numbers
@@ -85,7 +85,7 @@ class ConstraintParser:
         self.variables = variables
         self.containers = containers
 
-    def __idx__(self, cname, pname):
+    def _idx(self, cname, pname):
 
         ci = self.linefit.component_names.index(cname)
         pi = self.linefit.par_names.index(pname)
@@ -108,7 +108,7 @@ class ConstraintParser:
 
     def evaluate(self, component, parameter):
 
-        idx = self.__idx__(component, parameter)
+        idx = self._idx(component, parameter)
 
         lis = self.tolist()
 
@@ -131,7 +131,7 @@ class ConstraintParser:
                     return r
 
             elif (lis[0] in self.variables):
-                idx2 = self.__idx__(lis[0], parameter)
+                idx2 = self._idx(lis[0], parameter)
 
                 def func(x):
                     r = sign * (x[idx2] - x[idx])
@@ -141,7 +141,7 @@ class ConstraintParser:
 
             num = [i for i in lis if i in self.numbers][0]
             var = [i for i in lis if i in self.variables][0]
-            idx2 = self.__idx__(var, parameter)
+            idx2 = self._idx(var, parameter)
             a = float(num)
             oper = lis[1]
 
@@ -212,9 +212,9 @@ class LineFitParser:
         self.cwin = {}
 
         if args or kwargs:
-            self.__load__(*args, **kwargs)
+            self._load(*args, **kwargs)
 
-    def __load__(self, fname, **kwargs):
+    def _load(self, fname, **kwargs):
 
         self.cfg = configparser.ConfigParser()
         self.cfg.read(fname)
@@ -248,7 +248,7 @@ class LineFitParser:
         self._eqw()
         self._loading()
 
-    def __idx__(self, cname, pname):
+    def _idx(self, cname, pname):
 
         ci = self.component_names.index(cname)
         pi = self.par_names.index(pname)
@@ -425,12 +425,12 @@ class LineFitParser:
         for i, g in enumerate(components):
             if len(g) > 1:
                 for j in range(len(g[:-1])):
-                    wla = self.__idx__(g[j], 'wavelength')
+                    wla = self._idx(g[j], 'wavelength')
                     rest0 = copy.deepcopy(self.p0[wla])
-                    wlb = self.__idx__(g[j + 1], 'wavelength')
+                    wlb = self._idx(g[j + 1], 'wavelength')
                     rest1 = copy.deepcopy(self.p0[wlb])
-                    sa = self.__idx__(g[j], 'sigma')
-                    sb = self.__idx__(g[j + 1], 'sigma')
+                    sa = self._idx(g[j], 'sigma')
+                    sb = self._idx(g[j + 1], 'sigma')
                     self.constraints += [
                         spectools.Constraints.redshift(
                             wla, wlb, rest0, rest1)]

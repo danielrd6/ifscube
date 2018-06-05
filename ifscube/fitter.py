@@ -151,10 +151,13 @@ def main(fit_type):
 
     c = parser.LineFitParser(args.config)
 
-    mkl_rt = ctypes.CDLL('libmkl_rt.so')
-    mkl_rt.mkl_set_num_threads(
-        ctypes.byref(
-            ctypes.c_int(args.mklthreads)))
+    try:
+        mkl_rt = ctypes.CDLL('libmkl_rt.so')
+        mkl_rt.mkl_set_num_threads(
+            ctypes.byref(
+                ctypes.c_int(args.mklthreads)))
+    except OSError:
+        print('WARNING!: Not setting the number of threads.')
 
     for i in args.datafile:
         linefit_args = c.get_vars()

@@ -31,9 +31,9 @@ class Spectrum():
     def __init__(self, *args, **kwargs):
 
         if len(args) > 0:
-            self.__load__(*args, **kwargs)
+            self._load(*args, **kwargs)
 
-    def __accessory_data__(self, hdu, variance, flags, stellar):
+    def _accessory_data(self, hdu, variance, flags, stellar):
 
         def shmess(name):
             s = '{:s} spectrum must have the same shape of the spectrum itself'
@@ -58,9 +58,9 @@ class Spectrum():
                 elif isinstance(j, np.ndarray):
                     i[:] = j
 
-    def __load__(self, fname, scidata='SCI', variance=None,
+    def _load(self, fname, scidata='SCI', variance=None,
                  flags=None, stellar=None, primary='PRIMARY',
-                 redshift=0):
+                 redshift=None):
         self.fitsfile = fname
 
         with fits.open(fname) as hdu:
@@ -69,12 +69,7 @@ class Spectrum():
             self.header_data = hdu[scidata].header
             self.wcs = wcs.WCS(self.header_data)
 
-            self.__accessory_data__(hdu, variance, flags, stellar)
-
-        if 'redshift' in self.header:
-            self.redshift = self.header['REDSHIFT']
-        else:
-            self.redshift = redshift
+            self._accessory_data(hdu, variance, flags, stellar)
 
         self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
         self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
@@ -85,19 +80,26 @@ class Spectrum():
         except KeyError:
             pass
 
-        if self.redshift != 0:
-            self.restwl = self.__dopcor__(
-                self.redshift, self.wl, self.data)
+        # Setting the redshift.
+        # Redshift from arguments takes precedence over redshift
+        # from the image header.
+        if redshift is not None:
+            self.redshift = redshift
+        elif 'redshift' in self.header:
+            self.redshift = self.header['REDSHIFT']
         else:
-            self.restwl = self.wl
+            self.redshift = 0
+
+        self.restwl = self.dopcor(
+            self.redshift, self.wl, self.data)
 
     @staticmethod
-    def __dopcor__(z, wl, flux):
+    def dopcor(z, wl, flux):
 
         restwl = wl / (1. + z)
         return restwl
 
-    def __fitTable__(self):
+    def _fitTable(self):
 
         cnames = self.component_names
         pnames = self.parnames
@@ -110,7 +112,7 @@ class Spectrum():
 
         return h
 
-    def __write_linefit__(self, args):
+    def _write_linefit(self, args):
 
         suffix = args['suffix']
         outimage = args['outimage']
@@ -193,7 +195,7 @@ class Spectrum():
 
         # Creates component and parameter names table.
         hdr['object'] = 'parameter names'
-        hdu = self.__fitTable__()
+        hdu = self._fitTable()
         hdu.name = 'PARNAMES'
         h.append(hdu)
 
@@ -533,7 +535,7 @@ class Spectrum():
         self.eqw(**eqw_opts)
 
         if writefits:
-            self.__write_linefit__(args=locals())
+            self._write_linefit(args=locals())
         return sol
 
     def eqw(self, sigma_factor=5, continuum_windows=None):

@@ -3,7 +3,7 @@
 # Only use spaces to indent your .yml configuration.
 # -----
 # You can specify a custom docker image from Docker Hub as your build environment.
-image: python:3.5.1
+image: python:3.5
 
 pipelines:
   default:
@@ -11,7 +11,11 @@ pipelines:
         caches:
           - pip
         script: # Modify the commands below to build your repository.
-          - apt-get update && apt-get install -y gfortran python3-tk python-tk
-          - pip install numpy
+          - apt-get update && apt-get install -y --no-install-recommends gfortran 
+          - pip install numpy vorbin ppxf
           - pip install .
-          - python ifscube/examples/example_cube_fit_gaussian.py
+          - cd ifscube/examples/
+          - specfit --overwrite -c halpha.cfg manga_onedspec.fits 
+          - cubefit --overwrite -c halpha_cube.cfg ngc3081_cube.fits
+          - python voronoi_ppxf.py
+          - cubefit --overwrite -c halpha_cube.cfg ngc3081_cube.bin.fits
