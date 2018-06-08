@@ -582,9 +582,25 @@ class Cube:
     def aperture_spectrum(self, x=None, y=None, radius=1.):
 
         if x is None:
-            x = self.spec_indices[:, 1].mean()
+            x = int(self.spec_indices[:, 1].mean())
         if y is None:
-            y = self.spec_indices[:, 0].mean()
+            y = int(self.spec_indices[:, 0].mean())
+
+        sci = cubetools.aperture_spectrum(
+            self.data, x0=x, y0=y, radius=radius, combine='sum')
+        var = cubetools.aperture_spectrum(
+            self.variance, x0=x, y0=y, radius=radius, combine='mean')
+
+        s = onedspec.Spectrum()
+        s.data = sci
+        s.variance = var
+
+        keys = ['wl', 'restwl', 'redshift']
+
+        for i in keys:
+            s.__dict__[i] = self.__dict__[i]
+
+        return s
 
     def plotspec(self, x, y, noise_smooth=30, ax=None):
         """
