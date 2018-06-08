@@ -291,6 +291,8 @@ def aperture_spectrum(arr, x0=None, y0=None, radius=3, combine='sum'):
 
     if combine == 'sum':
         s = new_arr.sum(axis=(1, 2))
+    if combine == 'mean':
+        s = new_arr.mean(axis=(1, 2))
     elif combine == 'sqrt_sum':
         s = np.sqrt((np.square(new_arr)).sum(axis=(1, 2)))
 
