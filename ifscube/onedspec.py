@@ -59,8 +59,8 @@ class Spectrum():
                     i[:] = j
 
     def _load(self, fname, scidata='SCI', variance=None,
-                 flags=None, stellar=None, primary='PRIMARY',
-                 redshift=None):
+              flags=None, stellar=None, primary='PRIMARY',
+              redshift=None):
         self.fitsfile = fname
 
         with fits.open(fname) as hdu:
@@ -249,7 +249,7 @@ class Spectrum():
                 wl[wl > up_lam][0]]
             idx = [np.where(wl == i)[0][0] for i in wl_lims]
 
-            ws = slice(idx[0],idx[1])
+            ws = slice(idx[0], idx[1])
 
             new_p0[i] = np.max(data[ws])
             new_p0[i + 1] = np.average(wl[ws], weights=data[ws])
@@ -261,7 +261,7 @@ class Spectrum():
         if guess_parameters:
             return mask, new_p0
         else:
-            return mask 
+            return mask
 
     def linefit(self, p0, function='gaussian', fitting_window=None,
                 writefits=False, outimage=None, variance=None,
