@@ -305,8 +305,8 @@ class LineFitParser:
                 try:
                     fit_opts[key] = self.cfg.getboolean('fit', key)
                     assert fit_opts[key] is not True,\
-                        '*individual_spec* must be "peak", "no" or a pair of'\
-                        ' spaxel coordinates "x, y".'
+                        '*individual_spec* must be "peak", "cofm", "no" or a'\
+                        'pair of spaxel coordinates "x, y".'
                 except ValueError:
                     fit_opts[key] = tuple(
                         [int(i) for i in fit_opts[key].split(',')])
