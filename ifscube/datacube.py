@@ -35,7 +35,7 @@ class Cube:
             self._load(*args, **kwargs)
 
     def _accessory_data(self, hdu, variance, flags, stellar,
-                           weights, spatial_mask):
+                        weights, spatial_mask):
 
         def shmess(name):
             s = '{:s} spectrum must have the same shape of the spectrum itself'
@@ -65,9 +65,9 @@ class Cube:
                     i[:] = j
 
     def _load(self, fname, scidata='SCI', primary='PRIMARY',
-                 variance=None, flags=None, stellar=None, weights=None,
-                 redshift=None, vortab=None, nan_spaxels='all',
-                 spatial_mask=None, spectral_dimension=3):
+              variance=None, flags=None, stellar=None, weights=None,
+              redshift=None, vortab=None, nan_spaxels='all',
+              spatial_mask=None, spectral_dimension=3):
         """
         and loads basic information onto the
         object.
@@ -815,11 +815,15 @@ class Cube:
         if individual_spec:
             if individual_spec == 'peak':
                 xy = [cubetools.peak_spaxel(self.data[fw_mask])[::-1]]
-                if verbose:
-                    print(
-                        'Individual spaxel: {:d}, {:d}\n'.format(*xy[0][::-1]))
+            if individual_spec == 'cofm':
+                xy = [[
+                    int(np.round(i, 0)) for i in
+                    center_of_mass(self.data[fw_mask].sum(axis=0))]]
             else:
                 xy = [individual_spec[::-1]]
+            if verbose:
+                print(
+                    'Individual spaxel: {:d}, {:d}\n'.format(*xy[0][::-1]))
         elif spiral_loop:
             if spiral_center == 'peak':
                 spiral_center = cubetools.peak_spaxel(self.data[fw_mask])
