@@ -838,25 +838,27 @@ class Cube:
         if individual_spec:
             if individual_spec == 'peak':
                 xy = [cubetools.peak_spaxel(self.data[fw_mask])[::-1]]
-                if verbose:
-                    print(
-                        'Individual spaxel: {:d}, {:d}\n'.format(*xy[0][::-1]))
+            elif individual_spec == 'cofm':
+                xy = [[
+                    int(np.round(i, 0)) for i in
+                    center_of_mass(self.data[fw_mask].sum(axis=0))]]
             else:
                 xy = [individual_spec[::-1]]
+            if verbose:
+                print(
+                    'Individual spaxel: {:d}, {:d}\n'.format(*xy[0][::-1]))
         elif spiral_loop:
             if spiral_center == 'peak':
                 spiral_center = cubetools.peak_spaxel(self.data[fw_mask])
-                if verbose:
-                    print(spiral_center)
-            if spiral_center == 'cofm':
+            elif spiral_center == 'cofm':
                 spiral_center = [
                     int(np.round(i, 0)) for i in
                     center_of_mass(self.data[fw_mask].sum(axis=0))]
-                if verbose:
-                    print(spiral_center)
+            if verbose:
+                print(spiral_center)
             xy = self._spiral(xy, spiral_center=spiral_center)
 
-        self.fit_x0, self.fit_y0 = xy[0]
+        self.fit_y0, self.fit_x0 = xy[0]
 
         if verbose:
             iterador = progressbar.ProgressBar()(xy)
@@ -1173,6 +1175,7 @@ class Cube:
         s = self.fitspec[:, y, x]
         star = self.fitstellar[:, y, x]
 
+        assert np.any(s), 'Spectrum is null.'
         median_spec = np.median(s)
 
         if median_spec > 0:

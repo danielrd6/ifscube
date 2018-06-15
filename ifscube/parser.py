@@ -305,8 +305,8 @@ class LineFitParser:
                 try:
                     fit_opts[key] = self.cfg.getboolean('fit', key)
                     assert fit_opts[key] is not True,\
-                        '*individual_spec* must be "peak", "no" or a pair of'\
-                        ' spaxel coordinates "x, y".'
+                        '*individual_spec* must be "peak", "cofm", "no" or a'\
+                        'pair of spaxel coordinates "x, y".'
                 except ValueError:
                     fit_opts[key] = tuple(
                         [int(i) for i in fit_opts[key].split(',')])
@@ -321,7 +321,7 @@ class LineFitParser:
 
         boolean_args = [
             'writefits', 'refit', 'update_bounds', 'spiral_loop', 'verbose',
-            'fit_continuum', 'optimize_fit']
+            'fit_continuum', 'optimize_fit', 'guess_parameters']
         for i in boolean_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getboolean('fit', i)

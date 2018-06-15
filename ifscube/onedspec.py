@@ -59,8 +59,8 @@ class Spectrum():
                     i[:] = j
 
     def _load(self, fname, scidata='SCI', variance=None,
-                 flags=None, stellar=None, primary='PRIMARY',
-                 redshift=None):
+              flags=None, stellar=None, primary='PRIMARY',
+              redshift=None):
         self.fitsfile = fname
 
         with fits.open(fname) as hdu:
@@ -214,12 +214,14 @@ class Spectrum():
 
         return p
 
-    def optimize_mask(self, wl, p0, width=20, catch_error=False):
+    def optimize_mask(self, data, wl, p0, width=20, catch_error=False,
+                      guess_parameters=False):
 
         npars_pc = len(self.parnames)
         npars = len(p0)
 
         mask = np.zeros_like(wl).astype(bool)
+        new_p0 = deepcopy(p0)
 
         for i in range(0, npars, npars_pc):
             lam = p0[i + 1]
@@ -247,9 +249,19 @@ class Spectrum():
                 wl[wl > up_lam][0]]
             idx = [np.where(wl == i)[0][0] for i in wl_lims]
 
-            mask[idx[0]:idx[1]] = True
+            ws = slice(idx[0], idx[1])
 
-        return mask
+            new_p0[i] = np.max(data[ws])
+            new_p0[i + 1] = np.average(wl[ws], weights=data[ws])
+            new_p0[i + 2] = np.average(
+                abs(wl[ws] - wl[ws].mean()), weights=data[ws])
+
+            mask[ws] = True
+
+        if guess_parameters:
+            return mask, new_p0
+        else:
+            return mask
 
     def linefit(self, p0, function='gaussian', fitting_window=None,
                 writefits=False, outimage=None, variance=None,
@@ -258,7 +270,7 @@ class Spectrum():
                 weights=None, verbose=False, fit_continuum=False,
                 component_names=None, overwrite=False, eqw_opts={},
                 trivial=False, suffix=None, optimize_fit=False,
-                optimization_window=10):
+                optimization_window=10, guess_parameters=False):
         """
         Fits a spectral features.
 
@@ -483,7 +495,10 @@ class Spectrum():
         # Optimization mask
         #
         if optimize_fit:
-            opt_mask = self.optimize_mask(wl, p0, width=optimization_window)
+            opt_mask, guessed_p0 = self.optimize_mask(
+                s, wl, p0, width=optimization_window, guess_parameters=True)
+            if guess_parameters:
+                p0 = guessed_p0
         else:
             opt_mask = np.ones_like(wl).astype(bool)
         #
