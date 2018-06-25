@@ -771,3 +771,12 @@ class Constraints():
         d = dict(type='eq', fun=func)
 
         return d
+
+    @staticmethod
+    def hermite_moments(ha, hb):
+
+        def func(x):
+            return x[ha] - x[hb]
+        d = dict(type='eq', fun=func)
+
+        return d
