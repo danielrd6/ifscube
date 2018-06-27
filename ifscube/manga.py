@@ -124,7 +124,7 @@ class cube(datacube.Cube):
         x = np.arange(self.data.shape[0])
         z = np.zeros_like(x)
 
-        self.wl = self.wcs.wcs_pix2world(z, z, x, 0)[2] * 1e+10
+        self.wl = self.wcs.wcs_pix2world(z, z, x, 0)[2]
 
         if self.redshift is not None:
             self.restwl = self.wl / (1. + self.redshift)
