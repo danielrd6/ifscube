@@ -156,10 +156,7 @@ class mclass:
         k = comp * npars + par
 
         if self.fitstatus_mask:
-            m = (
-                (self.cube.fit_status != 0) |
-                (np.any(np.isnan(self.cube.em_model), 0))
-            )
+            m = self.cube.fit_status != 0
         else:
             m = np.any(np.isnan(self.cube.em_model), 0)
 
