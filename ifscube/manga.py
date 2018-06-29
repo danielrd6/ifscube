@@ -3,6 +3,7 @@
 # THIRD PARTY
 import numpy as np
 from astropy import wcs
+from astropy import units
 from astropy.io import fits
 
 # LOCAL
@@ -77,9 +78,9 @@ class cube(datacube.Cube):
         no_data = 0x0002
         bad_pix = 0x0004
         ccd_gap = 0x0008
-        telluric = 0x0010
+        # telluric = 0x0010
         # seg_has_badpixels = 0x0020
-        low_sn = 0x0040
+        # low_sn = 0x0040
 
         # starlight_masked = 0x0100
         starlight_failed_run = 0x0200
@@ -125,6 +126,9 @@ class cube(datacube.Cube):
         z = np.zeros_like(x)
 
         self.wl = self.wcs.wcs_pix2world(z, z, x, 0)[2]
+
+        if self.wcs.wcs.cunit[2] == units.m:
+            self.wl *= 1e+10
 
         if self.redshift is not None:
             self.restwl = self.wl / (1. + self.redshift)
