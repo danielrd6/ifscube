@@ -214,14 +214,45 @@ class Spectrum():
 
         return p
 
-    def optimize_mask(self, data, wl, p0, width=20, catch_error=False,
-                      guess_parameters=False):
+    def feature_slice(self, wl, lam, s):
+
+        low_lam = (lam - s)
+        up_lam = (lam + s)
+
+        try:
+            wl_lims = [
+                wl[wl < low_lam][-1],
+                wl[wl > up_lam][0]]
+            idx = [np.where(wl == i)[0][0] for i in wl_lims]
+            ws = slice(idx[0], idx[1])
+
+        except IndexError:
+            ws = None
+
+        return ws
+
+    def guess_parameters(self, data, wl, p0, npars_pc):
+
+        new_p0 = deepcopy(p0)
+
+        for i in range(0, p0.size, npars_pc):
+
+            ws = self.feature_slice(wl, p0[i + 1], p0[i + 2] * 3)
+
+            if ws is not None:
+                new_p0[i] = np.max(data[ws])
+                new_p0[i + 1] = np.average(wl[ws], weights=data[ws])
+                new_p0[i + 2] = np.average(
+                    abs(wl[ws] - wl[ws].mean()), weights=data[ws])
+
+        return new_p0
+
+    def optimize_mask(self, data, wl, p0, width=20, catch_error=False):
 
         npars_pc = len(self.parnames)
         npars = len(p0)
 
         mask = np.zeros_like(wl).astype(bool)
-        new_p0 = deepcopy(p0)
 
         for i in range(0, npars, npars_pc):
             lam = p0[i + 1]
@@ -251,17 +282,9 @@ class Spectrum():
 
             ws = slice(idx[0], idx[1])
 
-            new_p0[i] = np.max(data[ws])
-            new_p0[i + 1] = np.average(wl[ws], weights=data[ws])
-            new_p0[i + 2] = np.average(
-                abs(wl[ws] - wl[ws].mean()), weights=data[ws])
-
             mask[ws] = True
 
-        if guess_parameters:
-            return mask, new_p0
-        else:
-            return mask
+        return mask
 
     def linefit(self, p0, function='gaussian', fitting_window=None,
                 writefits=False, outimage=None, variance=None,
@@ -495,12 +518,13 @@ class Spectrum():
         # Optimization mask
         #
         if optimize_fit:
-            opt_mask, guessed_p0 = self.optimize_mask(
-                s, wl, p0, width=optimization_window, guess_parameters=True)
-            if guess_parameters:
-                p0 = guessed_p0
+            opt_mask = self.optimize_mask(
+                s, wl, p0, width=optimization_window)
         else:
             opt_mask = np.ones_like(wl).astype(bool)
+
+        if guess_parameters:
+            p0 = self.guess_parameters(s, wl, p0, npars_pc)
         #
         # Here the actual fit begins
         #
@@ -526,6 +550,10 @@ class Spectrum():
             r = minimize(res, x0=trivial_p0, method=min_method,
                          bounds=sbounds, constraints=constraints,
                          options=minopts)
+
+        for i in range(0, r.x.size, npars_pc):
+            if (r.x[i + 1] > wl.max()) or (r.x[i + 1] < wl.min()):
+                r.x[i:i + npars_pc] = np.nan
 
         self.r = r
 
@@ -597,12 +625,12 @@ class Spectrum():
             sf = sigma_factor
 
             nandata_flag = np.any(np.isnan(self.em_model[par_indexes]))
-            nullcwl_flag = cwl == 0
+            nullcwl_flag = (cwl == 0) or (cwl == np.nan)
 
             if nandata_flag or nullcwl_flag:
 
-                eqw_model = np.nan
-                eqw_direct = np.nan
+                eqw_model[component_index] = np.nan
+                eqw_direct[component_index] = np.nan
 
             else:
 
