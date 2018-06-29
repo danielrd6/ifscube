@@ -572,7 +572,7 @@ class Spectrum():
                          options=minopts)
 
         for i in range(0, r.x.size, npars_pc):
-            if (r.x[i + 1] > wl.max()) or (r.x[i + 1] < wl.min()):
+            if np.any(r.jac[i:i + npars_pc] == 0):
                 r.x[i:i + npars_pc] = np.nan
 
         self.r = r
