@@ -201,6 +201,22 @@ class Spectrum():
 
         h.writeto(outimage, overwrite=args['overwrite'])
 
+    def _within_bounds(self, x, bounds):
+
+        low, high = bounds
+
+        if (low is not None) and (high is not None):
+            return (x > low) & (x < high)
+
+        elif (low is not None) and (high is None):
+            return (x > low)
+
+        elif (low is None) and (high is not None):
+            return (x < high)
+
+        else:
+            return True
+
     def guess_parser(self, p):
 
         npars = len(self.parnames)
@@ -231,7 +247,7 @@ class Spectrum():
 
         return ws
 
-    def guess_parameters(self, data, wl, p0, npars_pc):
+    def guess_parameters(self, data, wl, p0, npars_pc, bounds):
 
         new_p0 = deepcopy(p0)
 
@@ -244,6 +260,10 @@ class Spectrum():
                 new_p0[i + 1] = np.average(wl[ws], weights=data[ws])
                 new_p0[i + 2] = np.average(
                     abs(wl[ws] - wl[ws].mean()), weights=data[ws])
+
+            for j in range(i, i + 3):
+                if not self._within_bounds(new_p0[j], bounds[j]):
+                    new_p0[j] = deepcopy(p0[j])
 
         return new_p0
 
@@ -524,7 +544,7 @@ class Spectrum():
             opt_mask = np.ones_like(wl).astype(bool)
 
         if guess_parameters:
-            p0 = self.guess_parameters(s, wl, p0, npars_pc)
+            p0 = self.guess_parameters(s, wl, p0, npars_pc, sbounds)
         #
         # Here the actual fit begins
         #
