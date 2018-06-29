@@ -201,7 +201,7 @@ class Spectrum():
 
         h.writeto(outimage, overwrite=args['overwrite'])
 
-    def guessParser(self, p):
+    def guess_parser(self, p):
 
         npars = len(self.parnames)
         for i in p[::npars]:
@@ -421,7 +421,7 @@ class Spectrum():
         self.eqw_model = np.nan
         self.eqw_direct = np.nan
 
-        p0 = np.array(self.guessParser(p0))
+        p0 = np.array(self.guess_parser(p0))
         self.initial_guess = p0
         self.fitbounds = bounds
 
