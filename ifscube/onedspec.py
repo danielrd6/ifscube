@@ -562,14 +562,17 @@ class Spectrum():
         # Perform the fit a second time with the RMS as the flux
         # initial guess. This was added after a number of fits returned
         # high flux values even when no lines were present.
-        fit_rms = res(r.x)
-        trivial_p0 = [
-            fit_rms if self.parnames[i % npars_pc] == 'A' else p0[i]
-            for i in range(len(p0))]
-        if res(trivial_p0) < res(r.x):
-            r = minimize(res, x0=trivial_p0, method=min_method,
-                         bounds=sbounds, constraints=constraints,
-                         options=minopts)
+        if trivial:
+
+            fit_rms = res(r.x)
+            trivial_p0 = [
+                fit_rms if self.parnames[i % npars_pc] == 'A' else p0[i]
+                for i in range(len(p0))]
+
+            if res(trivial_p0) < res(r.x):
+                r = minimize(
+                    res, x0=trivial_p0, method=min_method, bounds=sbounds,
+                    constraints=constraints, options=minopts)
 
         for i in range(0, r.x.size, npars_pc):
             if np.any(r.jac[i:i + npars_pc] == 0):
