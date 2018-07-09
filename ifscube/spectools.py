@@ -279,11 +279,11 @@ def normspec(x, y, wl, span):
       Width of normalization window
     """
 
-#  arr = copy(column_stack([x,y]))
+    # arr = copy(column_stack([x,y]))
 
     y2 = copy.deepcopy(y)
 
-#  if closest(x,wl-span/2.) == closest(x,wl+span/2.):
+    # if closest(x,wl-span/2.) == closest(x,wl+span/2.):
     if wl - span / 2. < x[0] or wl + span / 2. > x[-1]:
         print('ERROR: Normalization wavelength outside data limits.')
         return
