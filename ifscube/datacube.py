@@ -579,7 +579,7 @@ class Cube:
 
         return outim
 
-    def aperture_spectrum(self, x=None, y=None, radius=1.):
+    def aperture_spectrum(self, radius=1, x=None, y=None):
 
         if x is None:
             x = int(self.spec_indices[:, 1].mean())
