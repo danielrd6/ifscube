@@ -155,22 +155,17 @@ class mclass:
 
         k = comp * npars + par
 
-        if self.fitstatus_mask:
-            m = (
-                (self.cube.fit_status != 0) |
-                (np.any(np.isnan(self.cube.em_model), 0))
-            )
-        else:
-            m = np.any(np.isnan(self.cube.em_model), 0)
+        d = ma.masked_invalid(self.cube.em_model[k])
 
-        d = ma.array(copy.deepcopy(self.cube.em_model[k]), mask=m)
+        if self.fitstatus_mask:
+            d.mask |= self.cube.fit_status != 0
 
         cm = 'viridis'
         if par == 0:
             d *= 1e+17
 
         elif par == 1:
-            mwl = np.median(d[~d.mask])
+            mwl = ma.median(d)
             d = (d - mwl) / d * 2.998e+5
             cm = 'Spectral_r'
 

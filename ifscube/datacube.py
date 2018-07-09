@@ -602,7 +602,7 @@ class Cube:
 
         return s
 
-    def plotspec(self, x, y, noise_smooth=30, ax=None):
+    def plotspec(self, x, y, show_noise=True, noise_smooth=30, ax=None):
         """
         Plots the spectrum at coordinates x,y.
 
@@ -635,7 +635,7 @@ class Cube:
 
         ax.plot(self.restwl, s)
 
-        if hasattr(self, 'noise_cube'):
+        if show_noise and hasattr(self, 'noise_cube'):
 
             if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
                 n = np.average(

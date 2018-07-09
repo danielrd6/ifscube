@@ -321,7 +321,7 @@ class LineFitParser:
 
         boolean_args = [
             'writefits', 'refit', 'update_bounds', 'spiral_loop', 'verbose',
-            'fit_continuum', 'optimize_fit', 'guess_parameters']
+            'fit_continuum', 'optimize_fit', 'guess_parameters', 'trivial']
         for i in boolean_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getboolean('fit', i)
@@ -436,6 +436,12 @@ class LineFitParser:
                             wla, wlb, rest0, rest1)]
                     self.constraints += [
                         spectools.Constraints.sigma(sa, sb, wla, wlb)]
+                    for hm in ['h3', 'h4']:
+                        if hm in self.par_names:
+                            ha = self._idx(g[j], hm)
+                            hb = self._idx(g[j + 1], hm)
+                            self.constraints += [
+                                spectools.Constraints.hermite_moments(ha, hb)]
 
         self.k_components = components
 
