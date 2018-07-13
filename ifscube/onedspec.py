@@ -577,6 +577,8 @@ class Spectrum():
         for i in range(0, r.x.size, npars_pc):
             if np.any(r.jac[i:i + npars_pc] == 0):
                 r.x[i:i + npars_pc] = np.nan
+                r.status = 94
+                r.message = 'Jacobian has terms equal to zero.'
 
         self.r = r
 
