@@ -313,7 +313,8 @@ class Spectrum():
                 weights=None, verbose=False, fit_continuum=False,
                 component_names=None, overwrite=False, eqw_opts={},
                 trivial=False, suffix=None, optimize_fit=False,
-                optimization_window=10, guess_parameters=False):
+                optimization_window=10, guess_parameters=False,
+                test_jacobian=False):
         """
         Fits a spectral features.
 
@@ -574,11 +575,12 @@ class Spectrum():
                     res, x0=trivial_p0, method=min_method, bounds=sbounds,
                     constraints=constraints, options=minopts)
 
-        for i in range(0, r.x.size, npars_pc):
-            if np.any(r.jac[i:i + npars_pc] == 0):
-                r.x[i:i + npars_pc] = np.nan
-                r.status = 94
-                r.message = 'Jacobian has terms equal to zero.'
+        if test_jacobian:
+            for i in range(0, r.x.size, npars_pc):
+                if np.any(r.jac[i:i + npars_pc] == 0):
+                    r.x[i:i + npars_pc] = np.nan
+                    r.status = 94
+                    r.message = 'Jacobian has terms equal to zero.'
 
         self.r = r
 
