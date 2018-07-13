@@ -541,6 +541,9 @@ class Spectrum():
         if optimize_fit:
             opt_mask = self.optimize_mask(
                 s, wl, p0, width=optimization_window)
+            if not np.any(opt_mask):
+                self.fit_status = 80
+                return
         else:
             opt_mask = np.ones_like(wl).astype(bool)
 
