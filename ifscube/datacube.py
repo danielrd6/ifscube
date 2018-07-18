@@ -657,8 +657,8 @@ class Cube:
                             alpha=0.2, color='green')
 
         if hasattr(self, 'flags')\
-                and ~hasattr(x, '__iter__')\
-                and ~hasattr(y, '__iter__'):
+                and not hasattr(x, '__iter__')\
+                and not hasattr(y, '__iter__'):
             sflags = self.flags[:, y, x].astype('bool')
             ax.scatter(self.restwl[sflags], s[sflags], marker='x', color='red')
 
