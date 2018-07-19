@@ -70,6 +70,11 @@ class mclass:
             for i in ['Flux', 'Velocity', 'Sigma', 'h3', 'h4'][0:n_parameters]:
                 l_par.insert('end', i)
 
+        if hasattr(cube, 'eqw_model'):
+            l_par.insert('end', 'eqw_model')
+        if hasattr(cube, 'eqw_direct'):
+            l_par.insert('end', 'eqw_direct')
+
         self.n_components = n_components
         self.n_parameters = n_parameters
 
@@ -147,33 +152,44 @@ class mclass:
 
     def getim(self):
 
+        cm = 'viridis'
         # ncomps = self.n_components
         npars = self.n_parameters
 
         par = self.l_par.curselection()[0]
         comp = self.l_component.curselection()[0]
+        par_name = self.l_par.get(par)
+        comp_name = self.l_component.get(comp)
 
-        k = comp * npars + par
+        if 'eqw' not in par_name: 
+            k = comp * npars + par
 
-        d = ma.masked_invalid(self.cube.em_model[k])
+            d = ma.masked_invalid(self.cube.em_model[k])
 
-        if self.fitstatus_mask:
-            d.mask |= self.cube.fit_status != 0
+            if self.fitstatus_mask:
+                d.mask |= self.cube.fit_status != 0
 
-        cm = 'viridis'
-        if par == 0:
-            d *= 1e+17
+            if par == 0:
+                d *= 1e+17
 
-        elif par == 1:
-            mwl = ma.median(d)
-            d = (d - mwl) / d * 2.998e+5
-            cm = 'Spectral_r'
+            elif par == 1:
+                mwl = ma.median(d)
+                d = (d - mwl) / d * 2.998e+5
+                cm = 'Spectral_r'
 
-        elif par == 2:
-            wl = ma.array(self.cube.em_model[k - 1], mask=m)
-            d = d / wl * 2.998e+5
-        elif par > 2:
-            cm = 'Spectral_r'
+            elif par == 2:
+                wl = ma.masked_invalid(self.cube.em_model[k - 1])
+                d = d / wl * 2.998e+5
+            elif par > 2:
+                cm = 'Spectral_r'
+
+        else:
+            if par_name == 'eqw_model':
+                data = self.cube.eqw_model[comp]
+            elif par_name == 'eqw_direct':
+                data = self.cube.eqw_direct[comp]
+
+            d = -ma.masked_invalid(data)
 
         return d, cm
 
