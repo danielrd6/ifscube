@@ -479,8 +479,6 @@ class Spectrum():
         if weights is None:
             weights = np.ones_like(data)
 
-        sol = np.zeros((npars + 1,))
-
         #
         # Pseudo continuum fitting.
         #
@@ -609,7 +607,7 @@ class Spectrum():
 
         if writefits:
             self._write_linefit(args=locals())
-        return sol
+        return
 
     def eqw(self, sigma_factor=5, continuum_windows=None):
         """
