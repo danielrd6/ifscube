@@ -108,13 +108,13 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
             a = manga.IntegratedSpectrum(fname, **loading)
 
     linefit_args['outimage'] = outname
+    a.linefit(**linefit_args)
+
     try:
-        a.linefit(**linefit_args)
         append_config(config_file_name, outname)
     except IOError:
         if lock:
             clear_lock(lockname)
-        return
 
     if plot:
         a.plotfit()
