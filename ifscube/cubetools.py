@@ -289,6 +289,8 @@ def aperture_spectrum(arr, x0=None, y0=None, radius=3, combine='sum'):
     new_arr = ma.masked_invalid(arr)
     new_arr.mask |= (r > radius)
 
+    npix = np.sum(r < radius)
+
     if combine == 'sum':
         s = new_arr.sum(axis=(1, 2))
     if combine == 'mean':
@@ -296,7 +298,7 @@ def aperture_spectrum(arr, x0=None, y0=None, radius=3, combine='sum'):
     elif combine == 'sqrt_sum':
         s = np.sqrt((np.square(new_arr)).sum(axis=(1, 2)))
 
-    return s
+    return s, npix
 
 
 # This is only here for backwards compatibility.
