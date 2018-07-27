@@ -579,17 +579,17 @@ class Cube:
 
         return outim
 
-    def aperture_spectrum(self, radius=1, x=None, y=None):
+    def aperture_spectrum(self, radius=1, x0=None, y0=None):
 
-        if x is None:
-            x = int(self.spec_indices[:, 1].mean())
-        if y is None:
-            y = int(self.spec_indices[:, 0].mean())
+        if x0 is None:
+            x0 = int(self.spec_indices[:, 1].mean())
+        if y0 is None:
+            y0 = int(self.spec_indices[:, 0].mean())
 
-        sci = cubetools.aperture_spectrum(
-            self.data, x0=x, y0=y, radius=radius, combine='sum')
-        var = cubetools.aperture_spectrum(
-            self.variance, x0=x, y0=y, radius=radius, combine='mean')
+        sci, npix_sci = cubetools.aperture_spectrum(
+            self.data, x0=x0, y0=y0, radius=radius, combine='sum')
+        var, npix_var = cubetools.aperture_spectrum(
+            self.variance, x0=x0, y0=y0, radius=radius, combine='mean')
 
         s = onedspec.Spectrum()
         s.data = sci
@@ -600,7 +600,7 @@ class Cube:
         for i in keys:
             s.__dict__[i] = self.__dict__[i]
 
-        return s
+        return s, npix_sci
 
     def plotspec(self, x, y, show_noise=True, noise_smooth=30, ax=None):
         """
