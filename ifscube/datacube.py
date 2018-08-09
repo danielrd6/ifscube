@@ -134,6 +134,9 @@ class Cube:
             (spectral_dimension,)).wcs_pix2world(
                 np.arange(len(self.data)), 0)[0]
 
+        if self.wcs.wcs.cunit[2] == units.m:
+            self.wl *= 1e+10
+
         if redshift is not None:
             self.redshift = redshift
         elif 'redshift' in self.header:
