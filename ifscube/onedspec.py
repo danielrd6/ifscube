@@ -222,12 +222,15 @@ class Spectrum():
 
         npars = len(self.parnames)
         for i in p[::npars]:
-            if i == 'peak':
-                p[p.index(i)] = self.data[self.valid_pixels].max()
-            elif i == 'mean':
-                p[p.index(i)] = self.data[self.valid_pixels].mean()
-            elif i == 'median':
-                p[p.index(i)] = np.median(self.data[self.valid_pixels])
+            try:
+                if i == 'peak':
+                    p[p.index(i)] = self.data[self.valid_pixels].max()
+                elif i == 'mean':
+                    p[p.index(i)] = self.data[self.valid_pixels].mean()
+                elif i == 'median':
+                    p[p.index(i)] = np.median(self.data[self.valid_pixels])
+            except:
+                p[p.index(i)] = np.nan 
 
         return p
 
@@ -449,24 +452,10 @@ class Spectrum():
         else:
             self.component_names = component_names
 
+        # NOTE: These next lines, until the good fraction test, must be
+        # executed always, to avoid problems with datacube.
         valid_pixels = (self.flags == 0) & fw
         self.valid_pixels = valid_pixels
-
-        #
-        # Avoids fit if more than certain fraction of the pixels are
-        # flagged.
-        #
-        if np.sum(valid_pixels) < (good_minfraction * valid_pixels[fw].size):
-            self.fit_status = 98
-            warnings.warn(
-                message=RuntimeWarning(
-                    'Minimum fraction of good pixels not reached!\n'
-                    'User set threshold: {:.2f}\n'
-                    'Measured good fracion: {:.2f}'
-                    .format(
-                        good_minfraction,
-                        np.sum(valid_pixels) / valid_pixels[fw].size)))
-            return
 
         wl = deepcopy(self.restwl[valid_pixels])
         data = deepcopy(self.data[valid_pixels])
@@ -485,6 +474,21 @@ class Spectrum():
         self.initial_guess = p0
         self.fitbounds = bounds
 
+        #
+        # Avoids fit if more than certain fraction of the pixels are
+        # flagged.
+        #
+        if np.sum(valid_pixels) < (good_minfraction * valid_pixels[fw].size):
+            self.fit_status = 98
+            warnings.warn(
+                message=RuntimeWarning(
+                    'Minimum fraction of good pixels not reached!\n'
+                    'User set threshold: {:.2f}\n'
+                    'Measured good fracion: {:.2f}'
+                    .format(
+                        good_minfraction,
+                        np.sum(valid_pixels) / valid_pixels[fw].size)))
+            return
 
         if weights is None:
             weights = np.ones_like(data)
