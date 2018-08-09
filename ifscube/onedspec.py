@@ -1,5 +1,6 @@
 # STDLIB
 from copy import deepcopy
+import warnings
 
 # THIRD PARTY
 import numpy as np
@@ -314,7 +315,7 @@ class Spectrum():
                 component_names=None, overwrite=False, eqw_opts={},
                 trivial=False, suffix=None, optimize_fit=False,
                 optimization_window=10, guess_parameters=False,
-                test_jacobian=False):
+                test_jacobian=False, good_minfraction=.8):
         """
         Fits a spectral features.
 
@@ -449,8 +450,23 @@ class Spectrum():
             self.component_names = component_names
 
         valid_pixels = (self.flags == 0) & fw
-
         self.valid_pixels = valid_pixels
+
+        #
+        # Avoids fit if more than certain fraction of the pixels are
+        # flagged.
+        #
+        if np.sum(valid_pixels) < (good_minfraction * valid_pixels[fw].size):
+            self.fit_status = 98
+            warnings.warn(
+                message=RuntimeWarning(
+                    'Minimum fraction of good pixels not reached!\n'
+                    'User set threshold: {:.2f}\n'
+                    'Measured good fracion: {:.2f}'
+                    .format(
+                        good_minfraction,
+                        np.sum(valid_pixels) / valid_pixels[fw].size)))
+            return
 
         wl = deepcopy(self.restwl[valid_pixels])
         data = deepcopy(self.data[valid_pixels])
@@ -469,12 +485,6 @@ class Spectrum():
         self.initial_guess = p0
         self.fitbounds = bounds
 
-        #
-        # Avoids fit if more than 80% of the pixels are flagged.
-        #
-        if np.sum(~valid_pixels[fw]) > (0.8 * valid_pixels[fw].size):
-            self.fit_status = 98
-            return
 
         if weights is None:
             weights = np.ones_like(data)
