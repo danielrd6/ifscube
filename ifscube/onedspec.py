@@ -829,6 +829,12 @@ class Spectrum():
         Nothing.
         """
 
+        if self.fit_status != 0:
+            warnings.warn(
+                RuntimeWarning(
+                    'Fit was unsuccessful with exit status {:d}.'
+                    .format(self.fit_status)))
+
         if axis is None:
             fig = plt.figure(1)
             plt.clf()
