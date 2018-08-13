@@ -101,6 +101,13 @@ def match_mosaic(img, method="2dgaussian"):
     return sol, r
 
 
+def pixel_distance(x, y, x0=0, y0=0):
+
+    r = np.sqrt(np.square(x - x0) + np.square(y - y0))
+
+    return r
+
+
 def rebin(arr, xbin, ybin, combine='sum', mask=None):
 
     assert combine in ['sum', 'mean'],\
@@ -132,3 +139,46 @@ def rebin(arr, xbin, ybin, combine='sum', mask=None):
             new[i, j] = comb_fun[combine](data, i, j)
 
     return new
+
+
+def image2slit(data, x0=None, y0=None, pa=0, slit_width=1):
+
+    if not isinstance(data, ma.MaskedArray):
+        data = ma.masked_invalid(data)
+
+    y, x = [i.astype('float') for i in np.indices(data.shape)]
+
+    if x0 is None:
+        x0 = (x.max() - x.min()) / 2.
+    if y0 is None:
+        y0 = (y.max() - y.min()) / 2.
+
+    x -= x0
+    y -= y0
+
+    r = pixel_distance(x, y, x0=0, y0=0)
+
+    im_pa = np.deg2rad(pa - 90)
+
+    slit_r = np.arange(-r.max(), r.max(), 1.)
+    slit_x = slit_r * np.cos(im_pa)
+    slit_y = slit_r * np.sin(im_pa)
+
+    mask = np.zeros_like(data, dtype='bool')
+
+    slit_z = []
+    final_r = []
+
+    for sx, sy, sr in zip(slit_x, slit_y, slit_r):
+
+        cr = pixel_distance(x, y, x0=sx, y0=sy)
+        current_mask = cr <= slit_width
+
+        if np.any(current_mask & ~data.mask):
+            mask |= current_mask
+            final_r += [sr]
+            slit_z += [ma.mean(data[current_mask])]
+
+    slit_z = np.array(slit_z)
+
+    return mask, slit_x, slit_y, final_r, slit_z
