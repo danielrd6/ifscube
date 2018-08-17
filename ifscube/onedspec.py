@@ -545,7 +545,11 @@ class Spectrum():
         if not np.all(v == 1.):
             v /= scale_factor ** 2
         p0[::npars_pc] /= scale_factor
-        sbounds = scale_bounds(bounds, scale_factor, npars_pc)
+
+        if bounds is None:
+            sbounds = [[None, None] for i in range(len(p0))] 
+        else:
+            sbounds = scale_bounds(bounds, scale_factor, npars_pc)
 
         #
         # Optimization mask
