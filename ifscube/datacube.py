@@ -582,7 +582,8 @@ class Cube:
 
         return outim
 
-    def aperture_spectrum(self, radius=1, x0=None, y0=None):
+    def aperture_spectrum(self, radius=1, x0=None, y0=None,
+                          flag_threshold=0.5):
 
         if x0 is None:
             x0 = int(self.spec_indices[:, 1].mean())
@@ -592,18 +593,30 @@ class Cube:
         sci, npix_sci = cubetools.aperture_spectrum(
             self.data, x0=x0, y0=y0, radius=radius, combine='sum')
         var, npix_var = cubetools.aperture_spectrum(
-            self.variance, x0=x0, y0=y0, radius=radius, combine='mean')
+            self.variance, x0=x0, y0=y0, radius=radius, combine='sum')
+        ste, npix_ste = cubetools.aperture_spectrum(
+            self.stellar, x0=x0, y0=y0, radius=radius, combine='sum')
+        fla, npix_fla = cubetools.aperture_spectrum(
+            (self.flags.astype('bool')).astype('float64'), x0=x0, y0=y0,
+            radius=radius, combine='mean')
+
+        # NOTE: This only makes sense when the flags are only ones
+        # and zeros, that is why the flag combination has to ensure
+        # the boolean character of the flags.
+        fla = fla > flag_threshold
 
         s = onedspec.Spectrum()
         s.data = sci
         s.variance = var
+        s.stellar = ste 
+        s.flags = fla 
 
         keys = ['wl', 'restwl', 'redshift']
 
         for i in keys:
             s.__dict__[i] = self.__dict__[i]
 
-        return s, npix_sci
+        return s
 
     def plotspec(self, x, y, show_noise=True, noise_smooth=30, ax=None):
         """
