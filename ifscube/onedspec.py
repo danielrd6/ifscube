@@ -732,6 +732,34 @@ class Spectrum():
             self.eqw_model = eqw_model
             self.eqw_direct = eqw_direct
 
+    def dn4000(self):
+        """
+        Dn4000 index based on Balogh et al. 1999 (ApJ, 527, 54).
+
+        The index is defined as the ratio between continuum fluxes
+        at 3850A-3950A and 4000A-4100A.
+
+        red / blue
+
+        """
+
+        warn_message = 'Dn4000 could not be evaluated because the '\
+            'spectrum does not include wavelengths bluer than 3850.'
+
+        if self.restwl[0] > 3850:
+            warnings.warn(RuntimeWarning(warn_message))
+            dn = np.nan 
+
+        else:
+            # Mask for the blue part
+            bm = (self.restwl >= 3850) & (self.restwl <= 3950)
+            # Mask for the red part
+            rm = (self.restwl >= 4000) & (self.restwl <= 4100)
+            # Dn4000
+            dn = np.sum(self.data[rm]) / np.sum(self.data[bm])
+
+        return dn
+
     def fit_uncertainties(self, snr=10):
 
         if self.fit_func == lprof.gauss:
