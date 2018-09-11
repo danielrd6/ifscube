@@ -608,8 +608,8 @@ class Cube:
         s = onedspec.Spectrum()
         s.data = sci
         s.variance = var
-        s.stellar = ste 
-        s.flags = fla 
+        s.stellar = ste
+        s.flags = fla
 
         keys = ['wl', 'restwl', 'redshift']
 
@@ -910,7 +910,7 @@ class Cube:
 
                     if update_bounds:
                         kwargs['bounds'] = cubetools.bound_updater(
-                            p0, bound_range, bounds=original_bounds)})
+                            p0, bound_range, bounds=original_bounds)
 
             spec.linefit(p0, **kwargs)
 
