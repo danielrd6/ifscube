@@ -909,8 +909,8 @@ class Cube:
                     p0 = deepcopy(np.average(nearsol.transpose(), 0))
 
                     if update_bounds:
-                        bounds = cubetools.bound_updater(
-                            p0, bound_range, bounds=original_bounds)
+                        kwargs['bounds'] = cubetools.bound_updater(
+                            p0, bound_range, bounds=original_bounds)})
 
             spec.linefit(p0, **kwargs)
 
