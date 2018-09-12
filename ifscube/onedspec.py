@@ -471,7 +471,6 @@ class Spectrum():
         self.eqw_direct = np.nan
 
         p0 = np.array(self.guess_parser(p0))
-        self.initial_guess = p0
         self.fitbounds = bounds
 
         #
@@ -565,6 +564,7 @@ class Spectrum():
 
         if guess_parameters:
             p0 = self.guess_parameters(s, wl, p0, npars_pc, sbounds)
+        self.initial_guess = p0
         #
         # Here the actual fit begins
         #
@@ -585,14 +585,12 @@ class Spectrum():
         if trivial:
 
             fit_rms = res(r.x)
-            trivial_p0 = [
-                fit_rms if self.parnames[i % npars_pc] == 'A' else p0[i]
-                for i in range(len(p0))]
 
-            if res(trivial_p0) < res(r.x):
-                r = minimize(
-                    res, x0=trivial_p0, method=min_method, bounds=sbounds,
-                    constraints=constraints, options=minopts)
+            for i in range(0, len(r.x), npars_pc):
+                trivial_p = deepcopy(r.x) 
+                trivial_p[i] = 0
+                if res(r.x) > res(trivial_p):
+                    r.x[i:i + npars_pc] = np.nan
 
         if test_jacobian:
             for i in range(0, r.x.size, npars_pc):
