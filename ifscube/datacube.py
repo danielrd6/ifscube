@@ -258,6 +258,11 @@ class Cube:
         hdu = fits.ImageHDU(data=self.em_model, header=hdr)
         hdu.name = 'SOLUTION'
         h.append(hdu)
+        
+        # Creates the initial guess extension.
+        hdu = fits.ImageHDU(data=self.initial_guess, header=hdr)
+        hdu.name = 'INIGUESS'
+        h.append(hdu)
 
         # Equivalent width extensions
         hdr['object'] = 'eqw_model'
