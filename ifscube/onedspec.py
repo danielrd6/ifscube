@@ -467,6 +467,7 @@ class Spectrum():
         self.fitwl = self.restwl[fw]
         self.fitstellar = self.stellar[fw]
         self.r = None
+        self.initial_guess = p0
         self.eqw_model = np.nan
         self.eqw_direct = np.nan
 
@@ -583,21 +584,21 @@ class Spectrum():
         # initial guess. This was added after a number of fits returned
         # high flux values even when no lines were present.
         if trivial:
-
             fit_rms = res(r.x)
-
-            for i in range(0, len(r.x), npars_pc):
+            new_p = deepcopy(r.x) 
+            for i in range(0, r.x.size, npars_pc):
                 trivial_p = deepcopy(r.x) 
                 trivial_p[i] = 0
-                if res(r.x) > res(trivial_p):
-                    r.x[i:i + npars_pc] = np.nan
+                if fit_rms > res(trivial_p):
+                    new_p[i:i + npars_pc] = np.nan
+            r.x = new_p
 
         if test_jacobian:
             for i in range(0, r.x.size, npars_pc):
                 if np.any(r.jac[i:i + npars_pc] == 0):
                     r.x[i:i + npars_pc] = np.nan
-                    r.status = 94
-                    r.message = 'Jacobian has terms equal to zero.'
+                    # r.status = 94
+                    # r.message = 'Jacobian has terms equal to zero.'
 
         self.r = r
 
