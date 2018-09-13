@@ -58,34 +58,42 @@ subroutine gaussvel(x, rest_wl, p, y, n, np)
     real, parameter :: pi=3.1415927, c=299792.458
     integer :: n, np, j, i
     real, dimension(0:np-1), intent(in) :: p
-    real, dimension(0:(np-1) / 3), intent(in) :: rest_wl 
+    real, dimension(0:(np-1) / 3), intent(in) :: rest_wl
     real, dimension(0:n-1), intent(in) :: x
     real, dimension(0:n-1), intent(out) :: y
-    real, dimension(0:n-1) :: vel, fvel, lam_ratio 
+    real, dimension(0:n-1) :: w, vel, fvel, lam_ratio
 
     vel(:) = 0.0
     y(:) = 0.0
 
     j = 0
     do i=0, (np-1), 3
-        lam_ratio = (x / rest_wl(j)) ** 2.0
+        lam_ratio = (x / rest_wl(j)) ** 2
         vel = c * (1.0 - lam_ratio) / (1.0 + lam_ratio)
-        fvel = p(i)*exp(-(vel-p(i+1))**2.0/2.0/p(i+2)**2.0)
+
+        a = p(i)
+        v0 = p(i+1)
+        s = p(i+2)
+
+        w = (vel - v0) / s
+        fvel = a * exp(-w**2 / 2.0)
+
         y = y + fvel 
         j = j + 1
+
     enddo
     
 end
 
 subroutine gausshermitevel(x, rest_wl, p, y, n, np)
 
-    real, parameter :: pi=3.1415927, sq2=sqrt(2.0), sq6=sqrt(6.0)
+    real, parameter :: pi=3.1415927, c=299792.458, sq2=sqrt(2.0), sq6=sqrt(6.0)
     real, parameter :: sq24=sqrt(24.0), sq2pi=sqrt(2.0*pi)
     integer :: n, np, i, j
-    real, dimension(0:(np-1) / 3), intent(in) :: rest_wl 
+    real, dimension(0:(np-1) / 5), intent(in) :: rest_wl
     real, dimension(0:np-1), intent(in) :: p
     real, dimension(0:n-1), intent(in) :: x
-    real, dimension(0:n-1) :: w, hh3, hh4, alphag, vel, fvel, lam_ratio 
+    real, dimension(0:n-1) :: w, hh3, hh4, alphag, vel, fvel, lam_ratio
     real, dimension(0:n-1), intent(out) :: y
     real :: h3, h4
     real :: a, l0, s
@@ -108,13 +116,13 @@ subroutine gausshermitevel(x, rest_wl, p, y, n, np)
 
         w = (vel - v0)/s
 
-        alphag = exp(-w**2 / 2.0) / sq2pi
+        alphag = exp(-w**2 / 2.0)
         hh3 = (2.0 * sq2 * w**3 - 3.0 * sq2*w) / sq6
         hh4 = (4.0 * w**4 - 12.0 * w**2 + 3.0) / sq24
 
-        fvel = a * alphag / s * (1.0 + h3*hh3 + h4*hh4)
+        fvel = a * alphag * (1.0 + h3*hh3 + h4*hh4)
 
-        y = y + gh
+        y = y + fvel
         j = j + 1
 
     enddo
