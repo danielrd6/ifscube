@@ -310,15 +310,15 @@ class Spectrum():
 
         return mask
 
-    def linefit(self, p0, function='gaussian', fitting_window=None,
-                writefits=False, outimage=None, variance=None,
-                constraints=(), bounds=None, inst_disp=1.0,
-                min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
-                weights=None, verbose=False, fit_continuum=False,
-                component_names=None, overwrite=False, eqw_opts={},
-                trivial=False, suffix=None, optimize_fit=False,
-                optimization_window=10, guess_parameters=False,
-                test_jacobian=False, good_minfraction=.8):
+    def linefit(self, p0, feature_wl=None, function='gaussian',
+            fitting_window=None, writefits=False, outimage=None,
+            variance=None, constraints=(), bounds=None, inst_disp=1.0,
+            min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
+            weights=None, verbose=False, fit_continuum=False,
+            component_names=None, overwrite=False, eqw_opts={},
+            trivial=False, suffix=None, optimize_fit=False,
+            optimization_window=10, guess_parameters=False,
+            test_jacobian=False, good_minfraction=.8):
         """
         Fits a spectral features.
 
@@ -413,8 +413,10 @@ class Spectrum():
         """
 
         if function == 'gaussian':
-            fit_func = lprof.gauss
-            self.fit_func = lprof.gauss
+            if feature_wl is not None:
+                fit_func = lprof.gaussvel
+            else:
+                fit_func = lprof.gauss
             npars_pc = 3
             self.parnames = ('A', 'wl', 's')
         elif function == 'gauss_hermite':
