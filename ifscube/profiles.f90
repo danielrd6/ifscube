@@ -15,30 +15,6 @@ subroutine gauss(x, p, y, n, np)
 end
 
 
-subroutine gaussvel(x, rest_wl, p, y, n, np)
-
-    real, parameter :: pi=3.1415927, c=299792.458
-    integer :: n, np, j, i
-    real, dimension(0:np-1), intent(in) :: p
-    real, dimension(0:(np-1) / 3), intent(in) :: rest_wl 
-    real, dimension(0:n-1), intent(in) :: x
-    real, dimension(0:n-1), intent(out) :: y
-    real, dimension(0:n-1) :: vel, fvel, alpha
-
-    vel(:) = 0
-    y(:) = 0
-
-    j = 0
-    do i=0, (np-1), 3
-        alpha = (x / rest_wl(j)) ** 2
-        vel = c * (1 - alpha) / (1 + alpha)
-        fvel = p(i)*exp(-(vel-p(i+1))**2/2./p(i+2)**2)
-        y = y + fvel 
-        j = j + 1
-    enddo
-    
-end
-
 
 subroutine gausshermite(x, p, y, n, np)
 
@@ -72,6 +48,74 @@ subroutine gausshermite(x, p, y, n, np)
         gh = a*alphag/s*(1.0 + h3*hh3 + h4*hh4)
 
         y = y + gh
+
+    enddo
+    
+end
+
+subroutine gaussvel(x, rest_wl, p, y, n, np)
+
+    real, parameter :: pi=3.1415927, c=299792.458
+    integer :: n, np, j, i
+    real, dimension(0:np-1), intent(in) :: p
+    real, dimension(0:(np-1) / 3), intent(in) :: rest_wl 
+    real, dimension(0:n-1), intent(in) :: x
+    real, dimension(0:n-1), intent(out) :: y
+    real, dimension(0:n-1) :: vel, fvel, lam_ratio 
+
+    vel(:) = 0.0
+    y(:) = 0.0
+
+    j = 0
+    do i=0, (np-1), 3
+        lam_ratio = (x / rest_wl(j)) ** 2.0
+        vel = c * (1.0 - lam_ratio) / (1.0 + lam_ratio)
+        fvel = p(i)*exp(-(vel-p(i+1))**2.0/2.0/p(i+2)**2.0)
+        y = y + fvel 
+        j = j + 1
+    enddo
+    
+end
+
+subroutine gausshermitevel(x, rest_wl, p, y, n, np)
+
+    real, parameter :: pi=3.1415927, sq2=sqrt(2.0), sq6=sqrt(6.0)
+    real, parameter :: sq24=sqrt(24.0), sq2pi=sqrt(2.0*pi)
+    integer :: n, np, i, j
+    real, dimension(0:(np-1) / 3), intent(in) :: rest_wl 
+    real, dimension(0:np-1), intent(in) :: p
+    real, dimension(0:n-1), intent(in) :: x
+    real, dimension(0:n-1) :: w, hh3, hh4, alphag, vel, fvel, lam_ratio 
+    real, dimension(0:n-1), intent(out) :: y
+    real :: h3, h4
+    real :: a, l0, s
+
+    vel(:) = 0.0
+    y(:) = 0.0
+ 
+    j = 0 
+    do i=0, (np-1), 5
+        ! Always use integer exponents, as it increases performance
+        ! and has no impact on precision
+        lam_ratio = (x / rest_wl(j))**2
+        vel = c * (1.0 - lam_ratio) / (1.0 + lam_ratio)
+
+        a = p(i)
+        v0 = p(i+1)
+        s = p(i+2)
+        h3 = p(i+3)
+        h4 = p(i+4)
+
+        w = (vel - v0)/s
+
+        alphag = exp(-w**2 / 2.0) / sq2pi
+        hh3 = (2.0 * sq2 * w**3 - 3.0 * sq2*w) / sq6
+        hh4 = (4.0 * w**4 - 12.0 * w**2 + 3.0) / sq24
+
+        fvel = a * alphag / s * (1.0 + h3*hh3 + h4*hh4)
+
+        y = y + gh
+        j = j + 1
 
     enddo
     
