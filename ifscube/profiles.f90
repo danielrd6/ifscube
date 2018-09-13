@@ -14,6 +14,32 @@ subroutine gauss(x, p, y, n, np)
     
 end
 
+
+subroutine gaussvel(x, rest_wl, p, y, n, np)
+
+    real, parameter :: pi=3.1415927, c=299792.458
+    integer :: n, np, j, i
+    real, dimension(0:np-1), intent(in) :: p
+    real, dimension(0:(np-1) / 3), intent(in) :: rest_wl 
+    real, dimension(0:n-1), intent(in) :: x
+    real, dimension(0:n-1), intent(out) :: y
+    real, dimension(0:n-1) :: vel, fvel, alpha
+
+    vel(:) = 0
+    y(:) = 0
+
+    j = 0
+    do i=0, (np-1), 3
+        alpha = (x / rest_wl(j)) ** 2
+        vel = c * (1 - alpha) / (1 + alpha)
+        fvel = p(i)*exp(-(vel-p(i+1))**2/2./p(i+2)**2)
+        y = y + fvel 
+        j = j + 1
+    enddo
+    
+end
+
+
 subroutine gausshermite(x, p, y, n, np)
 
     real, parameter :: pi=3.1415927, sq2=sqrt(2.0), sq6=sqrt(6.0)
