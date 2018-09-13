@@ -230,7 +230,7 @@ class Spectrum():
                 elif i == 'median':
                     p[p.index(i)] = np.median(self.data[self.valid_pixels])
             except:
-                p[p.index(i)] = np.nan 
+                p[p.index(i)] = np.nan
 
         return p
 
@@ -311,14 +311,15 @@ class Spectrum():
         return mask
 
     def linefit(self, p0, feature_wl=None, function='gaussian',
-            fitting_window=None, writefits=False, outimage=None,
-            variance=None, constraints=(), bounds=None, inst_disp=1.0,
-            min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
-            weights=None, verbose=False, fit_continuum=False,
-            component_names=None, overwrite=False, eqw_opts={},
-            trivial=False, suffix=None, optimize_fit=False,
-            optimization_window=10, guess_parameters=False,
-            test_jacobian=False, good_minfraction=.8):
+                fitting_window=None, writefits=False, outimage=None,
+                variance=None, constraints=(), bounds=None,
+                inst_disp=1.0, min_method='SLSQP',
+                minopts={'eps': 1e-3}, copts=None, weights=None,
+                verbose=False, fit_continuum=False,
+                component_names=None, overwrite=False, eqw_opts={},
+                trivial=False, suffix=None, optimize_fit=False,
+                optimization_window=10, guess_parameters=False,
+                test_jacobian=False, good_minfraction=.8):
         """
         Fits a spectral features.
 
@@ -421,11 +422,12 @@ class Spectrum():
             self.parnames = ('A', 'wl', 's')
         elif function == 'gauss_hermite':
             fit_func = lprof.gausshermite
-            self.fit_func = lprof.gausshermite
             npars_pc = 5
             self.parnames = ('A', 'wl', 's', 'h3', 'h4')
         else:
             raise NameError('Unknown function "{:s}".'.format(function))
+
+        self.fit_func = fit_func
         self.npars = npars_pc
 
         # Sets a pre-made nan vector for nan solutions.
@@ -549,7 +551,7 @@ class Spectrum():
         p0[::npars_pc] /= scale_factor
 
         if bounds is None:
-            sbounds = [[None, None] for i in range(len(p0))] 
+            sbounds = [[None, None] for i in range(len(p0))]
         else:
             sbounds = scale_bounds(bounds, scale_factor, npars_pc)
 
@@ -587,9 +589,9 @@ class Spectrum():
         # high flux values even when no lines were present.
         if trivial:
             fit_rms = res(r.x)
-            new_p = deepcopy(r.x) 
+            new_p = deepcopy(r.x)
             for i in range(0, r.x.size, npars_pc):
-                trivial_p = deepcopy(r.x) 
+                trivial_p = deepcopy(r.x)
                 trivial_p[i] = 0
                 if fit_rms > res(trivial_p):
                     new_p[i:i + npars_pc] = np.nan
@@ -749,7 +751,7 @@ class Spectrum():
 
         if self.restwl[0] > 3850:
             warnings.warn(RuntimeWarning(warn_message))
-            dn = np.nan 
+            dn = np.nan
 
         else:
             # Mask for the blue part
