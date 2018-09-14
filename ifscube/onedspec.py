@@ -563,6 +563,7 @@ class Spectrum():
                 sigma_lam =\
                     p0[2::npars_pc] / feature_wl * constants.c.to('km/s')
             else:
+                sigma_lam = p0[2::npars_pc]
                 feature_wl = p0[1::npars_pc]
             opt_mask = self.optimize_mask(
                 s, wl, feature_wl, sigma_lam, width=optimization_window)
