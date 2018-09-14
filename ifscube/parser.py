@@ -322,7 +322,7 @@ class LineFitParser:
         boolean_args = [
             'writefits', 'refit', 'update_bounds', 'spiral_loop', 'verbose',
             'fit_continuum', 'optimize_fit', 'guess_parameters', 'trivial',
-            'test_jacobian']
+            'test_jacobian', 'as_velocities']
         for i in boolean_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getboolean('fit', i)
