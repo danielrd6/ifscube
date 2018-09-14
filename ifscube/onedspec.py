@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
 from scipy.integrate import trapz
-from astropy import wcs, table
+from astropy import wcs, table, constants
 from astropy.io import fits
 
 # LOCAL
@@ -271,16 +271,12 @@ class Spectrum():
 
         return new_p0
 
-    def optimize_mask(self, data, wl, p0, width=20, catch_error=False):
-
-        npars_pc = len(self.parnames)
-        npars = len(p0)
+    def optimize_mask(self, data, wl, feature_wl, sigma, width=20,
+                      catch_error=False):
 
         mask = np.zeros_like(wl).astype(bool)
 
-        for i in range(0, npars, npars_pc):
-            lam = p0[i + 1]
-            s = p0[i + 2]
+        for lam, s in zip(feature_wl, sigma):
 
             low_lam = (lam - width * s)
             up_lam = (lam + width * s)
@@ -319,7 +315,8 @@ class Spectrum():
                 component_names=None, overwrite=False, eqw_opts={},
                 trivial=False, suffix=None, optimize_fit=False,
                 optimization_window=10, guess_parameters=False,
-                test_jacobian=False, good_minfraction=.8):
+                test_jacobian=False, good_minfraction=.8,
+                as_velocities=False):
         """
         Fits a spectral features.
 
@@ -414,14 +411,17 @@ class Spectrum():
         """
 
         if function == 'gaussian':
-            if feature_wl is not None:
+            if as_velocities:
                 fit_func = lprof.gaussvel
             else:
                 fit_func = lprof.gauss
             npars_pc = 3
             self.parnames = ('A', 'wl', 's')
         elif function == 'gauss_hermite':
-            fit_func = lprof.gausshermite
+            if as_velocities:
+                fit_func = lprof.gausshermitevel
+            else:
+                fit_func = lprof.gausshermite
             npars_pc = 5
             self.parnames = ('A', 'wl', 's', 'h3', 'h4')
         else:
@@ -559,8 +559,13 @@ class Spectrum():
         # Optimization mask
         #
         if optimize_fit:
+            if as_velocities:
+                sigma_lam =\
+                    p0[2::npars_pc] / feature_wl * constants.c.to('km/s')
+            else:
+                feature_wl = p0[1::npars_pc]
             opt_mask = self.optimize_mask(
-                s, wl, p0, width=optimization_window)
+                s, wl, feature_wl, sigma_lam, width=optimization_window)
             if not np.any(opt_mask):
                 self.fit_status = 80
                 return
