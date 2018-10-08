@@ -315,8 +315,7 @@ class Spectrum():
                 component_names=None, overwrite=False, eqw_opts={},
                 trivial=False, suffix=None, optimize_fit=False,
                 optimization_window=10, guess_parameters=False,
-                test_jacobian=False, good_minfraction=.8,
-                as_velocities=False):
+                test_jacobian=False, good_minfraction=.8):
         """
         Fits a spectral features.
 
@@ -411,21 +410,15 @@ class Spectrum():
         """
 
         if function == 'gaussian':
-            if as_velocities:
-                fit_func = lprof.gaussvel
-            else:
-                fit_func = lprof.gauss
-            npars_pc = 3
-            self.parnames = ('A', 'wl', 's')
+            fit_func = lprof.gaussvel
+            self.parnames = ('A', 'v', 's')
         elif function == 'gauss_hermite':
-            if as_velocities:
-                fit_func = lprof.gausshermitevel
-            else:
-                fit_func = lprof.gausshermite
-            npars_pc = 5
-            self.parnames = ('A', 'wl', 's', 'h3', 'h4')
+            fit_func = lprof.gausshermitevel
+            self.parnames = ('A', 'v', 's', 'h3', 'h4')
         else:
             raise NameError('Unknown function "{:s}".'.format(function))
+
+        npars_pc = len(self.parnames) 
 
         self.fit_func = fit_func
         self.npars = npars_pc
@@ -444,10 +437,10 @@ class Spectrum():
                 'Fitting window outside the available wavelength range.')
         zero_spec = np.zeros_like(self.restwl[fw])
 
-        assert self.restwl[fw].min() < np.min(p0[1::npars_pc]),\
+        assert self.restwl[fw].min() < np.min(feature_wl),\
             'Attempting to fit a spectral feature below the fitting window.'
 
-        assert self.restwl[fw].max() > np.max(p0[1::npars_pc]),\
+        assert self.restwl[fw].max() > np.max(feature_wl),\
             'Attempting to fit a spectral feature above the fitting window.'
 
         if component_names is None:
@@ -559,12 +552,11 @@ class Spectrum():
         # Optimization mask
         #
         if optimize_fit:
-            if as_velocities:
-                sigma_lam =\
-                    p0[2::npars_pc] / feature_wl * constants.c.to('km/s')
-            else:
-                sigma_lam = p0[2::npars_pc]
-                feature_wl = p0[1::npars_pc]
+            sigma = np.array([
+                p0[i] if sbounds[i][1] is None else sbounds[i][1]
+                for i in range(2, len(p0), npars_pc)])
+            sigma_lam =\
+                sigma * feature_wl / constants.c.to('km/s').value
             opt_mask = self.optimize_mask(
                 s, wl, feature_wl, sigma_lam, width=optimization_window)
             if not np.any(opt_mask):
@@ -579,9 +571,8 @@ class Spectrum():
         #
         # Here the actual fit begins
         #
-
         def res(x):
-            m = fit_func(wl[opt_mask], x)
+            m = fit_func(wl[opt_mask], feature_wl, x)
             a = w[opt_mask] * (s[opt_mask] - m) ** 2
             b = a / v[opt_mask]
             rms = np.sqrt(np.sum(b))
@@ -616,7 +607,7 @@ class Spectrum():
             print(r.message, r.status)
 
         # Reduced chi squared of the fit.
-        chi2 = np.sum((s - fit_func(wl, r.x)) ** 2 / v)
+        chi2 = np.sum((s - fit_func(wl, feature_wl, r.x)) ** 2 / v)
         nu = len(s) / inst_disp - npars - len(constraints) - 1
         red_chi2 = chi2 / nu
 
@@ -627,9 +618,10 @@ class Spectrum():
         p[0:-1:npars_pc] *= scale_factor
 
         self.resultspec = self.fitstellar + self.fitcont\
-            + fit_func(self.fitwl, r['x']) * scale_factor
+            + fit_func(self.fitwl, feature_wl, r['x']) * scale_factor
 
         self.em_model = p
+        self.feature_wl = feature_wl
         self.eqw(**eqw_opts)
 
         if writefits:
@@ -694,8 +686,9 @@ class Spectrum():
 
                 cond = (fwl > low_wl) & (fwl < up_wl)
 
+                import pdb; pdb.set_trace()
                 fit = self.fit_func(
-                    fwl[cond], self.em_model[par_indexes])
+                    fwl[cond], self.feature_wl, self.em_model[par_indexes])
                 syn = self.fitstellar
                 fitcont = self.fitcont
                 data = self.fitspec
