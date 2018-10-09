@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
 from scipy.integrate import trapz
-from astropy import wcs, table, constants
+from astropy import wcs, table, constants, units
 from astropy.io import fits
 
 # LOCAL
@@ -99,6 +99,16 @@ class Spectrum():
 
         restwl = wl / (1. + z)
         return restwl
+
+    @staticmethod
+    def sigma_lambda(sigma_vel, rest_wl):
+        return sigma_vel * rest_wl / constants.c.to('km/s').value
+
+    def center_wavelength(self, idx):
+        lam = (self.em_model[idx + 1] * units.km / units.s).to(
+            units.angstrom, equivalencies=units.doppler_relativistic(
+                self.feature_wl[idx] * units.angstrom))
+        return lam.value
 
     def _fitTable(self):
 
@@ -418,7 +428,7 @@ class Spectrum():
         else:
             raise NameError('Unknown function "{:s}".'.format(function))
 
-        npars_pc = len(self.parnames) 
+        npars_pc = len(self.parnames)
 
         self.fit_func = fit_func
         self.npars = npars_pc
@@ -555,8 +565,7 @@ class Spectrum():
             sigma = np.array([
                 p0[i] if sbounds[i][1] is None else sbounds[i][1]
                 for i in range(2, len(p0), npars_pc)])
-            sigma_lam =\
-                sigma * feature_wl / constants.c.to('km/s').value
+            sigma_lam = self.sigma_lambda(sigma, feature_wl)
             opt_mask = self.optimize_mask(
                 s, wl, feature_wl, sigma_lam, width=optimization_window)
             if not np.any(opt_mask):
@@ -568,9 +577,11 @@ class Spectrum():
         if guess_parameters:
             p0 = self.guess_parameters(s, wl, p0, npars_pc, sbounds)
         self.initial_guess = p0
+
         #
         # Here the actual fit begins
         #
+
         def res(x):
             m = fit_func(wl[opt_mask], feature_wl, x)
             a = w[opt_mask] * (s[opt_mask] - m) ** 2
@@ -659,15 +670,15 @@ class Spectrum():
             component_index = self.component_names.index(component)
             par_indexes = np.arange(npars) + npars * component_index
 
-            center_index = 1 + npars * component_index
             sigma_index = 2 + npars * component_index
 
             # Wavelength vector of the line fit
             fwl = self.fitwl
             # Center wavelength coordinate of the fit
-            cwl = self.em_model[center_index]
+            cwl = self.center_wavelength(component_index)
             # Sigma of the fit
-            sig = self.em_model[sigma_index]
+            sig = self.sigma_lambda(
+                self.em_model[sigma_index], self.feature_wl[component_index])
             # Just a short alias for the sigma_factor parameter
             sf = sigma_factor
 
@@ -686,9 +697,9 @@ class Spectrum():
 
                 cond = (fwl > low_wl) & (fwl < up_wl)
 
-                import pdb; pdb.set_trace()
                 fit = self.fit_func(
-                    fwl[cond], self.feature_wl, self.em_model[par_indexes])
+                    fwl[cond], np.array([self.feature_wl[component_index]]),
+                    self.em_model[par_indexes])
                 syn = self.fitstellar
                 fitcont = self.fitcont
                 data = self.fitspec
@@ -828,13 +839,13 @@ class Spectrum():
         fit_info['function'] = func_name
 
         if func_name == 'gaussian':
-            self.fit_func = lprof.gauss
+            self.fit_func = lprof.gaussvel
             self.npars = 3
-            self.parnames = ('A', 'wl', 's')
+            self.parnames = ('A', 'v', 's')
         elif func_name == 'gauss_hermite':
-            self.fit_func = lprof.gausshermite
+            self.fit_func = lprof.gausshermitevel
             self.npars = 5
-            self.parnames = ('A', 'wl', 's', 'h3', 'h4')
+            self.parnames = ('A', 'v', 's', 'h3', 'h4')
         else:
             raise RuntimeError('Unkonwn function {:s}'.format(func_name))
 
@@ -881,6 +892,7 @@ class Spectrum():
             ax = axis
 
         p = self.em_model[:-1]
+        rest_wl = self.feature_wl
         c = self.fitcont
         wl = self.fitwl
         f = self.fit_func
@@ -890,7 +902,7 @@ class Spectrum():
         ax.plot(wl, s)
         ax.plot(wl, star)
         ax.plot(wl, c + star)
-        ax.plot(wl, c + star + f(wl, p))
+        ax.plot(wl, c + star + f(wl, rest_wl, p))
 
         npars = self.npars
         parnames = self.parnames
@@ -903,7 +915,8 @@ class Spectrum():
 
         if len(p) > npars:
             for i in np.arange(0, len(p), npars):
-                ax.plot(wl, c + star + f(wl, p[i: i + npars]), 'k--')
+                rwl = np.array([rest_wl[int(i / npars)]])
+                ax.plot(wl, c + star + f(wl, rwl, p[i: i + npars]), 'k--')
 
         pars = ((npars + 1) * '{:12s}' + '\n').format('Name', *parnames)
         for i in np.arange(0, len(p), npars):
