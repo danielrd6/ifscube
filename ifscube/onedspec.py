@@ -105,7 +105,8 @@ class Spectrum():
         return sigma_vel * rest_wl / constants.c.to('km/s').value
 
     def center_wavelength(self, idx):
-        lam = (self.em_model[idx + 1] * units.km / units.s).to(
+        j = idx * self.npars
+        lam = (self.em_model[j + 1] * units.km / units.s).to(
             units.angstrom, equivalencies=units.doppler_relativistic(
                 self.feature_wl[idx] * units.angstrom))
         return lam.value
@@ -302,12 +303,14 @@ class Spectrum():
                     'window is above the highest available wavelength.'
 
             else:
-                if (low_lam < wl[0]) or (up_lam > wl[-1]):
-                    continue
+                if (low_lam < wl[0]):
+                    low_lam = wl[0]
+                if (up_lam > wl[-1]):
+                    up_lam = wl[-1]
 
             wl_lims = [
-                wl[wl < low_lam][-1],
-                wl[wl > up_lam][0]]
+                wl[wl <= low_lam][-1],
+                wl[wl >= up_lam][0]]
             idx = [np.where(wl == i)[0][0] for i in wl_lims]
 
             ws = slice(idx[0], idx[1])
@@ -698,7 +701,8 @@ class Spectrum():
                 cond = (fwl > low_wl) & (fwl < up_wl)
 
                 fit = self.fit_func(
-                    fwl[cond], np.array([self.feature_wl[component_index]]),
+                    fwl[cond],
+                    np.array([self.feature_wl[component_index]]),
                     self.em_model[par_indexes])
                 syn = self.fitstellar
                 fitcont = self.fitcont
@@ -891,7 +895,8 @@ class Spectrum():
         else:
             ax = axis
 
-        p = self.em_model[:-1]
+        p = deepcopy(self.em_model[:-1])
+        pp = np.array([i if np.isfinite(i) else 0.0 for i in p])
         rest_wl = self.feature_wl
         c = self.fitcont
         wl = self.fitwl
@@ -902,7 +907,7 @@ class Spectrum():
         ax.plot(wl, s)
         ax.plot(wl, star)
         ax.plot(wl, c + star)
-        ax.plot(wl, c + star + f(wl, rest_wl, p))
+        ax.plot(wl, c + star + f(wl, rest_wl, pp))
 
         npars = self.npars
         parnames = self.parnames
