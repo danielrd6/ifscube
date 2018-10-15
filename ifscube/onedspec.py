@@ -819,9 +819,6 @@ class Spectrum():
         Nothing.
         """
 
-        # self.fitwl = spectools.get_wl(
-        #     fname, pix0key='crpix0', wl0key='crval0', dwlkey='cd1_1',
-        #     hdrext=1, dataext=1)
         h = fits.open(fname)
 
         self.header = h['PRIMARY'].header
@@ -838,6 +835,10 @@ class Spectrum():
 
         fitwcs = wcs.WCS(h['FITSPEC'].header)
         self.fitwl = fitwcs.wcs_pix2world(np.arange(len(self.fitspec)), 0)[0]
+
+        self.feature_wl = np.array([
+            float(i[1]) for i in h['fitconfig'].data
+            if 'rest_wavelength' in i['parameters']])
 
         fit_info = {}
         fit_info['function'] = func_name
