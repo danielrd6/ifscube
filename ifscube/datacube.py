@@ -1046,13 +1046,13 @@ class Cube:
         fit_info['function'] = func_name
 
         if func_name == 'gaussian':
-            self.fit_func = lprof.gauss
+            self.fit_func = lprof.gaussvel
             self.npars = 3
-            self.parnames = ('A', 'wl', 's')
+            self.parnames = ('A', 'vel', 's')
         elif func_name == 'gauss_hermite':
-            self.fit_func = lprof.gausshermite
+            self.fit_func = lprof.gausshermitevel
             self.npars = 5
-            self.parnames = ('A', 'wl', 's', 'h3', 'h4')
+            self.parnames = ('A', 'vel', 's', 'h3', 'h4')
         else:
             raise IOError('Unkwon function name "{:s}"'.format(func_name))
 
