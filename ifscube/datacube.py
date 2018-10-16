@@ -247,7 +247,7 @@ class Cube:
         h.append(hdu)
 
         # Creates the solution extension.
-        function = args['function']
+        function = args['kwargs']['function']
         total_pars = self.em_model.shape[0] - 1
 
         hdr['object'] = 'parameters'
@@ -1200,14 +1200,14 @@ class Cube:
         median_spec = np.median(s)
 
         if median_spec > 0:
-            norm_factor = np.int(np.log10(median_spec))
+            norm_factor = 10.0 ** np.int(np.log10(median_spec))
         else:
             return ax
 
-        ax.plot(wl, s / 10. ** norm_factor)
-        ax.plot(wl, star / 10. ** norm_factor)
-        ax.plot(wl, (star + c) / 10. ** norm_factor)
-        ax.plot(wl, (c + star + f(wl, p)) / 10. ** norm_factor)
+        ax.plot(wl, s / norm_factor)
+        ax.plot(wl, star / norm_factor)
+        ax.plot(wl, (star + c) / norm_factor)
+        ax.plot(wl, (c + star + f(wl, p)) / norm_factor)
 
         ax.set_xlabel(r'Wavelength (${\rm \AA}$)')
         ax.set_ylabel(
