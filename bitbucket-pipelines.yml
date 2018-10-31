@@ -15,8 +15,10 @@ pipelines:
           - pip install numpy vorbin ppxf
           - pip install .
           - cd ifscube/examples/
+          - python cube_fit_gaussian_cfg.py
           - specfit --overwrite -c halpha_gauss.cfg manga_onedspec.fits 
           - cubefit --overwrite -c halpha_cube.cfg ngc3081_cube.fits
+
           # Temporarily removing this next two lines due to bug in ppxf.
           # - python voronoi_ppxf.py
           # - cubefit --overwrite -c halpha_cube.cfg ngc3081_cube.bin.fits
