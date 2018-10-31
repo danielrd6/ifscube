@@ -9,7 +9,8 @@ if __name__ == '__main__':
 
     z = 0.0081
 
-    mycube = gmos.cube('ngc3081_cube.fits', redshift=z, var_ext=2)
+    mycube = gmos.cube(
+        'ngc3081_cube.fits', redshift=z, var_ext=None, ncubes_ext=None)
 
     c = parser.LineFitParser('halpha_cube.cfg')
     linefit_args = c.get_vars()
