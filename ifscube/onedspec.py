@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
 from scipy.integrate import trapz
-from astropy import wcs, table
+from astropy import wcs, table, constants, units
 from astropy.io import fits
 
 # LOCAL
@@ -99,6 +99,17 @@ class Spectrum():
 
         restwl = wl / (1. + z)
         return restwl
+
+    @staticmethod
+    def sigma_lambda(sigma_vel, rest_wl):
+        return sigma_vel * rest_wl / constants.c.to('km/s').value
+
+    def center_wavelength(self, idx):
+        j = idx * self.npars
+        lam = (self.em_model[j + 1] * units.km / units.s).to(
+            units.angstrom, equivalencies=units.doppler_relativistic(
+                self.feature_wl[idx] * units.angstrom))
+        return lam.value
 
     def _fitTable(self):
 
@@ -230,7 +241,7 @@ class Spectrum():
                 elif i == 'median':
                     p[p.index(i)] = np.median(self.data[self.valid_pixels])
             except:
-                p[p.index(i)] = np.nan 
+                p[p.index(i)] = np.nan
 
         return p
 
@@ -271,16 +282,12 @@ class Spectrum():
 
         return new_p0
 
-    def optimize_mask(self, data, wl, p0, width=20, catch_error=False):
-
-        npars_pc = len(self.parnames)
-        npars = len(p0)
+    def optimize_mask(self, data, wl, feature_wl, sigma, width=20,
+                      catch_error=False):
 
         mask = np.zeros_like(wl).astype(bool)
 
-        for i in range(0, npars, npars_pc):
-            lam = p0[i + 1]
-            s = p0[i + 2]
+        for lam, s in zip(feature_wl, sigma):
 
             low_lam = (lam - width * s)
             up_lam = (lam + width * s)
@@ -296,12 +303,14 @@ class Spectrum():
                     'window is above the highest available wavelength.'
 
             else:
-                if (low_lam < wl[0]) or (up_lam > wl[-1]):
-                    continue
+                if (low_lam < wl[0]):
+                    low_lam = wl[0]
+                if (up_lam > wl[-1]):
+                    up_lam = wl[-1]
 
             wl_lims = [
-                wl[wl < low_lam][-1],
-                wl[wl > up_lam][0]]
+                wl[wl <= low_lam][-1],
+                wl[wl >= up_lam][0]]
             idx = [np.where(wl == i)[0][0] for i in wl_lims]
 
             ws = slice(idx[0], idx[1])
@@ -310,11 +319,12 @@ class Spectrum():
 
         return mask
 
-    def linefit(self, p0, function='gaussian', fitting_window=None,
-                writefits=False, outimage=None, variance=None,
-                constraints=(), bounds=None, inst_disp=1.0,
-                min_method='SLSQP', minopts={'eps': 1e-3}, copts=None,
-                weights=None, verbose=False, fit_continuum=False,
+    def linefit(self, p0, feature_wl=None, function='gaussian',
+                fitting_window=None, writefits=False, outimage=None,
+                variance=None, constraints=(), bounds=None,
+                inst_disp=1.0, min_method='SLSQP',
+                minopts={'eps': 1e-3}, copts=None, weights=None,
+                verbose=False, fit_continuum=False,
                 component_names=None, overwrite=False, eqw_opts={},
                 trivial=False, suffix=None, optimize_fit=False,
                 optimization_window=10, guess_parameters=False,
@@ -413,17 +423,17 @@ class Spectrum():
         """
 
         if function == 'gaussian':
-            fit_func = lprof.gauss
-            self.fit_func = lprof.gauss
-            npars_pc = 3
-            self.parnames = ('A', 'wl', 's')
+            fit_func = lprof.gaussvel
+            self.parnames = ('A', 'v', 's')
         elif function == 'gauss_hermite':
-            fit_func = lprof.gausshermite
-            self.fit_func = lprof.gausshermite
-            npars_pc = 5
-            self.parnames = ('A', 'wl', 's', 'h3', 'h4')
+            fit_func = lprof.gausshermitevel
+            self.parnames = ('A', 'v', 's', 'h3', 'h4')
         else:
             raise NameError('Unknown function "{:s}".'.format(function))
+
+        npars_pc = len(self.parnames)
+
+        self.fit_func = fit_func
         self.npars = npars_pc
 
         # Sets a pre-made nan vector for nan solutions.
@@ -440,10 +450,10 @@ class Spectrum():
                 'Fitting window outside the available wavelength range.')
         zero_spec = np.zeros_like(self.restwl[fw])
 
-        assert self.restwl[fw].min() < np.min(p0[1::npars_pc]),\
+        assert self.restwl[fw].min() < np.min(feature_wl),\
             'Attempting to fit a spectral feature below the fitting window.'
 
-        assert self.restwl[fw].max() > np.max(p0[1::npars_pc]),\
+        assert self.restwl[fw].max() > np.max(feature_wl),\
             'Attempting to fit a spectral feature above the fitting window.'
 
         if component_names is None:
@@ -547,7 +557,7 @@ class Spectrum():
         p0[::npars_pc] /= scale_factor
 
         if bounds is None:
-            sbounds = [[None, None] for i in range(len(p0))] 
+            sbounds = [[None, None] for i in range(len(p0))]
         else:
             sbounds = scale_bounds(bounds, scale_factor, npars_pc)
 
@@ -555,8 +565,12 @@ class Spectrum():
         # Optimization mask
         #
         if optimize_fit:
+            sigma = np.array([
+                p0[i] if sbounds[i][1] is None else sbounds[i][1]
+                for i in range(2, len(p0), npars_pc)])
+            sigma_lam = self.sigma_lambda(sigma, feature_wl)
             opt_mask = self.optimize_mask(
-                s, wl, p0, width=optimization_window)
+                s, wl, feature_wl, sigma_lam, width=optimization_window)
             if not np.any(opt_mask):
                 self.fit_status = 80
                 return
@@ -566,12 +580,13 @@ class Spectrum():
         if guess_parameters:
             p0 = self.guess_parameters(s, wl, p0, npars_pc, sbounds)
         self.initial_guess = p0
+
         #
         # Here the actual fit begins
         #
 
         def res(x):
-            m = fit_func(wl[opt_mask], x)
+            m = fit_func(wl[opt_mask], feature_wl, x)
             a = w[opt_mask] * (s[opt_mask] - m) ** 2
             b = a / v[opt_mask]
             rms = np.sqrt(np.sum(b))
@@ -585,9 +600,9 @@ class Spectrum():
         # high flux values even when no lines were present.
         if trivial:
             fit_rms = res(r.x)
-            new_p = deepcopy(r.x) 
+            new_p = deepcopy(r.x)
             for i in range(0, r.x.size, npars_pc):
-                trivial_p = deepcopy(r.x) 
+                trivial_p = deepcopy(r.x)
                 trivial_p[i] = 0
                 if fit_rms > res(trivial_p):
                     new_p[i:i + npars_pc] = np.nan
@@ -606,7 +621,7 @@ class Spectrum():
             print(r.message, r.status)
 
         # Reduced chi squared of the fit.
-        chi2 = np.sum((s - fit_func(wl, r.x)) ** 2 / v)
+        chi2 = np.sum((s - fit_func(wl, feature_wl, r.x)) ** 2 / v)
         nu = len(s) / inst_disp - npars - len(constraints) - 1
         red_chi2 = chi2 / nu
 
@@ -617,9 +632,10 @@ class Spectrum():
         p[0:-1:npars_pc] *= scale_factor
 
         self.resultspec = self.fitstellar + self.fitcont\
-            + fit_func(self.fitwl, r['x']) * scale_factor
+            + fit_func(self.fitwl, feature_wl, r['x']) * scale_factor
 
         self.em_model = p
+        self.feature_wl = feature_wl
         self.eqw(**eqw_opts)
 
         if writefits:
@@ -657,15 +673,15 @@ class Spectrum():
             component_index = self.component_names.index(component)
             par_indexes = np.arange(npars) + npars * component_index
 
-            center_index = 1 + npars * component_index
             sigma_index = 2 + npars * component_index
 
             # Wavelength vector of the line fit
             fwl = self.fitwl
             # Center wavelength coordinate of the fit
-            cwl = self.em_model[center_index]
+            cwl = self.center_wavelength(component_index)
             # Sigma of the fit
-            sig = self.em_model[sigma_index]
+            sig = self.sigma_lambda(
+                self.em_model[sigma_index], self.feature_wl[component_index])
             # Just a short alias for the sigma_factor parameter
             sf = sigma_factor
 
@@ -685,7 +701,9 @@ class Spectrum():
                 cond = (fwl > low_wl) & (fwl < up_wl)
 
                 fit = self.fit_func(
-                    fwl[cond], self.em_model[par_indexes])
+                    fwl[cond],
+                    np.array([self.feature_wl[component_index]]),
+                    self.em_model[par_indexes])
                 syn = self.fitstellar
                 fitcont = self.fitcont
                 data = self.fitspec
@@ -747,7 +765,7 @@ class Spectrum():
 
         if self.restwl[0] > 3850:
             warnings.warn(RuntimeWarning(warn_message))
-            dn = np.nan 
+            dn = np.nan
 
         else:
             # Mask for the blue part
@@ -801,9 +819,6 @@ class Spectrum():
         Nothing.
         """
 
-        # self.fitwl = spectools.get_wl(
-        #     fname, pix0key='crpix0', wl0key='crval0', dwlkey='cd1_1',
-        #     hdrext=1, dataext=1)
         h = fits.open(fname)
 
         self.header = h['PRIMARY'].header
@@ -821,17 +836,21 @@ class Spectrum():
         fitwcs = wcs.WCS(h['FITSPEC'].header)
         self.fitwl = fitwcs.wcs_pix2world(np.arange(len(self.fitspec)), 0)[0]
 
+        self.feature_wl = np.array([
+            float(i[1]) for i in h['fitconfig'].data
+            if 'rest_wavelength' in i['parameters']])
+
         fit_info = {}
         fit_info['function'] = func_name
 
         if func_name == 'gaussian':
-            self.fit_func = lprof.gauss
+            self.fit_func = lprof.gaussvel
             self.npars = 3
-            self.parnames = ('A', 'wl', 's')
+            self.parnames = ('A', 'v', 's')
         elif func_name == 'gauss_hermite':
-            self.fit_func = lprof.gausshermite
+            self.fit_func = lprof.gausshermitevel
             self.npars = 5
-            self.parnames = ('A', 'wl', 's', 'h3', 'h4')
+            self.parnames = ('A', 'v', 's', 'h3', 'h4')
         else:
             raise RuntimeError('Unkonwn function {:s}'.format(func_name))
 
@@ -877,7 +896,9 @@ class Spectrum():
         else:
             ax = axis
 
-        p = self.em_model[:-1]
+        p = deepcopy(self.em_model[:-1])
+        pp = np.array([i if np.isfinite(i) else 0.0 for i in p])
+        rest_wl = self.feature_wl
         c = self.fitcont
         wl = self.fitwl
         f = self.fit_func
@@ -887,7 +908,7 @@ class Spectrum():
         ax.plot(wl, s)
         ax.plot(wl, star)
         ax.plot(wl, c + star)
-        ax.plot(wl, c + star + f(wl, p))
+        ax.plot(wl, c + star + f(wl, rest_wl, pp))
 
         npars = self.npars
         parnames = self.parnames
@@ -900,7 +921,8 @@ class Spectrum():
 
         if len(p) > npars:
             for i in np.arange(0, len(p), npars):
-                ax.plot(wl, c + star + f(wl, p[i: i + npars]), 'k--')
+                rwl = np.array([rest_wl[int(i / npars)]])
+                ax.plot(wl, c + star + f(wl, rwl, p[i: i + npars]), 'k--')
 
         pars = ((npars + 1) * '{:12s}' + '\n').format('Name', *parnames)
         for i in np.arange(0, len(p), npars):

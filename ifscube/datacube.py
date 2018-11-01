@@ -258,7 +258,7 @@ class Cube:
         hdu = fits.ImageHDU(data=self.em_model, header=hdr)
         hdu.name = 'SOLUTION'
         h.append(hdu)
-        
+
         # Creates the initial guess extension.
         hdu = fits.ImageHDU(data=self.initial_guess, header=hdr)
         hdu.name = 'INIGUESS'
@@ -919,6 +919,8 @@ class Cube:
 
             spec.linefit(p0, **kwargs)
 
+            self.feature_wl = kwargs['feature_wl']
+
             # If successful, sets is_first_spec to False.
             if is_first_spec and (spec.fit_status == 0):
                 is_first_spec = False
@@ -960,9 +962,9 @@ class Cube:
         self.fit_func = spec.fit_func
         self.parnames = spec.parnames
         self.component_names = spec.component_names
-        if spec.fit_func == lprof.gauss:
+        if spec.fit_func == lprof.gaussvel:
             function = 'gaussian'
-        elif spec.fit_func == lprof.gausshermite:
+        elif spec.fit_func == lprof.gausshermitevel:
             function = 'gauss_hermite'
         self.npars = len(spec.parnames)
 
@@ -1000,6 +1002,11 @@ class Cube:
         self.fitwl = spectools.get_wl(
             fname, pix0key='crpix3', wl0key='crval3', dwlkey='cd3_3',
             hdrext=1, dataext=1)
+
+        self.feature_wl = np.array([
+            float(i[1]) for i in fitfile['fitconfig'].data
+            if 'rest_wavelength' in i['parameters']])
+
         self.fitspec = fitfile['FITSPEC'].data
         self.fitcont = fitfile['FITCONT'].data
         self.resultspec = fitfile['MODEL'].data
@@ -1039,13 +1046,13 @@ class Cube:
         fit_info['function'] = func_name
 
         if func_name == 'gaussian':
-            self.fit_func = lprof.gauss
+            self.fit_func = lprof.gaussvel
             self.npars = 3
-            self.parnames = ('A', 'wl', 's')
+            self.parnames = ('A', 'vel', 's')
         elif func_name == 'gauss_hermite':
-            self.fit_func = lprof.gausshermite
+            self.fit_func = lprof.gausshermitevel
             self.npars = 5
-            self.parnames = ('A', 'wl', 's', 'h3', 'h4')
+            self.parnames = ('A', 'vel', 's', 'h3', 'h4')
         else:
             raise IOError('Unkwon function name "{:s}"'.format(func_name))
 
@@ -1189,7 +1196,9 @@ class Cube:
         if y is None:
             y = self.fit_y0
 
-        p = self.em_model[:-1, y, x]
+        p = deepcopy(self.em_model[:-1, y, x])
+        pp = np.array([i if np.isfinite(i) else 0.0 for i in p])
+        rest_wl = np.array(self.feature_wl)
         c = self.fitcont[:, y, x]
         wl = self.fitwl
         f = self.fit_func
@@ -1200,27 +1209,30 @@ class Cube:
         median_spec = np.median(s)
 
         if median_spec > 0:
-            norm_factor = np.int(np.log10(median_spec))
+            norm_factor_d = np.int(np.log10(median_spec))
+            norm_factor = 10.0 ** norm_factor_d
         else:
             return ax
 
-        ax.plot(wl, s / 10. ** norm_factor)
-        ax.plot(wl, star / 10. ** norm_factor)
-        ax.plot(wl, (star + c) / 10. ** norm_factor)
-        ax.plot(wl, (c + star + f(wl, p)) / 10. ** norm_factor)
+        ax.plot(wl, s / norm_factor)
+        ax.plot(wl, star / norm_factor)
+        ax.plot(wl, (star + c) / norm_factor)
+        ax.plot(wl, (c + star + f(wl, rest_wl, pp)) / norm_factor)
 
         ax.set_xlabel(r'Wavelength (${\rm \AA}$)')
         ax.set_ylabel(
             'Flux density ($10^{{{:d}}}\, {{\\rm erg\,s^{{-1}}\,cm^{{-2}}'
-            '\,\AA^{{-1}}}}$)'.format(norm_factor))
+            '\,\AA^{{-1}}}}$)'.format(norm_factor_d))
 
         npars = self.npars
         parnames = self.parnames
 
         if len(p) > npars:
             for i in np.arange(0, len(p), npars):
-                modeled_spec = (c + star + f(wl, p[i: i + npars]))\
-                    / 10. ** norm_factor
+                modeled_spec = (
+                    c + star
+                    + f(wl, rest_wl[int(i / npars)], pp[i: i + npars]))\
+                    / norm_factor
                 ax.plot(wl, modeled_spec, 'k--')
 
         # NOTE: This is only here for backwards compatibility with

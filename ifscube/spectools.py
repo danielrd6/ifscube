@@ -773,7 +773,7 @@ class Constraints():
         return d
 
     @staticmethod
-    def hermite_moments(ha, hb):
+    def same(ha, hb):
 
         def func(x):
             return x[ha] - x[hb]

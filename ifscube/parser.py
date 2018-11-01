@@ -220,8 +220,9 @@ class LineFitParser:
         self.cfg.read(fname)
 
         par_names = dict(
-            gaussian=('flux', 'wavelength', 'sigma'),
-            gauss_hermite=('flux', 'wavelength', 'sigma', 'h3', 'h4'),
+            gaussian=('flux',  'velocity', 'sigma',),
+            gauss_hermite=(
+                'flux', 'velocity', 'sigma', 'h3', 'h4'),
         )
 
         self.par_names = par_names[
@@ -233,6 +234,7 @@ class LineFitParser:
 
         # Each section has to be a line, except for the DEFAULT, MINOPTS,
         # and CONTINUUM sections, and equivalent_width.
+        self.feature_wl = []
         for line in self.component_names:
             self.parse_line(line)
 
@@ -241,8 +243,8 @@ class LineFitParser:
                 prop = self.cfg[line][par].split(',')
                 self._constraints(prop, line, par)
 
-        self._kinematic_constraints()
         self._fit()
+        self._kinematic_constraints()
         self._minimization()
         self._continuum()
         self._eqw()
@@ -426,29 +428,18 @@ class LineFitParser:
         for i, g in enumerate(components):
             if len(g) > 1:
                 for j in range(len(g[:-1])):
-                    wla = self._idx(g[j], 'wavelength')
-                    rest0 = copy.deepcopy(self.p0[wla])
-                    wlb = self._idx(g[j + 1], 'wavelength')
-                    rest1 = copy.deepcopy(self.p0[wlb])
-                    sa = self._idx(g[j], 'sigma')
-                    sb = self._idx(g[j + 1], 'sigma')
-                    self.constraints += [
-                        spectools.Constraints.redshift(
-                            wla, wlb, rest0, rest1)]
-                    self.constraints += [
-                        spectools.Constraints.sigma(sa, sb, wla, wlb)]
-                    for hm in ['h3', 'h4']:
-                        if hm in self.par_names:
-                            ha = self._idx(g[j], hm)
-                            hb = self._idx(g[j + 1], hm)
+                    for m in ['velocity', 'sigma', 'h3', 'h4']:
+                        if m in self.par_names:
+                            par1 = self._idx(g[j], m)
+                            par2 = self._idx(g[j + 1], m)
                             self.constraints += [
-                                spectools.Constraints.hermite_moments(ha, hb)]
-
+                                spectools.Constraints.same(par1, par2)]
         self.k_components = components
 
     def parse_line(self, line):
 
         line_pars = self.cfg[line]
+        self.feature_wl += [float(line_pars['rest_wavelength'])]
         for par in self.par_names:
             props = line_pars[par].split(',')
             if props[0] not in ['peak', 'mean', 'median']:
@@ -473,4 +464,5 @@ class LineFitParser:
             del d[i]
         d['copts'] = self.copts
         d['constraints'] = self.constraints
+        d['feature_wl'] = self.feature_wl
         return d
