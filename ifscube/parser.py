@@ -220,9 +220,9 @@ class LineFitParser:
         self.cfg.read(fname)
 
         par_names = dict(
-            gaussian=('flux',  'velocity', 'sigma',),
+            gaussian=('amplitude',  'velocity', 'sigma',),
             gauss_hermite=(
-                'flux', 'velocity', 'sigma', 'h3', 'h4'),
+                'amplitude', 'velocity', 'sigma', 'h3', 'h4'),
         )
 
         self.par_names = par_names[
