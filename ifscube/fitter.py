@@ -160,8 +160,10 @@ def main(fit_type):
         print('WARNING!: Not setting the number of threads.')
 
     for i in args.datafile:
+        c = parser.LineFitParser(args.config)
         linefit_args = c.get_vars()
         dofit(
             i, linefit_args, overwrite=args.overwrite, cubetype=args.cubetype,
             plot=args.plot, loading=c.loading_opts, lock=args.lock,
             fit_type=fit_type, config_file_name=args.config)
+        del c
