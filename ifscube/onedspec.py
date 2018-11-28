@@ -319,7 +319,7 @@ class Spectrum():
 
         return mask
 
-    def linefit(self, p0, feature_wl=None, function='gaussian',
+    def linefit(self, p0, feature_wl, function='gaussian',
                 fitting_window=None, writefits=False, outimage=None,
                 variance=None, constraints=(), bounds=None,
                 inst_disp=1.0, min_method='SLSQP',
