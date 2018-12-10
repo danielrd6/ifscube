@@ -2192,7 +2192,8 @@ class Cube:
 
             # Storing the binned data in the HDUList
             hdulist[self.extension_names['scidata']].data = b_data
-            hdulist[self.extension_names['variance']].data = b_variance
+            if self.extension_names['variance'] is not None:
+                hdulist[self.extension_names['variance']].data = b_variance
 
             # Write a FITS table with the description of the
             # tesselation process.
