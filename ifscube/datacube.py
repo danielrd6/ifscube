@@ -2165,12 +2165,12 @@ class Cube:
 
                 # The binned spectra should be the sum of the
                 # flux densities.
-                b_data[binned_idx] = np.sum(self.data[unbinned_idx], axis=1)
+                b_data[binned_idx] = np.mean(self.data[unbinned_idx], axis=1)
 
                 # The resulting variance is defined as the sum
                 # of the original variance, such that the noise
                 # is the quadratic sum of the original noise.
-                b_variance[binned_idx] = np.sum(
+                b_variance[binned_idx] = np.mean(
                     self.variance[unbinned_idx], axis=1)
 
         if writefits:
