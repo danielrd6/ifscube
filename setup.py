@@ -7,13 +7,15 @@ with open('./ifscube/.version', 'r') as verfile:
 ext1 = Extension(name='ifscube.elprofile',
                  sources=['ifscube/profiles.f90'])
 
-packdata = {}
-packdata['ifscube'] = [
-    'examples/*',
-    'examples/halpha.cfg',
-    'examples/halpha_cube.cfg',
-    'data/*',
-    'docs/*']
+packdata = {
+    'ifscube': [
+        'examples/*',
+        'examples/halpha.cfg',
+        'examples/halpha_cube.cfg',
+        'data/*',
+        'docs/*'
+    ]
+}
 
 setup(
     name='ifscube',
