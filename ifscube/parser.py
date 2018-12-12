@@ -18,7 +18,7 @@ class ConstraintParser:
 
         self._limits()
         self._classify()
-        self._getConstraintType()
+        self._get_constraint_type()
 
         self.constraint = None
 
@@ -97,7 +97,7 @@ class ConstraintParser:
 
         return idx
 
-    def _getConstraintType(self):
+    def _get_constraint_type(self):
 
         lis = self.tolist()
 
@@ -388,7 +388,7 @@ class LineFitParser:
         else:
             self.copts = {}
 
-    def _continuumWindows(self, line, line_pars):
+    def _continuum_windows(self, line, line_pars):
 
         if 'continuum_windows' in line_pars:
             self.cwin[line] = [
@@ -461,7 +461,7 @@ class LineFitParser:
             self.k_groups += [line_pars.getint('k_group')]
             self.k_component_names += [line]
 
-        self._continuumWindows(line, line_pars)
+        self._continuum_windows(line, line_pars)
 
     def get_vars(self):
 
