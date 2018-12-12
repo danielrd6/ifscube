@@ -20,6 +20,8 @@ class ConstraintParser:
         self._classify()
         self._getConstraintType()
 
+        self.constraint = None
+
     @staticmethod
     def isnumber(s):
 
@@ -123,19 +125,21 @@ class ConstraintParser:
 
         if len(lis) == 1:
 
-            if (lis[0] in self.numbers):
+            if lis[0] in self.numbers:
                 a = float(lis[0])
 
                 def func(x):
                     r = sign * (a - x[idx])
                     return r
 
-            elif (lis[0] in self.variables):
+            elif lis[0] in self.variables:
                 idx2 = self._idx(lis[0], parameter)
 
                 def func(x):
                     r = sign * (x[idx2] - x[idx])
                     return r
+            else:
+                raise Exception('Failed to interpret constraint expression.')
 
         elif len(lis) == 3:
 
@@ -176,6 +180,9 @@ class ConstraintParser:
                 r = sign * (op(x, idx2) - x[idx])
                 return r
 
+        else:
+            raise Exception('Failed to interpret constraint expression.')
+
         self.constraint = dict(type=self.type, fun=func)
 
     def tolist(self):
@@ -214,7 +221,7 @@ class LineFitParser:
         if args or kwargs:
             self._load(*args, **kwargs)
 
-    def _load(self, fname, **kwargs):
+    def _load(self, fname):
 
         self.cfg = configparser.ConfigParser()
         self.cfg.read(fname)
@@ -401,6 +408,8 @@ class LineFitParser:
                     low, up = [
                         float(i) if (i != '') else None
                         for i in props[1].split(':')]
+                else:
+                    raise Exception('Failed to parse bounds.')
                 self.bounds += [(low, up)]
             else:
                 self.bounds += [(None, None)]
