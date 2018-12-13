@@ -1779,8 +1779,8 @@ class Cube:
             galaxy = galaxy / normFactor
 
             if np.any(np.isnan(galaxy)):
-                pp = cubetools.nanSolution()
-                pp.ppxf(ppxf_sol[:, 0, 0], galaxy, galaxy)
+                pp = cubetools.NanSolution()
+                pp.ppxf(ppxf_sol[:, 0, 0], galaxy)
             else:
                 pp = ppxf.ppxf(
                     templates, galaxy, noise, velscale, start, goodpixels=gp,

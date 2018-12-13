@@ -32,18 +32,17 @@ def nan_to_nearest(d):
 
     Parameters
     ----------
-    d : numpy.ndarray or numpy.ma.core.MaskedArray
+    d: numpy.ndarray, numpy.ma.core.MaskedArray
       The array to have the nan values replaced. It d is a masked
       array, the masked values will also be replaced.
 
     Returns
     -------
-    g : same type as d
+    g: numpy.ma.core.MaskedArray
       Output array.
 
     Description
     -----------
-    ...
     """
     x, y = [np.ravel(i) for i in np.indices(d.shape)]
 
@@ -53,7 +52,7 @@ def nan_to_nearest(d):
         d = ma.array(data=d, mask=(m1 | m2))
 
     # Flatten arrays
-    dflat = np.ravel(d)
+    dflat = d.flatten()
 
     idx = np.where(dflat.mask)[0]
     g = copy.deepcopy(dflat)
@@ -67,12 +66,17 @@ def nan_to_nearest(d):
     return g.reshape(d.shape)
 
 
-class nanSolution:
+class NanSolution:
 
-    def ppxf(self, sol, galaxy, bestfit):
-        self.sol = np.array([np.nan for i in range(len(sol))])
-        self.galaxy = np.array([np.nan for i in range(len(galaxy))])
-        self.bestfit = np.array([np.nan for i in range(len(galaxy))])
+    def __init__(self):
+        self.sol = None
+        self.galaxy = None
+        self.bestfit = None
+
+    def ppxf(self, sol, galaxy):
+        self.sol = np.array([np.nan for _ in range(len(sol))])
+        self.galaxy = np.array([np.nan for _ in range(len(galaxy))])
+        self.bestfit = np.array([np.nan for _ in range(len(galaxy))])
 
 
 def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
@@ -151,7 +155,7 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
             'ERROR! Parameter filtertype "{:s}" not understood.'
             .format(filtertype))
 
-    outim = np.zeros(arr.shape[1:], dtype='float32')
+    # outim = np.zeros(arr.shape[1:], dtype='float32')
     # idx = np.column_stack([np.ravel(i) for i in np.indices(outim.shape)])
 
     outim = trapz(arr * arrfilt, wl, axis=0)
@@ -256,15 +260,13 @@ def rebin(arr, xbin, ybin, combine='sum', mask=None):
     else:
         data = ma.array(data=arr)
 
-    def combSum(x, i, j):
-        return x[:, i * ybin:(i + 1) * ybin, j * xbin:(j + 1) * xbin].sum(
-            axis=(1, 2))
+    def comb_sum(x, m, n):
+        return x[:, m * ybin:(m + 1) * ybin, n * xbin:(n + 1) * xbin].sum(axis=(1, 2))
 
-    def combAvg(x, i, j):
-        return x[:, i * ybin:(i + 1) * ybin, j * xbin:(j + 1) * xbin].mean(
-            axis=(1, 2))
+    def comb_avg(x, m, n):
+        return x[:, m * ybin:(m + 1) * ybin, n * xbin:(n + 1) * xbin].mean(axis=(1, 2))
 
-    comb_fun = dict(sum=combSum, mean=combAvg)
+    comb_fun = dict(sum=comb_sum, mean=comb_avg)
 
     for i in range(new_shape[1]):
         for j in range(new_shape[2]):
@@ -293,10 +295,12 @@ def aperture_spectrum(arr, x0=None, y0=None, radius=3, combine='sum'):
 
     if combine == 'sum':
         s = new_arr.sum(axis=(1, 2))
-    if combine == 'mean':
+    elif combine == 'mean':
         s = new_arr.mean(axis=(1, 2))
     elif combine == 'sqrt_sum':
         s = np.sqrt((np.square(new_arr)).sum(axis=(1, 2)))
+    else:
+        raise Exception('Combination type not understood.')
 
     return s, npix
 
