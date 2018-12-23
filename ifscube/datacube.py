@@ -4,7 +4,6 @@ from copy import deepcopy
 # THIRD PARTY
 import numpy as np
 from numpy import ma
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter, center_of_mass
@@ -27,15 +26,14 @@ class Cube:
 
     def __init__(self, *args, **kwargs):
         """
-        Instatiates the class. If any arguments are given they will be
+        Instantiates the class. If any arguments are given they will be
         passed to the _load method.
         """
 
         if len(args) > 0:
             self._load(*args, **kwargs)
 
-    def _accessory_data(self, hdu, variance, flags, stellar,
-                        weights, spatial_mask):
+    def _accessory_data(self, hdu, variance, flags, stellar, weights, spatial_mask):
 
         def shmess(name):
             s = '{:s} spectrum must have the same shape of the spectrum itself'
@@ -47,9 +45,7 @@ class Cube:
         self.weights = np.ones_like(self.data)
         self.spatial_mask = np.zeros(self.data.shape[1:]).astype('bool')
 
-        acc_data = [
-            self.variance, self.flags, self.stellar, self.weights,
-            self.spatial_mask]
+        acc_data = [self.variance, self.flags, self.stellar, self.weights, self.spatial_mask]
         ext_names = [variance, flags, stellar, weights, spatial_mask]
         labels = ['Variance', 'Flags', 'Synthetic', 'Weights', 'Spatial Mask']
 
@@ -58,8 +54,7 @@ class Cube:
             if j is not None:
                 if isinstance(j, str):
                     if j in hdu:
-                        assert hdu[j].data.shape == self.data.shape,\
-                            shmess(lab)
+                        assert hdu[j].data.shape == self.data.shape, shmess(lab)
                         i[:] = hdu[j].data
                 elif isinstance(j, np.ndarray):
                     i[:] = j
@@ -182,11 +177,12 @@ class Cube:
 
         return cube
 
-    def _fitTable(self):
+    def _fit_table(self):
 
         cnames = self.component_names
         pnames = self.parnames
 
+        # TODO: Change this to make the array based on the lengths of cnames and pnames.
         c = np.array([[i for j in pnames] for i in cnames]).flatten()
         p = np.array([[i for i in pnames] for j in cnames]).flatten()
 
@@ -296,7 +292,7 @@ class Cube:
 
         # Creates component and parameter names table.
         hdr['object'] = 'parameter names'
-        hdu = self._fitTable()
+        hdu = self._fit_table()
         hdu.name = 'PARNAMES'
         h.append(hdu)
 
@@ -1765,8 +1761,8 @@ class Cube:
             galaxy = galaxy / normFactor
 
             if np.any(np.isnan(galaxy)):
-                pp = cubetools.nanSolution()
-                pp.ppxf(ppxf_sol[:, 0, 0], galaxy, galaxy)
+                pp = cubetools.NanSolution()
+                pp.ppxf(ppxf_sol[:, 0, 0], galaxy)
             else:
                 pp = ppxf.ppxf(
                     templates, galaxy, noise, velscale, start, goodpixels=gp,
@@ -1803,8 +1799,7 @@ class Cube:
 
             # Basic tests and first header
             if outimage is None:
-                outimage = self.fitsfile.replace(
-                    '.fits', '_ppxf.fits')
+                outimage = self.fitsfile.replace('.fits', '_ppxf.fits')
             hdr = deepcopy(self.header_data)
             try:
                 hdr['REDSHIFT'] = self.redshift
@@ -1823,8 +1818,7 @@ class Cube:
             hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
             hdr['CRVAL3'] = (self.restwl[0], 'Reference value for wavelength')
             hdr['CD3_3'] = (np.average(np.diff(self.restwl)), 'CD3_3')
-            h.append(
-                fits.ImageHDU(data=self.ppxf_spec, header=hdr, name='SCI'))
+            h.append(fits.ImageHDU(data=self.ppxf_spec, header=hdr, name='SCI'))
 
             # Creates the residual spectrum extension
             hdr = fits.Header()
@@ -1832,34 +1826,23 @@ class Cube:
             hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
             hdr['CRVAL3'] = (self.ppxf_wl[0], 'Reference value for wavelength')
             hdr['CD3_3'] = (np.average(np.diff(self.ppxf_wl)), 'CD3_3')
-            h.append(
-                fits.ImageHDU(
-                    data=self.ppxf_spec - self.ppxf_model, header=hdr,
-                    name='RES'))
+            h.append(fits.ImageHDU(data=self.ppxf_spec - self.ppxf_model, header=hdr, name='RES'))
 
             # Creates the fitted model extension.
             hdr['object'] = 'model'
-            h.append(
-                fits.ImageHDU(
-                    data=self.ppxf_model, header=hdr, name='MODEL'))
+            h.append(fits.ImageHDU(data=self.ppxf_model, header=hdr, name='MODEL'))
 
             # Creates the solution extension.
             hdr['object'] = 'parameters'
-            h.append(
-                fits.ImageHDU(
-                    data=self.ppxf_sol, header=hdr, name='SOL'))
+            h.append(fits.ImageHDU(data=self.ppxf_sol, header=hdr, name='SOL'))
 
             # Creates the wavelength extension.
             hdr['object'] = 'wavelength'
-            h.append(
-                fits.ImageHDU(
-                    data=self.ppxf_wl, header=hdr, name='WAVELEN'))
+            h.append(fits.ImageHDU(data=self.ppxf_wl, header=hdr, name='WAVELEN'))
 
             # Creates the goodpixels extension.
             hdr['object'] = 'goodpixels'
-            h.append(
-                fits.ImageHDU(
-                    data=self.ppxf_goodpixels, header=hdr, name='GOODPIX'))
+            h.append(fits.ImageHDU(data=self.ppxf_goodpixels, header=hdr, name='GOODPIX'))
 
             h.writeto(outimage, overwrite=overwrite)
 
@@ -1879,11 +1862,10 @@ class Cube:
         ax.plot(self.ppxf_wl, self.ppxf_spec[:, xy[1], xy[0]])
         ax.plot(self.ppxf_wl, self.ppxf_model[:, xy[1], xy[0]])
 
-        print(
-            ('Velocity: {:.2f}\nSigma: {:.2f}\nh3: {:.2f}\nh4: {:.2f}').
-            format(*self.ppxf_sol[:, xy[1], xy[0]]))
+        print('Velocity: {:.2f}\nSigma: {:.2f}\nh3: {:.2f}\nh4: {:.2f}'.format(*self.ppxf_sol[:, xy[1], xy[0]]))
 
-    def lineflux(self, amplitude, sigma):
+    @staticmethod
+    def lineflux(amplitude, sigma):
         """
         Calculates the flux in a line given the amplitude and sigma
         of the gaussian function that fits it.
