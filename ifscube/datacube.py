@@ -72,8 +72,8 @@ class Cube:
         and loads basic information onto the
         object.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         fname : string
             Name of the FITS file containing the GMOS datacube. This
             should be the standard output from the GFCUBE task of the
@@ -99,8 +99,8 @@ class Cube:
             Mark spaxels as NaN if any or all pixels are equal to
             zero.
 
-        Returns:
-        --------
+        Returns
+        -------
         Nothing.
         """
 
@@ -468,11 +468,13 @@ class Cube:
         return c
 
     def snr_eval(self, wl_range=(6050, 6200), copts=None):
-        """
-        Measures the signal to noise ratio (SNR) for each spectrum in a
-        data cube, returning an image of the SNR.
+        """Measures the signal to noise ratio (SNR) for each spectrum in a data cube, returning an image of the SNR.
 
-        Parameters:
+        This method evaluates the SNR for each spectrum in a data cube by measuring the residuals
+        of a polynomial continuum fit. The function CONTINUUM of the SPECTOOLS package is used to
+        provide the continuum, with zero rejection iterations and a 3 order polynomial.
+
+        Parameters
         -----------
         self : gmosdc instance
             gmosdc object
@@ -482,18 +484,10 @@ class Cube:
         copts : dictionary
             Options for the continuum fitting function.
 
-        Returns:
+        Returns
         --------
         snr : numpy.ndarray
             Image of the SNR for each spectrum.
-
-        Description:
-        ------------
-            This method evaluates the SNR for each spectrum in a data
-            cube by measuring the residuals of a polynomial continuum
-            fit. The function CONTINUUM of the SPECTOOLS package is used
-            to provide the continuum, with zero rejection iterations
-            and a 3 order polynomial.
         """
 
         snrwindow = (self.restwl >= wl_range[0]) &\
@@ -539,12 +533,10 @@ class Cube:
 
     def wlprojection(self, wl0, fwhm, filtertype='box', writefits=False,
                      outimage='outimage.fits'):
-        """
-        Writes a projection of the data cube along the wavelength
-        coordinate, with the flux given by a given type of filter.
+        """Writes a projection of the data cube along the wavelength coordinate.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         wl0 : float
             Central wavelength at the rest frame.
         fwhm : float
@@ -552,15 +544,13 @@ class Cube:
         filtertype : string
             Type of function to be multiplied by the spectrum to return
             the argument for the integral.
-            'box'      = Box function that is zero everywhere and 1
-                         between wl0-fwhm/2 and wl0+fwhm/2.
-            'gaussian' = Normalized gaussian function with center at
-                         wl0 and sigma = fwhm/(2*sqrt(2*log(2)))
+            'box': Box function that is zero everywhere and 1 between wl0-fwhm/2 and wl0+fwhm/2.
+            'gaussian': Normalized gaussian function with center at wl0 and sigma = fwhm/(2*sqrt(2*log(2)))
         outimage : string
             Name of the output image
 
-        Returns:
-        --------
+        Returns
+        -------
         Nothing.
         """
 
@@ -707,10 +697,8 @@ class Cube:
         function : string
             The function to be fitted to the spectral features.
             Available options and respective parameters are:
-                'gaussian' : amplitude, central wavelength in angstroms,
-                    sigma in angstroms
-                'gauss_hermite' : amplitude, central wavelength in
-                    angstroms, sigma in angstroms, h3 and h4
+            'gaussian' : amplitude, central wavelength in angstroms, sigma in angstroms
+            'gauss_hermite' : amplitude, central wavelength in angstroms, sigma in angstroms, h3 and h4
         fitting_window : iterable
             Lower and upper wavelength limits for the fitting
             algorithm. These limits should allow for a considerable
@@ -1438,12 +1426,10 @@ class Cube:
     def voronoi_binning(self, targetsnr=10.0, writefits=False,
                         outfile=None, overwrite=False, plot=False,
                         **kwargs):
-        """
-        Applies Voronoi binning to the data cube, using Cappellari's
-        Python implementation.
+        """Applies Voronoi binning to the data cube, using Cappellari's Python implementation.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         targetsnr : float
             Desired signal to noise ratio of the binned pixels
         writefits : boolean
@@ -1455,8 +1441,8 @@ class Cube:
         overwrite : boolean
             Overwrites files with the same name given in 'outfile'.
 
-        Returns:
-        --------
+        Returns
+        -------
         Nothing.
         """
 

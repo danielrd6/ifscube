@@ -80,8 +80,8 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
     Writes a projection of the data cube along the wavelength
     coordinate, with the flux given by a given type of filter.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     arr : np.ndarray
       Array to projected.
     wl : np.ndarray
@@ -98,8 +98,8 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
       'gaussian' = Normalized gaussian function with center at
                    wl0 and sigma = fwhm/(2*sqrt(2*log(2)))
 
-    Returns:
-    --------
+    Returns
+    -------
     outim : numpy.ndarray
       The integrated flux of the cube times the filter.
     """

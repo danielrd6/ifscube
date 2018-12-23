@@ -152,7 +152,7 @@ def blackbody(x, T, coordinate='wavelength'):
     """
     Evaluates the blackbody spectrum for a given temperature.
 
-    Parameters:
+    Parameters
     -----------
     x : numpy.array
       Wavelength or frequency coordinatei (CGS).
@@ -161,7 +161,7 @@ def blackbody(x, T, coordinate='wavelength'):
     coordinate : string
       Specify the coordinates of x as 'wavelength' or 'frequency'.
 
-    Returns:
+    Returns
     --------
     b(x,T) : numpy.array
       Flux density in cgs units.
@@ -267,7 +267,7 @@ def normspec(x, y, wl, span):
     normalization value is the average flux between wl-span/2. and
     wl+span/2..
 
-    Parameters:
+    Parameters
     -----------
     x : numpy.array
       Input wavelength coordinates
@@ -484,7 +484,7 @@ def joinspec(x1, y1, x2, y2):
     """
     Joins two spectra
 
-    Parameters:
+    Parameters
     -----------
     x1 : array
         Wavelength coordinates of the first spectrum
@@ -495,7 +495,7 @@ def joinspec(x1, y1, x2, y2):
     y2 : array
         Flux coordinates of the second spectrum
 
-    Returns:
+    Returns
     --------
     x : array
         Joined spectrum wavelength coordinates
@@ -528,14 +528,14 @@ def fnu2flambda(fnu, l):
     """
     Converts between flux units
 
-    Parameters:
+    Parameters
     -----------
     fnu : number
         Flux density in W/m^2/Hz
     l : number
         Wavelength in microns
 
-    Returns:
+    Returns
     --------
     flambda: number
         Flux density in W/m^2/um
@@ -555,14 +555,14 @@ def flambda2fnu(wl, fl):
     """
     Converts a flambda to fnu.
 
-    Parameters:
+    Parameters
     -----------
     wl : 1d-array
         Wavelength in angstroms
     fl : 1d-array
         Flux in ergs/s/cm^2/A
 
-    Returns:
+    Returns
     --------
     fnu : 1d-array
         Flux in Jy (10^23 erg/s/cm^2/Hz)
@@ -577,7 +577,7 @@ def mask(arr, maskfile):
     """
     Eliminates masked points from a spectrum.
 
-    Parameters:
+    Parameters
     -----------
     arr : ndarray
         Input spectrum for masking. The array can have
@@ -588,7 +588,7 @@ def mask(arr, maskfile):
         with one region per line defined by a lower and an
         upper limit in this order.
 
-    Returns:
+    Returns
     --------
     b : ndarray
         An exact copy of arr without the points that lie
@@ -611,7 +611,7 @@ def specphotometry(spec, filt, intlims=(8, 13), coords='wavelength',
     Evaluates the integrated flux for a given filter
     over a spectrum.
 
-    Parameters:
+    Parameters
     -----------
     spec : function
         A function that describes the spectrum with only
@@ -625,7 +625,7 @@ def specphotometry(spec, filt, intlims=(8, 13), coords='wavelength',
         This argument is passed directly to the function
         blackbody in the absence of a standard star spectrum.
 
-    Returns:
+    Returns
     --------
     phot : float
         Photometric data point that results from the

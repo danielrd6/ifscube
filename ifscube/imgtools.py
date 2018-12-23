@@ -17,11 +17,11 @@ def gauss2d(x, y, p):
     g(x,y) = a * exp( - ( --------- + --------- ) ) + b
                            2*sx**2     2*sy**2
 
-    Parameters:
+    Parameters
     -----------
     As described in the formula above.
 
-    Returns:
+    Returns
     --------
     x,y : nd.array
       The coordinates, or array of coordinates, of the point

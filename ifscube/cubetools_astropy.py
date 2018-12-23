@@ -74,7 +74,7 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
         Writes a projection of the data cube along the wavelength
         coordinate, with the flux given by a given type of filter.
 
-        Parameters:
+        Parameters
         -----------
         arr : np.ndarray
           Array to projected.
@@ -92,7 +92,7 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
           'gaussian' = Normalized gaussian function with center at
                        wl0 and sigma = fwhm/(2*sqrt(2*log(2)))
 
-        Returns:
+        Returns
         --------
         outim : numpy.ndarray
           The integrated flux of the cube times the filter.
@@ -185,8 +185,8 @@ class gmosdc:
         Initializes the class and loads basic information onto the
         object.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         fitstile : string
             Name of the FITS file containing the GMOS datacube. This
             should be the standard output from the GFCUBE task of the
@@ -207,8 +207,8 @@ class gmosdc:
             zero.
 
 
-        Returns:
-        --------
+        Returns
+        -------
         Nothing.
         """
 
@@ -377,8 +377,8 @@ class gmosdc:
         Measures the signal to noise ratio (SNR) for each spectrum in a
         data cube, returning an image of the SNR.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         self : gmosdc instance
             gmosdc object
         wl_range : array like
@@ -387,13 +387,13 @@ class gmosdc:
         copts : dictionary
             Options for the continuum fitting function.
 
-        Returns:
-        --------
+        Returns
+        -------
         snr : numpy.ndarray
             Image of the SNR for each spectrum.
 
-        Description:
-        ------------
+        Notes 
+        -----
             This method evaluates the SNR for each spectrum in a data
             cube by measuring the residuals of a polynomial continuum
             fit. The function CONTINUUM of the SPECTOOLS package is used
@@ -436,8 +436,8 @@ class gmosdc:
         Writes a projection of the data cube along the wavelength
         coordinate, with the flux given by a given type of filter.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         wl0 : float
             Central wavelength at the rest frame.
         fwhm : float
@@ -452,8 +452,8 @@ class gmosdc:
         outimage : string
             Name of the output image
 
-        Returns:
-        --------
+        Returns
+        -------
         Nothing.
         """
 
@@ -1281,8 +1281,8 @@ class gmosdc:
         Applies Voronoi binning to the data cube, using Cappellari's
         Python implementation.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         targetsnr : float
             Desired signal to noise ratio of the binned pixels
         writefits : boolean
@@ -1296,8 +1296,8 @@ class gmosdc:
         writevortab : boolean
             Saves an ASCII table with the binning recipe.
 
-        Returns:
-        --------
+        Returns
+        -------
         Nothing.
         """
 

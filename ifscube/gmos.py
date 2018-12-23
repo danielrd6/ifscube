@@ -30,8 +30,8 @@ class cube(datacube.Cube):
         Initializes the class and loads basic information onto the
         object.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         fitstile : string
             Name of the FITS file containing the GMOS datacube. This
             should be the standard output from the GFCUBE task of the
@@ -52,8 +52,8 @@ class cube(datacube.Cube):
             zero.
 
 
-        Returns:
-        --------
+        Returns
+        -------
         Nothing.
         """
 
@@ -151,8 +151,8 @@ class cube(datacube.Cube):
         Applies Voronoi binning to the data cube, using Cappellari's
         Python implementation.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         targetsnr : float
             Desired signal to noise ratio of the binned pixels
         writefits : boolean
@@ -166,8 +166,8 @@ class cube(datacube.Cube):
         writevortab : boolean
             Saves an ASCII table with the binning recipe.
 
-        Returns:
-        --------
+        Returns
+        -------
         Nothing.
         """
 
