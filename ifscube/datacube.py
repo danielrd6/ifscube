@@ -533,15 +533,17 @@ class Cube:
 
         Parameters
         ----------
-        wl0 : float
+        wl0 : :obj:`float`
             Central wavelength at the rest frame.
-        fwhm : float
+        fwhm : :obj:`float`
             Full width at half maximum. See 'filtertype'.
-        filtertype : string
+        filtertype : :obj:`string`
             Type of function to be multiplied by the spectrum to return
-            the argument for the integral.
-            'box': Box function that is zero everywhere and 1 between wl0-fwhm/2 and wl0+fwhm/2.
-            'gaussian': Normalized gaussian function with center at wl0 and sigma = fwhm/(2*sqrt(2*log(2)))
+            the argument for the integral. Should be one of
+
+                - 'box' : Box function that is zero everywhere and 1 between :math:`\\lambda_0 \\pm {\\rm FWHM}/2`
+                - 'gaussian' : Normalized gaussian function with center at :math:`\\lambda_0` and :math:`\\sigma = {\\rm FWHM}/(2\\sqrt{2\\log(2)})`
+
         outimage : string
             Name of the output image
 
