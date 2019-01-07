@@ -19,6 +19,7 @@ packdata = {
 
 setup(
     name='ifscube',
+    python_requires='>3.6',
     version=__version__,
     packages=['ifscube'],
     package_data=packdata,
