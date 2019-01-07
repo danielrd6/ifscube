@@ -437,7 +437,7 @@ should read
 
     fit_scrutinizer ngc3081_cube.fits myfit.fits
 
-This will star a GUI similar to the one in figure [fig:scrut], but
+This will star a GUI similar to the one in the figure below, but
 without any of the plots yet. To start plotting your results you have to
 select a parameter from the list at the lower left corner, and a
 component from the list right next to it. In this example we selected
@@ -446,11 +446,9 @@ click “Image plot” to generate the image of the velocity for the first
 component in the upper left.
 
 .. figure:: figs/scrutinizer.png
-   :alt: Example of the interface of the fit\_scrutinizer program,
-   showing the velocity image, and the spectrum in the spaxel (3, 5).
 
-   Example of the interface of the fit\_scrutinizer program, showing the
-   velocity image, and the spectrum in the spaxel (3, 5).
+    Example of the interface of the fit_scrutinizer program, showing the
+    velocity image, and the spectrum in the spaxel (3, 5).
 
 At this point only the image is visible, but no spectral plot will be
 produced until you click on either “Follow mouse” or “Plot on click”.
@@ -832,7 +830,7 @@ same, the only thing that will change is the number of parameters in the
 initial guess and the number of bounds. The *linefit* function is
 prepared to work with an arbitrarily large number of components, as long
 as they have the same profile function, i.e. Gaussian or Gauss-Hermite.
- [4]_
+[4]_
 
 In the next example we will fit both [N II] and the H\ :math:`\alpha`
 line. Our initial guess :math:`p0` will be

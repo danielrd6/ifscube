@@ -10,6 +10,7 @@ Ifscube documentation.
    intro
    quickstart
    oned_fit
+   cube_fit
 
 What is IFSCube?
 ----------------
