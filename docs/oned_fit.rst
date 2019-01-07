@@ -22,23 +22,23 @@ The simplest way to use the program is to just invoke it as
 
 Here, and in all subsequent examples, we will use the data available
 in the ifscube/examples directory. The above command specifies the
-configuration file with the {\bf -c} option. If you want to know more about the
-command line options of linefit just execute it with the {\bf -h} option, and a
+configuration file with the **-c** option. If you want to know more about the
+command line options of linefit just execute it with the **-h** option, and a
 help page will be printed.
 
 The configuration file halpha.cfg, present in the examples directory, showcases
-the syntax and some of the possibilities of {\sc specfit}. The reader is
+the syntax and some of the possibilities of :func:`specfit`. The reader is
 strongly encouraged to start with that file and modify it for her/his fits.
 
 Configuration file
 ============================================================
 
-The configuration file for *specfit* follows the formalism of typical {\it
-.ini} files, with sections defined by strings within brackets and parameter as
-strings followed by *:* or *=* and the corresponding value. Comments
-are possible, and are declared by either a {\bf \#} or a {\bf ;}. In the
-following subsections each section of the configuration file will be discussed
-in more detail. Boolean options, such as fit\_continuum and overwrite take 'yes' or
+The configuration file for :func:`specfit` follows the formalism of typical
+*.ini* files, with sections defined by strings within brackets and parameter as
+strings followed by *:* or *=* and the corresponding value. Comments are
+possible, and are declared by either a **#** or a **;**. In the following
+subsections each section of the configuration file will be discussed in more
+detail. Boolean options, such as fit\_continuum and overwrite take 'yes' or
 'no' as values.
 
 
@@ -92,160 +92,179 @@ process.
 loading
 -------
 
-The *loading* section is dedicated to parameter that tell {\sc specfit} how to
-load your spectrum from the FITS file. Each parameter listed below takes as
-input value a string that should match the name of the FITS extension in the
-input MEF file containing the appropriate data. It is important to point out
-that all the extensions must match the dimensions of the observed spectrum,
-except for the primary, which should only contain a header. 
+The **loading** section is dedicated to parameter that tell specfit how
+to load your spectrum from the FITS file. Each parameter listed below
+takes as input value a string that should match the name of the FITS
+extension in the input MEF file containing the appropriate data. It is
+important to point out that all the extensions must match the dimensions
+of the observed spectrum, except for the primary, which should only
+contain a header.
 
-\begin{itemize}
-  \item {\bf scidata}: Scientific data, or the actual observed spectrum.
-  \item {\bf primary}: Primary extension, with the main header.
-  \item {\bf variance}: Pixel by pixel variance.
-  \item {\bf stellar}: Stellar spectrum to be subtracted from the observed
+* scidata:
+    Scientific data, or the actual observed spectrum.
+
+* primary:
+    Primary extension, with the main header.
+
+* variance:
+    Pixel by pixel variance.
+
+* stellar:
+    Stellar spectrum to be subtracted from the observed
     spectrum before the fit.
-  \item {\bf flags}: Flag spectrum, with zeros setting value that should not be
-    used.
-  \item {\bf redshift}: This is the only parameter that is not supposed to be
-    a FITS extension. {\sc specfit} is designed to read a redshift from the
-    primary extension header. If a 'redshift' keyword is not found, it tries to
-    read
-    the redshift given in the configuration file. If none is given in either
-    way, the spectrum is assumed be to already in the rest frame.
-\end{itemize}
 
-\subsection{minimization}
+* flags:
+    Flag spectrum, with zeros setting value that should not be
+    used.
+
+* redshift:
+    This is the only parameter that is not supposed to be a FITS extension.
+    specfit is designed to read a redshift from the primary extension header.
+    If a ’redshift’ keyword is not found, it tries to read the redshift given
+    in the configuration file. If none is given in either way, the spectrum is
+    assumed be to already in the rest frame.
+
+minimization
+------------
 
 This section controls the minimization algorithm, and its parameters are
-directly passed on to the {\it scipy.\-optimize.\-minimize} function. A number
-of different solvers are accessible via the {\it minimize} function, but
-currently {\sc specfit} only 
-The
-reader is encouraged to read the documentation for the scipy function in order
-to gain a deeper understanding of the fitting process. In the parameter list
-below a few example values are offered as a suggestion.
+directly passed on to the *scipy.optimize.minimize* function. A number
+of different solvers are accessible via the *minimize* function, but
+currently specfit only The reader is encouraged to read the
+documentation for the scipy function in order to gain a deeper
+understanding of the fitting process. In the parameter list below a few
+example values are offered as a suggestion.
 
-\begin{itemize}
-  \item {\bf eps}: (1e-2) number \\ Step size used for numerical approximation
-    of the jacobian.
-  \item {\bf ftol}: (1e-5) number \\ Precision goal for the value of f in the
-    stopping criterion.
-  \item {\bf disp}: 'yes', 'no' \\ Displays detailed information of the fit.
-  \item {\bf maxiter}: 100 number \\ Maximum number of minimization iterations.
-\end{itemize}
+* eps: (1e-2) number
+    Step size used for numerical approximation of the jacobian.
 
-\subsection{continuum}
+* ftol: (1e-5) number
+    Precision goal for the value of f in the stopping criterion.
 
-This part of the configuration file sets the parameters for the fitting of the
-pseudo continuum. The continuum is defined as a polynomial of arbitrary degree,
-which is fit to the spectrum after the subtraction of the stellar component, if
-there is one.
+* disp: ’yes’, ’no’
+    Displays detailed information of the fit.
 
-Emission lines and other data points that should not be considered in the
-continuum fit are eliminated via an iterative rejection algorithm. For this
-reason, the fitting\_window set in the {\it fit} section should provide enough
-room for an adequate sampling of valid continuum points.
+* maxiter: 100 number
+    Maximum number of minimization iterations.
 
-\begin{itemize}
-  \item {\bf degr}: integer number \\ Degree of the polynomial.
-  \item {\bf niterate}: integer number \\ Number of rejection iterations.
-  \item {\bf lower / upper\_threshold}: number \\ The rejection threshold in
-    units of standard deviation.
-\end{itemize}
+continuum
+---------
 
+This part of the configuration file sets the parameters for the fitting
+of the pseudo continuum. The continuum is defined as a polynomial of
+arbitrary degree, which is fit to the spectrum after the subtraction of
+the stellar component, if there is one.
 
-\section{Feature definition}
+Emission lines and other data points that should not be considered in
+the continuum fit are eliminated via an iterative rejection algorithm.
+For this reason, the fitting\_window set in the *fit* section should
+provide enough room for an adequate sampling of valid continuum points.
 
-Features to be fitted are defined as sections with arbitrary names, with the
-exception of fit, minimization and continuum, which are reserved. The basic
-syntax for a feature, or spectral line, definition is as follows:
+* degr: integer
+   Degree of the polynomial.
 
-\begin{verbatim}
-[feature_name]
-<paremeter0>: <value>, <bounds>, <constraints>
-<paremeter1>: <value>, <bounds>, <constraints>
-...
-\end{verbatim}
+* niterate: integer number
+   Number of rejection iterations.
 
-\subsection{Parameters}
+* lower / upper\_threshold: number
+   The rejection threshold in units of standard deviation.
+
+Feature definition
+==================
+
+Features to be fitted are defined as sections with arbitrary names, with
+the exception of fit, minimization and continuum, which are reserved.
+The basic syntax for a feature, or spectral line, definition is as
+follows:
+
+::
+
+    [feature_name]
+    <paremeter0>: <value>, <bounds>, <constraints>
+    <paremeter1>: <value>, <bounds>, <constraints>
+    ...
+
+Parameters
+----------
 
 The valid parameters are for each feature are: wavelength, sigma, flux,
-k\_group and continuum\_windows. Wavelength, sigma and flux are mandatory for
-every spectral feature, and are pretty much self explanatory. Note that here
-{\bf sigma is given in units of wavelength}. The last two parameters are
-optional, and deserve some explanation. 
+k\_group and continuum\_windows. Wavelength, sigma and flux are
+mandatory for every spectral feature, and are pretty much self
+explanatory. Note that here **sigma is given in units of wavelength**.
+The last two parameters are optional, and deserve some explanation.
 
-The parameter {\bf k\_group} stands for kinematic grouping, and it basically is
-an automated way to specify that the Doppler shift and sigma of all features
-sharing the same {\bf k\_group} should be equal. To set it, one only needs to
-specify an arbitrary integer number as the value for a given feature, and
-repeat that same number for all other features sharing the same kinematics.
+The parameter **k\_group** stands for kinematic grouping, and it
+basically is an automated way to specify that the Doppler shift and
+sigma of all features sharing the same **k\_group** should be equal. To
+set it, one only needs to specify an arbitrary integer number as the
+value for a given feature, and repeat that same number for all other
+features sharing the same kinematics.
 
-Lastly, {\bf continuum\_windows} specifies the windows for the pseudo continuum
-fitting used in the equivalent width evaluation, and are not used anywhere
-else. It should be given as four wavelength values separated by commas.
+Lastly, **continuum\_windows** specifies the windows for the pseudo
+continuum fitting used in the equivalent width evaluation, and are not
+used anywhere else. It should be given as four wavelength values
+separated by commas.
 
-\subsection{Bounds}
+Bounds
+------
 
-Bounds for each parameter are given in one of two ways: i) two values separated
-by a {\bf :}, or ii) a single value preceded by {\bf +-}. For instance, if you
-want to set the wavelength for a given feature
+Bounds for each parameter are given in one of two ways: i) two values
+separated by a **:**, or ii) a single value preceded by **+-**. For
+instance, if you want to set the wavelength for a given feature
 
-\begin{verbatim}
-wavelength: 6562.8, 6552.8:6572.8
-\end{verbatim}
+::
+
+    wavelength: 6562.8, 6552.8:6572.8
 
 or
 
-\begin{verbatim}
-wavelength: 6562.8, +-10 
-\end{verbatim}
+::
+
+    wavelength: 6562.8, +-10 
 
 Bounds can also be one-sided, as in
 
-\begin{verbatim}
-flux: 1e-15, 1e-19:
-\end{verbatim}
+::
 
-\noindent which will be interpreted as having only the lower limit of 1e-19 and
-no upper limit.
+    flux: 1e-15, 1e-19:
 
-\subsection{Constraints}
+which will be interpreted as having only the lower limit of 1e-19 and no
+upper limit.
+
+Constraints
+-----------
 
 Constraints are perhaps the most valuable tool for any spectral feature
-fitting. We already discussed the automated constraints that keep the same
-kinematical parameters for different spectral features using the {\bf k\_group}
-parameter, but {\sc specfit} also accepts arbitrary relations between the same
-parameter of different features. For instance, suppose you want fix the flux
-relation between two lines you know to be physically connected, such as the
-[N {\sc ii}] lines at 6548\AA and 6583\AA.
+fitting. We already discussed the automated constraints that keep the
+same kinematical parameters for different spectral features using the
+**k\_group** parameter, but specfit also accepts arbitrary relations
+between the same parameter of different features. For instance, suppose
+you want fix the flux relation between two lines you know to be
+physically connected, such as the [N ii] lines at 6548Åand 6583Å.
 
-\begin{verbatim}
-[n2_a]
-wavelength: 6548
-sigma: 2
-flux: 1e-15,, n2_b / 3
-k_group: 0
+::
 
-[n2_b]
-wavelength: 6583
-sigma: 2
-flux: 1e-15
-k_group: 0
-\end{verbatim}
+    [n2_a]
+    wavelength: 6548
+    sigma: 2
+    flux: 1e-15,, n2_b / 3
+    k_group: 0
 
-\noindent The double comma before the constraint is there because value, bounds
-and constraints are separated by commas, and even if you do not want to set any
-bounds, an extra comma is necessary for the parser to correctly identify the
-constraint.
+    [n2_b]
+    wavelength: 6583
+    sigma: 2
+    flux: 1e-15
+    k_group: 0
 
-Now let us discuss the syntax of the constraint, which is the
-expression {\bf n2\_b / 3}. The parser accepts simple arithmetic operations
-(*, /, +, -), inequality relations ($<$, $>$), numbers and feature names. The
-feature name is the name given to the section containing the spectral feature
-parameters, and the parameters constrained are always the same parameters in
-different features. Currently the parser does not support relating the sigma of
-some line to the flux of some other line.
+The double comma before the constraint is there because value, bounds
+and constraints are separated by commas, and even if you do not want to
+set any bounds, an extra comma is necessary for the parser to correctly
+identify the constraint.
 
-
+Now let us discuss the syntax of the constraint, which is the expression
+**n2\_b / 3**. The parser accepts simple arithmetic operations (\*, /,
++, -), inequality relations (:math:`<`, :math:`>`), numbers and feature
+names. The feature name is the name given to the section containing the
+spectral feature parameters, and the parameters constrained are always
+the same parameters in different features. Currently the parser does not
+support relating the sigma of some line to the flux of some other line.
