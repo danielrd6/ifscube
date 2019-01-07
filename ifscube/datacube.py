@@ -9,7 +9,7 @@ from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter, center_of_mass
 from astropy import constants, units, table, wcs
 from astropy.io import fits
-import progressbar
+from tqdm import tqdm
 
 # LOCAL
 from . import cubetools, spectools, onedspec
@@ -871,7 +871,7 @@ class Cube:
         self.fit_y0, self.fit_x0 = xy[0]
 
         if verbose:
-            iterador = progressbar.ProgressBar()(xy)
+            iterador = tqdm(xy)
         else:
             iterador = xy
 
