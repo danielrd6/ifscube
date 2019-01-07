@@ -31,13 +31,6 @@ setup(
     license='GPLv3',
     ext_modules=[ext1],
     classifiers=[
-      'Programming Language :: Python :: 3.5'
-    ],
-    install_requires=[
-        'numpy>=1.12.0',
-        'scipy>=0.18.1',
-        'matplotlib>=1.5',
-        'astropy>=1.5',
-        'progressbar33>=1.0',
+      'Programming Language :: Python :: 3.6'
     ],
 )
