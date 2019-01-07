@@ -522,6 +522,9 @@ class Cube:
                 else:
                     noise[i, j], signal[i, j] = np.nan, np.nan
 
+            signal[signal == 0.0] = np.nan
+            noise[noise == 0.0] = np.nan
+
         self.noise = noise
         self.signal = signal
 

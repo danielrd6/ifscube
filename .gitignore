@@ -1,13 +1,23 @@
+*.c
+*.py[cod]
+
+# pycharm
+.idea
+
+# docker
 Dockerfile
+
 .coverage
-.gitignore.swp
-build/
-ifscube.egg-info/
-ifscube/__init__.pyc
-ifscube/__pycache__/
-ifscube/cubetools.pyc
-ifscube/elprofile.cpython-35m-x86_64-linux-gnu.so
-ifscube/elprofile.so
+
+# C extensions
+*.so
+
+# Packages
+*.egg
+*.egg-info
+build
+
+# Example outputs
 ifscube/examples/CircinusNir.txt
 ifscube/examples/example_onedspec_linefit.fits
 ifscube/examples/ifscube_guiCFG.cfg
@@ -15,5 +25,6 @@ ifscube/examples/ngc1566_HyperCube.fits
 ifscube/examples/ngc1566_HyperCube_linefit.fits
 ifscube/examples/ngc3081_cube_linefit.fits
 ifscube/examples/plot_profile.py
+
+# Unfinished work
 ifscube/flux_calibration.py
-ifscube/spectools.pyc
