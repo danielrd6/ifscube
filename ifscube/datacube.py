@@ -905,6 +905,7 @@ class Cube:
         if len(iterator) == 0:
             raise RuntimeError('No spectra to fit.')
 
+        spec = None
         for h in iterator:
 
             i, j = h
