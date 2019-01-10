@@ -19,7 +19,6 @@ from . import channel_maps
 
 
 class Cube:
-
     """
     A class for dealing with IFS data cubes.
     """
@@ -29,6 +28,45 @@ class Cube:
         Instantiates the class. If any arguments are given they will be
         passed to the _load method.
         """
+
+        self.binned = False
+        self.binned_cube = None
+        self.component_names = None
+        self.cont = None
+        self.data = None
+        self.em_model = None
+        self.eqw_direct = None
+        self.eqw_model = None
+        self.feature_wl = None
+        self.fit_func = None
+        self.fit_info = None
+        self.fit_status = None
+        self.fit_x0 = None
+        self.fit_y0 = None
+        self.fitbounds = None
+        self.fitcont = None
+        self.fitspec = None
+        self.fitstellar = None
+        self.fitweights = None
+        self.fitwl = None
+        self.flags = None
+        self.header = None
+        self.initial_guess = None
+        self.ncubes = None
+        self.noise = None
+        self.noise_cube = None
+        self.npars = None
+        self.parnames = None
+        self.ppxf_goodpixels = None
+        self.ppxf_model = None
+        self.ppxf_sol = None
+        self.ppxf_spec = None
+        self.ppxf_wl = None
+        self.resultspec = None
+        self.signal = None
+        self.spatial_mask = None
+        self.spec_indices = None
+        self.variance = None
 
         if len(args) > 0:
             self._load(*args, **kwargs)
@@ -127,7 +165,7 @@ class Cube:
 
         self.wl = self.wcs.sub(
             (spectral_dimension,)).wcs_pix2world(
-                np.arange(len(self.data)), 0)[0]
+            np.arange(len(self.data)), 0)[0]
 
         if self.wcs.wcs.cunit[2] == units.m:
             self.wl *= 1e+10
@@ -151,6 +189,7 @@ class Cube:
             self.binned = False
 
         self._set_spec_indices()
+        self.cont = None
 
     def _set_spec_indices(self):
 
@@ -183,8 +222,8 @@ class Cube:
         pnames = self.parnames
 
         # TODO: Change this to make the array based on the lengths of cnames and pnames.
-        c = np.array([[i for j in pnames] for i in cnames]).flatten()
-        p = np.array([[i for i in pnames] for j in cnames]).flatten()
+        c = np.array([[i for _ in pnames] for i in cnames]).flatten()
+        p = np.array([[i for i in pnames] for _ in cnames]).flatten()
 
         t = table.Table([c, p], names=('component', 'parameter'))
         h = fits.table_to_hdu(t)
@@ -194,7 +233,7 @@ class Cube:
     def _write_linefit(self, args):
 
         suffix = args['suffix']
-        outimage = args['outimage']
+        outimage = args['out_image']
         # Basic tests and first header
         if outimage is None:
             if suffix is None:
@@ -373,7 +412,7 @@ class Cube:
         b = np.array([
             (np.ravel(r)[i], np.ravel(t)[i]) for i in
             range(len(np.ravel(r)))], dtype=[
-                ('radius', 'f8'), ('angle', 'f8')])
+            ('radius', 'f8'), ('angle', 'f8')])
 
         s = np.argsort(b, axis=0, order=['radius', 'angle'])
         xy = np.column_stack([np.ravel(y)[s], np.ravel(x)[s]])
@@ -393,6 +432,7 @@ class Cube:
                 v[np.unique(v['binNum'], return_index=True)[1]][coords]
                 for coords in ['xcoords', 'ycoords']])
         else:
+            v = None
             xy = self.spec_indices
 
         fw = fitting_window
@@ -421,15 +461,13 @@ class Cube:
                     (any(np.isnan(s[:20])) and any(np.isnan(s[-20:]))):
                 try:
                     cont = spectools.continuum(wl, s, **copts)
-                    if self.binned:
+                    if v is not None:
                         for l, m in v[v[:, 2] == k, :2]:
                             c[:, l, m] = cont[1]
                     else:
                         c[:, i, j] = cont[1]
                 except TypeError:
-                    print(
-                        'Could not find a solution for {:d},{:d}.'
-                        .format(i, j))
+                    print('Could not find a solution for {:d},{:d}.'.format(i, j))
                     c[:, i, j] = np.nan
                 except ValueError:
                     c[:, i, j] = np.nan
@@ -486,8 +524,8 @@ class Cube:
             Image of the SNR for each spectrum.
         """
 
-        snrwindow = (self.restwl >= wl_range[0]) &\
-            (self.restwl <= wl_range[1])
+        snrwindow = (self.restwl >= wl_range[0]) & \
+                    (self.restwl <= wl_range[1])
 
         # FIXME: This is only here because I am always setting
         # a variance attribute, when it really shouldn't be.
@@ -513,7 +551,7 @@ class Cube:
                 copts['returns'] = 'function'
 
             for i, j in self.spec_indices:
-                if any(data[snrwindow, i, j]) and\
+                if any(data[snrwindow, i, j]) and \
                         all(~np.isnan(data[snrwindow, i, j])):
                     s = data[snrwindow, i, j]
                     cont = spectools.continuum(wl, s, **copts)[1]
@@ -545,7 +583,8 @@ class Cube:
             the argument for the integral. Should be one of
 
                 - 'box': Box function that is zero everywhere and 1 between :math:`\\lambda_0 \\pm {\\rm FWHM}/2`
-                - 'gaussian': Normalized gaussian function with center at :math:`\\lambda_0` and :math:`\\sigma = {\\rm FWHM}/(2\\sqrt{2\\log(2)})`
+                - 'gaussian': Normalized gaussian function with center at
+                    :math:`\\lambda_0` and :math:`\\sigma = {\\rm FWHM}/(2\\sqrt{2\\log(2)})`
 
         writefits: bool
             Writes the output to a FITS file.
@@ -616,7 +655,7 @@ class Cube:
 
         return s
 
-    def plotspec(self, x, y, show_noise=True, noise_smooth=30, ax=None):
+    def plotspec(self, x, y, show_noise=True, noise_smooth=30.0, ax=None):
         """
         Plots the spectrum at coordinates x,y.
 
@@ -626,6 +665,13 @@ class Cube:
             If x and y are numbers plots the spectrum at the specific
             spaxel. If x and y are two element tuples plots the average
             between x[0],y[0] and x[1],y[1]
+        show_noise: bool
+            Displays the noise spectrum as a filled area.
+        noise_smooth: float
+            Sigma of the gaussian kernel for the noise smoothing.
+        ax: matplotlib.pyplot.Axes, optional
+            Axes instance in which to plot the spectrum. If *None* a new
+            instance will be created.
 
         Returns
         -------
@@ -670,18 +716,18 @@ class Cube:
             ax.fill_between(self.restwl, sg - n, sg + n, edgecolor='',
                             alpha=0.2, color='green')
 
-        if hasattr(self, 'flags')\
-                and not hasattr(x, '__iter__')\
+        if hasattr(self, 'flags') \
+                and not hasattr(x, '__iter__') \
                 and not hasattr(y, '__iter__'):
             sflags = self.flags[:, y, x].astype('bool')
             ax.scatter(self.restwl[sflags], s[sflags], marker='x', color='red')
 
         plt.show()
 
-    def linefit(self, p0, writefits=False, outimage=None, overwrite=False,
-                individual_spec=False, refit=False, suffix=None,
-                update_bounds=False, bound_range=.1, spiral_loop=False,
-                spiral_center=None, refit_radius=3, sig_threshold=0,
+    def linefit(self, p0, write_fits=False, out_image=None, overwrite=False,
+                individual_spec=None, refit=False, suffix=None,
+                update_bounds=False, bound_range=0.1, spiral_loop=False,
+                spiral_center=None, refit_radius=3.0, sig_threshold=0.0,
                 par_threshold=0, verbose=False, **kwargs):
         """
         Fits a spectral feature with a gaussian function and returns a
@@ -692,107 +738,82 @@ class Cube:
 
         Parameters
         ----------
-        p0 : iterable
+        p0: iterable
             Initial guess for the fitting funcion, consisting of a list
             of 3N parameters for N components of **function**. In the
             case of a gaussian fucntion, these parameters must be given
             as [amplitude0, center0, sigma0, amplitude1, center1, ...].
-        function : string
-            The function to be fitted to the spectral features.
-            Available options and respective parameters are:
-            'gaussian' : amplitude, central wavelength in angstroms, sigma in angstroms
-            'gauss_hermite' : amplitude, central wavelength in angstroms, sigma in angstroms, h3 and h4
-        fitting_window : iterable
-            Lower and upper wavelength limits for the fitting
-            algorithm. These limits should allow for a considerable
-            portion of continuum besides the desired spectral features.
-        writefits : boolean
+        write_fits: bool
             Writes the results in a FITS file.
-        outimage : string
+        out_image: string
             Name of the FITS file in which to write the results.
-        variance : float, 1D, 2D or 3D array
-            The variance of the flux measurments. It can be given
-            in one of four formats. If variance is a float it is
-            applied as a contant to the whole spectrum. If given as 1D
-            array it assumed to be a spectrum that will be applied to
-            the whole cube. As 2D array, each spaxel will be applied
-            equally to all wavelenths. Finally the 3D array must
-            represent the variance for each elemente of the data cube.
-            It defaults to None, in which case it does not affect the
-            minimization algorithm, and the returned Chi2 will be in
-            fact just the fit residuals.
-        inst_disp : number
-            Instrumental dispersion in pixel units. This argument is
-            used to evaluate the reduced chi squared. If let to default
-            it is assumed that each wavelength coordinate is a degree
-            of freedom. The physically sound way to do it is to use the
-            number of dispersion elements in a spectrum as the degrees
-            of freedom.
-        bounds : sequence
-            Bounds for the fitting algorithm, given as a list of
-            [xmin, xmax] pairs for each x parameter.
-        constraints : dict or sequence of dicts
-            See scipy.optimize.minimize
-        min_method : string
-            Minimization method. See scipy.optimize.minimize.
-        minopts : dict
-            Dictionary of options to be passed to the minimization
-            routine. See scipy.optimize.minimize.
-        individual_spec : False or x,y pair
-            Pixel coordinates for the spectrum you wish to fit
-            individually.
-        copts : dict
-            Arguments to be passed to the spectools.continuum function.
-        refit : boolean
-            Use parameters from nearby sucessful fits as the initial
+        overwrite: bool
+            Overwrites previously generated output file.
+        individual_spec: tuple, string or None
+            Selects an individual spectrum from the data cube to be fit. It
+            can be a tuple representing the horizontal and vertical
+            coordinates of the spaxel or a string. Possible string values are:
+
+                - 'peak': Spaxel with the highest integrated flux.
+                - 'cofm': Spaxel at the center of mass of the integrated flux.
+
+            If *None* all the spectra in the data cube will be fit.
+        refit: boolean
+            Use parameters from nearby successful fits as the initial
             guess for the next fit.
-        update_bounds : boolean
+        suffix: string
+            String to be appended to the end of the input file name. Only
+            used when out_image is *None*.
+        update_bounds: boolean
             If using refit, update the bounds for the next fit.
-        bound_range : number
+        bound_range: float
             Fractional difference for updating the bounds when using refit.
-        spiral_loop : boolean
+        spiral_loop: boolean
             Begins the fitting with the central spaxel and continues
             spiraling outwards.
-        spiral_center : iterable
+        spiral_center: tuple
             Central coordinates for the beginning of the spiral given
-            as a list of two coordinates [x0, y0]
-        fit_continuum : boolean
-            If True fits the continuum just before attempting to fit
-            the emission lines. Setting this option to False will
-            cause the algorithm to look for self.cont, which should
-            contain a data cube of continua.
-        sig_threshold : number
+            as a tuple of two coordinates (x0, y0).
+        refit_radius: float
+            Spaxels within this radius will be considered in the reffiting
+            process.
+        sig_threshold: float
             Fits which return *par_threshold* below this number of
-            times the local noise will be set to nan. If set to 0 this
+            times the local noise will be set to *np.nan*. If set to 0 this
             criteria is ignored.
-        par_threshold : integer
+        par_threshold: integer
             Parameter which must be above the noise threshold to be
             considered a valid fit.
+        verbose: integer
+            Verbosity level.
+        **kwargs:
+            Additional arguments passed to ifscube.onedspec.Spectrum.linefit.
 
         Returns
         -------
-        sol : numpy.ndarray
+        sol: numpy.ndarray
             A data cube with the solution for each spectrum occupying
             the respective position in the image, and each position in
             the first axis giving the different parameters of the fit.
 
         See also
         --------
-        scipy.optimize.curve_fit, scipy.optimize.leastsq
+        ifscube.onedspec.Spectrum.linefit, scipy.optimize.curve_fit,
+        scipy.optimize.leastsq
         """
 
         fitting_window = kwargs.get('fitting_window', None)
         if fitting_window is not None:
             fw_mask = (
-                (self.restwl > fitting_window[0])
-                & (self.restwl < fitting_window[1]))
+                    (self.restwl > fitting_window[0])
+                    & (self.restwl < fitting_window[1]))
             fit_npixels = np.sum(fw_mask)
         else:
             fw_mask = np.ones_like(self.restwl).astype('bool')
             fit_npixels = self.restwl.size
 
         # A few assertions
-        assert np.any(self.data[fw_mask]),\
+        assert np.any(self.data[fw_mask]), \
             'No valid data within the fitting window.'
 
         fit_shape = (fit_npixels,) + self.data.shape[1:]
@@ -833,6 +854,8 @@ class Cube:
         self.initial_guess = np.zeros((npars,) + self.data.shape[1:])
         self.fitbounds = np.zeros((npars * 2,) + self.data.shape[1:])
 
+        v = None
+        vor = None
         if self.binned:
             v = self.voronoi_tab
             xy = np.column_stack([
@@ -846,8 +869,8 @@ class Cube:
         # Saves the original bounds in case the bound updater is used.
         original_bounds = deepcopy(kwargs.get('bounds', None))
 
-        Y, X = np.indices(fit_shape[1:])
-        if individual_spec:
+        yy, xx = np.indices(fit_shape[1:])
+        if individual_spec is not None:
             if individual_spec == 'peak':
                 xy = [cubetools.peak_spaxel(self.data[fw_mask])[::-1]]
             elif individual_spec == 'cofm':
@@ -873,16 +896,21 @@ class Cube:
         self.fit_y0, self.fit_x0 = xy[0]
 
         if verbose:
-            iterador = tqdm(xy)
+            iterator = tqdm(xy, desc='Fitting spectra', unit='spaxel')
         else:
-            iterador = xy
+            iterator = xy
 
         is_first_spec = True
-        for h in iterador:
+
+        if len(iterator) == 0:
+            raise RuntimeError('No spectra to fit.')
+
+        for h in iterator:
 
             i, j = h
-            if self.binned:
-                binNum = vor[(vor[:, 0] == i) & (vor[:, 1] == j), 2]
+            bin_num = None
+            if v is not None:
+                bin_num = vor[(vor[:, 0] == i) & (vor[:, 1] == j), 2]
 
             cube_slice = (Ellipsis, i, j)
 
@@ -895,9 +923,9 @@ class Cube:
 
             if refit and not is_first_spec:
 
-                radsol = np.sqrt((Y - i)**2 + (X - j)**2)
+                radsol = np.sqrt((yy - i) ** 2 + (xx - j) ** 2)
                 nearsol = sol[
-                    :-1, (radsol < refit_radius) & (self.fit_status == 0)]
+                          :-1, (radsol < refit_radius) & (self.fit_status == 0)]
 
                 if np.shape(nearsol) == (5, 1):
                     p0 = deepcopy(nearsol.transpose())
@@ -922,7 +950,7 @@ class Cube:
                 self.eqw_direct = np.zeros_like(self.eqw_model)
 
             if self.binned:
-                for l, m in vor[vor[:, 2] == binNum, :2]:
+                for l, m in vor[vor[:, 2] == bin_num, :2]:
                     sol[:, l, m] = spec.em_model
                     self.fitcont[:, l, m] = spec.fitcont
                     self.fitspec[:, l, m] = spec.fitspec
@@ -961,7 +989,7 @@ class Cube:
 
         self.em_model = sol
 
-        if writefits:
+        if write_fits:
             self._write_linefit(args=locals())
 
         if individual_spec:
@@ -1147,7 +1175,6 @@ class Cube:
 
                 # Plots the fit when evaluating only one spectrum.
                 if len(xy) == 1:
-
                     print('W80 model: {:.2f} km/s'.format(w80_model[i, j]))
                     print('W80 direct: {:.2f} km/s'.format(w80_direct[i, j]))
 
@@ -1167,10 +1194,20 @@ class Cube:
 
         Parameters
         ----------
-        x : number
+        x: int
             Horizontal coordinate of the desired spaxel.
-        y : number
+        y: int
             Vertical coordinate of the desired spaxel.
+        show: bool
+            Shows the plot.
+        axis: matplotlib.pyplot.Axes, optional
+            Instance of Axes. If *None* a new instance will be created.
+        output: str
+            Selects whether to print the fit results. Available options
+            are:
+
+                - 'stdout': prints to standard output.
+                - 'return': returns the output as a string.
 
         Returns
         -------
@@ -1214,8 +1251,7 @@ class Cube:
 
         ax.set_xlabel(r'Wavelength (${\rm \AA}$)')
         ax.set_ylabel(
-            'Flux density ($10^{{{:d}}}\, {{\\rm erg\,s^{{-1}}\,cm^{{-2}}'
-            '\,\AA^{{-1}}}}$)'.format(norm_factor_d))
+            r'Flux density ($10^{{{:d}}}\, {{\rm erg\,s^{{-1}}\,cm^{{-2}}\,\AA^{{-1}}}}$)'.format(norm_factor_d))
 
         npars = self.npars
         parnames = self.parnames
@@ -1223,9 +1259,9 @@ class Cube:
         if len(p) > npars:
             for i in np.arange(0, len(p), npars):
                 modeled_spec = (
-                    c + star
-                    + f(wl, rest_wl[int(i / npars)], pp[i: i + npars]))\
-                    / norm_factor
+                                       c + star
+                                       + f(wl, rest_wl[int(i / npars)], pp[i: i + npars])) \
+                               / norm_factor
                 ax.plot(wl, modeled_spec, 'k--')
 
         # NOTE: This is only here for backwards compatibility with
@@ -1234,13 +1270,12 @@ class Cube:
         if not hasattr(self, 'component_names'):
             self.component_names = [str(i) for i in range(0, len(p) / npars)]
 
-        pars = ('Red_Chi2: {:.3f}\n'.format(self.em_model[-1, y, x]))
-
         pars = ((npars + 1) * '{:12s}' + '\n').format('Name', *parnames)
         for i in np.arange(0, len(p), npars):
             pars += (
-                ('{:<12s}{:>12.2e}' + (npars - 1) * '{:>12.2f}' + '\n')
-                .format(self.component_names[int(i / npars)], *p[i:i + npars]))
+                ('{:<12s}{:>12.2e}' + (npars - 1) * '{:>12.2f}' + '\n').format(
+                    self.component_names[int(i / npars)], *p[i:i + npars])
+            )
 
         if output == 'stdout':
             print(pars)
@@ -1256,9 +1291,7 @@ class Cube:
 
         channel_maps.channelmaps(self, *args, **kwargs)
 
-    def peak_coords(
-            self, wl_center, wl_width, center_type='peak_cen',
-            spatial_center=[], spatial_width=10):
+    def peak_coords(self, wl_center, wl_width, center_type='peak_cen', spatial_center=None, spatial_width=10):
         """
         Returns the coordinates of the centroid or the peak of a 2D
         flux distrubution.
@@ -1281,27 +1314,27 @@ class Cube:
             the region, and,
             'peak' returns the pixel position of the maximum value in the
             region.
-        spatial_center : list
+        spatial_center: tuple
             Central position of the spatial region where the center is
             calculated.
         spatial_width : number
             Side size of the square spatial region where the center is
             calculated.
         """
-        if (spatial_center == []):
+        if spatial_center is None:
             spatial_center = [
                 int(self.data.shape[1] / 2.), int(self.data.shape[2] / 2.)]
 
-        # wavelenght = self.wl
+        # wavelength = self.wl
         projection = cubetools.wlprojection(
             arr=self.data, wl=self.wl, wl0=wl_center, fwhm=wl_width,
             filtertype='box')
         projection_crop = projection[
-            int(spatial_center[0] - spatial_width / 2):
-                int(spatial_center[0] + spatial_width / 2) + 1,
-            int(spatial_center[1] - spatial_width / 2):
-                int(spatial_center[1] + spatial_width / 2) + 1]
-        if (center_type == 'peak_cen'):
+                          int(spatial_center[0] - spatial_width / 2):
+                          int(spatial_center[0] + spatial_width / 2) + 1,
+                          int(spatial_center[1] - spatial_width / 2):
+                          int(spatial_center[1] + spatial_width / 2) + 1]
+        if center_type == 'peak_cen':
             idx = np.nanargmax(projection_crop, axis=None)
             coords = np.unravel_index(idx, projection_crop.shape)
             spatial_center[0] = int(
@@ -1309,29 +1342,26 @@ class Cube:
             spatial_center[1] = int(
                 spatial_center[1] - spatial_width / 2 + coords[1])
             projection_crop = projection[
-                int(spatial_center[0] - spatial_width / 2):
-                    int(spatial_center[0] + spatial_width / 2) + 1,
-                int(spatial_center[1] - spatial_width / 2):
-                    int(spatial_center[1] + spatial_width / 2) + 1
-            ]
+                              int(spatial_center[0] - spatial_width / 2):
+                              int(spatial_center[0] + spatial_width / 2) + 1,
+                              int(spatial_center[1] - spatial_width / 2):
+                              int(spatial_center[1] + spatial_width / 2) + 1
+                              ]
             coords = center_of_mass(ma.masked_invalid(projection_crop))
-        elif (center_type == 'peak'):
+        elif center_type == 'peak':
             idx = np.nanargmax(projection_crop, axis=None)
             coords = np.unravel_index(idx, projection_crop.shape)
-        elif (center_type == 'centroid'):
+        elif center_type == 'centroid':
             pass
             coords = center_of_mass(ma.masked_invalid(projection_crop))
         else:
-            raise ValueError(
-                'ERROR! Parameter center_type "{:s}" not understood.'
-                .format(center_type))
+            raise ValueError('Parameter center_type "{:s}" not understood.'.format(center_type))
 
         coords = coords + np.array([
             int(spatial_center[0] - spatial_width / 2),
             int(spatial_center[1] - spatial_width / 2)])
 
         return coords
-
 
     def spatial_rebin(self, xbin, ybin, combine='mean'):
         """
@@ -1340,13 +1370,13 @@ class Cube:
         Parameters
         ----------
         xbin: int
-          Size of the bin in the horizontal direction.
+            Size of the bin in the horizontal direction.
         ybin: int
-          Size of the bin in the vertical direction.
-        combine: 'mean', 'sum'
-          Type of spectral combination.
-            mean: The spectral flux is averaged over the spatial bin.
-            sum: The spectral flux is summed over the spatial bin.
+            Size of the bin in the vertical direction.
+        combine: str
+            Type of spectral combination.
+                - 'mean': The spectral flux is averaged over the spatial bin.
+                - 'sum': The spectral flux is summed over the spatial bin.
 
         Returns
         -------
@@ -1361,8 +1391,8 @@ class Cube:
             self.ncubes, xbin, ybin, combine='sum').astype('int')
 
         self.flags = (
-            cubetools.rebin(
-                self.flags, xbin, ybin, combine='sum') == xbin * ybin
+                cubetools.rebin(
+                    self.flags, xbin, ybin, combine='sum') == xbin * ybin
         ).astype('int')
 
         if hasattr('self', 'noise_cube'):
@@ -1382,18 +1412,32 @@ class Cube:
 
         return
 
-    def gaussian_smooth(self, sigma=2, writefits=False, outfile=None,
-                        clobber=False):
+    def gaussian_smooth(self, sigma=2, write_fits=False, outfile=None):
         """
         Performs a spatial gaussian convolution on the data cube.
 
         Parameters
         ----------
-        sigma : number
-          Sigma of the gaussian kernel.
+        sigma: float
+            Sigma of the gaussian kernel.
+        write_fits: bool
+            Writes the output to a FITS file.
+        outfile: str
+            Name of the output file.
+
+        Returns
+        -------
+        gdata: numpy.ndarray
+            Gaussian smoothed data.
+        gvar: numpy.ndarray
+            Smoothed variance.
+
+        See also
+        --------
+        scipy.ndimage.gaussian_filter
         """
 
-        if writefits and outfile is None:
+        if write_fits and outfile is None:
             raise RuntimeError('Output file name not given.')
 
         gdata = np.zeros_like(self.data)
@@ -1402,7 +1446,6 @@ class Cube:
         i = 0
 
         while i < len(self.wl):
-
             tmp_data = cubetools.nan_to_nearest(self.data[i])
             tmp_var = cubetools.nan_to_nearest(self.noise_cube[i]) ** 2
 
@@ -1411,38 +1454,39 @@ class Cube:
 
             i += 1
 
-        if writefits:
-
+        if write_fits:
             hdulist = fits.open(self.fitsfile)
             hdr = hdulist[0].header
 
             hdr['SPSMOOTH'] = ('Gaussian', 'Type of spatial smoothing.')
             hdr['GSMTHSIG'] = (sigma, 'Sigma of the gaussian kernel')
 
-            hdulist[self.dataext].data = gdata
-            hdulist[self.var_ext].data = gvar
+            hdulist[self.extension_names['scidata']].data = gdata
+            hdulist[self.extension_names['variance']].data = gvar
 
             hdulist.writeto(outfile)
 
         return gdata, gvar
 
-    def voronoi_binning(self, targetsnr=10.0, writefits=False,
-                        outfile=None, overwrite=False, plot=False,
-                        **kwargs):
+    def voronoi_binning(self, target_snr=10.0, write_fits=False, outfile=None, overwrite=False, plot=False, **kwargs):
         """Applies Voronoi binning to the data cube, using Cappellari's Python implementation.
 
         Parameters
         ----------
-        targetsnr : float
+        target_snr : float
             Desired signal to noise ratio of the binned pixels
-        writefits : boolean
+        write_fits : boolean
             Writes a FITS image with the output of the binning.
+        plot: bool
+            Plots the binning results.
         outfile : string
             Name of the output FITS file. If 'None' then the name of
             the original FITS file containing the data cube will be used
             as a root name, with '.bin' appended to it.
         overwrite : boolean
             Overwrites files with the same name given in 'outfile'.
+        **kwargs: dict
+            Arguments passed to voronoi_2d_binning.
 
         Returns
         -------
@@ -1452,39 +1496,25 @@ class Cube:
         try:
             from vorbin.voronoi_2d_binning import voronoi_2d_binning
         except ImportError:
-            raise ImportError(
-                'Could not find the voronoi_2d_binning module. '
-                'Please add it to your PYTHONPATH.')
-        try:
-            x = np.shape(self.noise)
-        except AttributeError:
-            print(
-                'This function requires prior execution of the snr_eval ' +
-                'method.')
-            return
+            raise ImportError('Could not find the voronoi_2d_binning module. Please add it to your PYTHONPATH.')
+
+        if self.noise is None:
+            raise RuntimeError('This function requires prior execution of the snr_eval method.')
 
         # Initializing the binned arrays as zeros.
-        try:
-            b_data = np.zeros(np.shape(self.data))
-        except AttributeError as err:
-            err.args += (
-                'Could not access the data attribute of the gmosdc object.',)
-            raise err
+        assert hasattr(self, 'data'), 'Could not access the data attribute of the Cube object.'
+        b_data = np.zeros(np.shape(self.data))
 
-        try:
-            b_variance = np.zeros(np.shape(self.variance))
-        except AttributeError as err:
-            err.args += (
-                'Could not access the noise_cube attribute of the gmosdc '
-                'object.',)
+        assert hasattr(self, 'variance'), 'Could not access the variance attribute of the Cube object.'
+        b_variance = np.zeros(np.shape(self.data))
 
         valid_spaxels = np.ravel(~np.isnan(self.signal))
 
         x = np.ravel(np.indices(np.shape(self.signal))[1])[valid_spaxels]
         y = np.ravel(np.indices(np.shape(self.signal))[0])[valid_spaxels]
 
-        xnan = np.ravel(np.indices(np.shape(self.signal))[1])[~valid_spaxels]
-        ynan = np.ravel(np.indices(np.shape(self.signal))[0])[~valid_spaxels]
+        x_nan = np.ravel(np.indices(np.shape(self.signal))[1])[~valid_spaxels]
+        y_nan = np.ravel(np.indices(np.shape(self.signal))[0])[~valid_spaxels]
 
         s, n = deepcopy(self.signal), deepcopy(self.noise)
 
@@ -1493,22 +1523,21 @@ class Cube:
 
         signal, noise = np.ravel(s)[valid_spaxels], np.ravel(n)[valid_spaxels]
 
-        binNum, xNode, yNode, xBar, yBar, sn, nPixels, scale = \
+        bin_num, x_node, y_node, x_bar, y_bar, sn, n_pixels, scale = \
             voronoi_2d_binning(
-                x, y, signal, noise, targetsnr, plot=plot, quiet=0, **kwargs)
-        v = np.column_stack([y, x, binNum])
+                x, y, signal, noise, target_snr, plot=plot, quiet=0, **kwargs)
+        v = np.column_stack([y, x, bin_num])
 
         # For every nan in the original cube, fill with nan the
         # binned cubes.
         for i in [b_data, b_variance]:
-            i[:, ynan, xnan] = np.nan
+            i[:, y_nan, x_nan] = np.nan
 
-        for i in np.arange(binNum.max() + 1):
+        for i in np.arange(bin_num.max() + 1):
             samebin = v[:, 2] == i
             samebin_coords = v[samebin, :2]
 
             for k in samebin_coords:
-
                 # Storing the indexes in a variable to avoid typos in
                 # subsequent references to the same indexes.
                 #
@@ -1529,10 +1558,9 @@ class Cube:
                 # The resulting variance is defined as the sum
                 # of the original variance, such that the noise
                 # is the quadratic sum of the original noise.
-                b_variance[binned_idx] = np.mean(
-                    self.variance[unbinned_idx], axis=1)
+                b_variance[binned_idx] = np.mean(self.variance[unbinned_idx], axis=1)
 
-        if writefits:
+        if write_fits:
 
             # Starting with the original data cube
             hdulist = fits.open(self.fitsfile)
@@ -1545,7 +1573,7 @@ class Cube:
                 hdr['REDSHIFT'] = (self.redshift,
                                    'Redshift used in GMOSDC')
             hdr['VORBIN'] = (True, 'Processed by Voronoi binning?')
-            hdr['VORTSNR'] = (targetsnr, 'Target SNR for Voronoi binning.')
+            hdr['VORTSNR'] = (target_snr, 'Target SNR for Voronoi binning.')
 
             hdulist[self.extension_names['primary']].header = hdr
 
@@ -1560,19 +1588,19 @@ class Cube:
                 [
                     fits.Column(name='xcoords', format='i8', array=x),
                     fits.Column(name='ycoords', format='i8', array=y),
-                    fits.Column(name='binNum', format='i8', array=binNum),
+                    fits.Column(name='binNum', format='i8', array=bin_num),
                 ], name='VOR')
 
             tbhdu_plus = fits.BinTableHDU.from_columns(
                 [
                     fits.Column(name='ubin', format='i8',
-                                array=np.unique(binNum)),
-                    fits.Column(name='xNode', format='F16.8', array=xNode),
-                    fits.Column(name='yNode', format='F16.8', array=yNode),
-                    fits.Column(name='xBar', format='F16.8', array=xBar),
-                    fits.Column(name='yBar', format='F16.8', array=yBar),
+                                array=np.unique(bin_num)),
+                    fits.Column(name='xNode', format='F16.8', array=x_node),
+                    fits.Column(name='yNode', format='F16.8', array=y_node),
+                    fits.Column(name='xBar', format='F16.8', array=x_bar),
+                    fits.Column(name='yBar', format='F16.8', array=y_bar),
                     fits.Column(name='sn', format='F16.8', array=sn),
-                    fits.Column(name='nPixels', format='i8', array=nPixels),
+                    fits.Column(name='nPixels', format='i8', array=n_pixels),
                 ], name='VORPLUS')
 
             hdulist.append(tbhdu)
@@ -1585,32 +1613,28 @@ class Cube:
 
         self.binned_cube = b_data
 
-    def write_binnedspec(self, dopcor=False, writefits=False):
+    def write_binnedspec(self, doppler_correction=False):
         """
         Writes only one spectrum for each bin in a FITS file.
+        
+        Parameters
+        ----------
+        doppler_correction: bool
+            Apply Doppler correction.
         """
 
         xy = self.spec_indices
-        unique_indices = xy[
-            np.unique(self.data[1400, :, :], return_index=True)[1]]
+        unique_indices = xy[np.unique(self.data[1400, :, :], return_index=True)[1]]
 
-        if dopcor:
+        if doppler_correction:
 
-            try:
-                np.shape(self.em_model)
-            except AttributeError:
-                print(
-                    'ERROR! This function requires the Cube.em_model' +
-                    ' attribute to be defined.')
-                return
+            assert hasattr(self, 'em_model'), 'This function requires the Cube.em_model attribute to be defined.'
 
+            specs = np.array([])
             for k, i, j in enumerate(unique_indices):
-                z = self.em_model[0, i, j] / 2.998e+5
+                z = self.em_model[0, i, j] / 2.99792458e+5
                 interp_spec = interp1d(self.restwl / (1. + z), self.data[i, j])
-                if k == 0:
-                    specs = interp_spec(self.restwl)
-                else:
-                    specs = np.row_stack([specs, interp_spec(self.restwl)])
+                specs = np.row_stack([specs, interp_spec(self.restwl)])
 
         else:
             specs = np.row_stack(
@@ -1618,78 +1642,103 @@ class Cube:
 
         return specs
 
-    def ppxf_kinematics(self, fitting_window, base_wl, base_spec,
-                        base_cdelt, writefits=True, outimage=None,
-                        vel=0, sigma=180, fwhm_gal=2, fwhm_model=1.8,
-                        noise=0.05, individual_spec=False, plotfit=False,
-                        quiet=False, deg=4, mask=None, cushion=100.,
-                        moments=4, overwrite=False):
+    def ppxf_kinematics(self, fitting_window, base_wl, base_spec, base_cdelt, write_fits=True, out_image=None, vel=0.0,
+                        fwhm_gal=2, fwhm_model=1.8, noise=0.05, individual_spec=None, plot_fit=False, quiet=False,
+                        deg=4, mask=None, cushion=100., moments=4, overwrite=False):
         """
         Executes pPXF fitting of the stellar spectrum over the whole
         data cube.
 
         Parameters
         ----------
-        fitting_window : array-like
+        fitting_window: tuple
             Initial and final values of wavelength for fitting.
-        base_wl : array
+        base_wl: numpy.ndarray
             Wavelength coordinates of the base spectra.
-        base_spec : array
+        base_spec: numpy.ndarray
             Flux density coordinates of the base spectra.
-        base_cdelt : number
+        base_cdelt: float
             Step in wavelength coordinates.
+        write_fits: bool
+            Writes the output to a FITS file.
+        out_image: str
+            Name of the output file.
+        vel: float
+            Systemic velocity of the spectrum.
+        fwhm_gal: float
+            Full width at half maximum of an element of spectral resolution in the observation.
+        fwhm_model: float
+            Full width at half maximum of an element of spectral resolution in the base spectra.
+        noise: float
+            Estimate of the noise level.
+        individual_spec: tuple, optional
+            Coordinates of a spaxel to be fitted individually.
+        plot_fit: bool
+            Plots the resulting fit.
+        quiet: bool
+            Be verbose about it.
+        deg: integer
+            Degree of the continuum smoothing polynomial.
+        mask: numpy.ndarray, optional
+            Mask of pixels to ignore in the fit.
+        cushion: float
+            Wavelength interval to be ignored at the borders of the spectrum, to
+            avoid border effects on the convolution.
+        moments: integer
+            Number of moments in the Gauss-Hermite polynomial used to fit the kinematics.
+        overwrite: bool
+            Overwrites previously saved fits.
 
         Returns
         -------
         Nothing
 
-        Description
-        -----------
-        This function is merely a wrapper for Michelle Capellari's pPXF
-        Python algorithm for penalized pixel fitting of stellar
-        spectra.
+        Notes
+        -----
+        This function is merely a wrapper for Michelle Capellari's pPXF Python algorithm for
+        penalized pixel fitting of stellar spectra.
+
+        See also
+        --------
+        ppxf
         """
 
         try:
             from ppxf import ppxf
         except ImportError:
-            raise ImportError(
-                'Could not find the ppxf module. '
-                'Please add it to your PYTHONPATH.')
+            raise ImportError('Could not find the ppxf module. Please add it to your PYTHONPATH.')
 
         try:
             from ppxf import ppxf_util
         except ImportError:
-            raise ImportError(
-                'Could not find the ppxf_util module. '
-                'Please add it to your PYTHONPATH.')
+            raise ImportError('Could not find the ppxf_util module. Please add it to your PYTHONPATH.')
 
         w0, w1 = fitting_window
         fw = (self.restwl >= w0) & (self.restwl < w1)
 
-        baseCut = (base_wl > w0 - cushion) & (base_wl < w1 + cushion)
+        base_cut = (base_wl > w0 - cushion) & (base_wl < w1 + cushion)
 
-        if not np.any(baseCut):
+        if not np.any(base_cut):
             raise RuntimeError(
                 'The interval defined by fitting_window lies outside '
                 'the range covered by base_wl. Please review your base '
                 'and/or fitting window.')
 
-        base_spec = base_spec[:, baseCut]
-        base_wl = base_wl[baseCut]
+        base_spec = base_spec[:, base_cut]
+        base_wl = base_wl[base_cut]
 
-        lamRange1 = self.restwl[fw][[0, -1]]
-        centerSpaxel = np.array(
+        lam_range1 = self.restwl[fw][[0, -1]]
+        center_spaxel = np.array(
             [int(i / 2) for i in np.shape(self.data[0])], dtype='int')
-        gal_lin = deepcopy(self.data[fw, centerSpaxel[0], centerSpaxel[1]])
+        gal_lin = deepcopy(self.data[fw, center_spaxel[0], center_spaxel[1]])
 
-        galaxy, logLam1, velscale = ppxf_util.log_rebin(
-            lamRange1, gal_lin)
+        galaxy, log_lam1, velscale = ppxf_util.log_rebin(
+            lam_range1, gal_lin)
 
         # Here we use the goodpixels as the fitting window
         # gp = np.arange(np.shape(self.data)[0])[fw]
-        gp = np.arange(len(logLam1))
-        lam1 = np.exp(logLam1)
+        gp = np.arange(len(log_lam1))
+        lam1 = np.exp(log_lam1)
 
         if mask is not None:
             if len(mask) == 1:
@@ -1700,12 +1749,12 @@ class Cube:
                     (lam1 < i[0]) | (lam1 > i[1]) for i in mask])
                 gp = gp[np.sum(m, 0) == m.shape[0]]
 
-        lamRange2 = base_wl[[0, -1]]
+        lam_range2 = base_wl[[0, -1]]
         ssp = base_spec[0]
 
-        sspNew, logLam2, velscale = ppxf_util.log_rebin(
-            lamRange2, ssp, velscale=velscale)
-        templates = np.empty((sspNew.size, len(base_spec)))
+        ssp_new, log_lam2, velscale = ppxf_util.log_rebin(
+            lam_range2, ssp, velscale=velscale)
+        templates = np.empty((ssp_new.size, len(base_spec)))
 
         # Convolve the whole Vazdekis library of spectral templates
         # with the quadratic difference between the SAURON and the
@@ -1717,20 +1766,20 @@ class Cube:
         # instrumental spectral profiles are well approximated by
         # Gaussians.
 
-        FWHM_dif = np.sqrt(fwhm_gal**2 - fwhm_model**2)
+        fwhm_dif = np.sqrt(fwhm_gal ** 2 - fwhm_model ** 2)
         # Sigma difference in pixels
-        sigma = FWHM_dif / 2.355 / base_cdelt
+        sigma = fwhm_dif / 2.355 / base_cdelt
 
         for j in range(len(base_spec)):
             ssp = base_spec[j]
             ssp = gaussian_filter(ssp, sigma)
-            sspNew, logLam2, velscale = ppxf_util.log_rebin(
-                lamRange2, ssp, velscale=velscale)
+            ssp_new, log_lam2, velscale = ppxf_util.log_rebin(
+                lam_range2, ssp, velscale=velscale)
             # Normalizes templates
-            templates[:, j] = sspNew / np.median(sspNew)
+            templates[:, j] = ssp_new / np.median(ssp_new)
 
         c = constants.c.value * 1.e-3
-        dv = (logLam2[0] - logLam1[0]) * c  # km/s
+        dv = (log_lam2[0] - log_lam1[0]) * c  # km/s
         # z = np.exp(vel/c) - 1
 
         # Here the actual fit starts.
@@ -1739,6 +1788,7 @@ class Cube:
         # Assumes uniform noise accross the spectrum
         noise = np.zeros(len(galaxy), dtype=galaxy.dtype) + noise
 
+        vor = None
         if self.binned:
             vor = self.voronoi_tab
             xy = np.column_stack([
@@ -1747,7 +1797,7 @@ class Cube:
         else:
             xy = self.spec_indices
 
-        if individual_spec:
+        if individual_spec is not None:
             xy = [individual_spec[::-1]]
 
         ppxf_sol = np.zeros(
@@ -1758,14 +1808,15 @@ class Cube:
             dtype='float64')
         ppxf_model = np.zeros(np.shape(ppxf_spec), dtype='float64')
 
+        norm_factor = 1.0
         for k, h in enumerate(xy):
             i, j = h
 
             gal_lin = deepcopy(self.data[fw, i, j])
-            galaxy, logLam1, velscale = ppxf_util.log_rebin(
-                lamRange1, gal_lin)
-            normFactor = np.nanmean(galaxy)
-            galaxy = galaxy / normFactor
+            galaxy, log_lam1, velscale = ppxf_util.log_rebin(
+                lam_range1, gal_lin)
+            norm_factor = np.nanmean(galaxy)
+            galaxy = galaxy / norm_factor
 
             if np.any(np.isnan(galaxy)):
                 pp = cubetools.NanSolution()
@@ -1773,20 +1824,20 @@ class Cube:
             else:
                 pp = ppxf.ppxf(
                     templates, galaxy, noise, velscale, start, goodpixels=gp,
-                    plot=plotfit, moments=moments, degree=deg, vsyst=dv,
+                    plot=plot_fit, moments=moments, degree=deg, vsyst=dv,
                     quiet=quiet)
-                if plotfit:
+                if plot_fit:
                     plt.show()
 
-            if self.binned:
+            if vor is not None:
 
-                binNum = vor[
+                bin_num = vor[
                     (vor['xcoords'] == j) & (vor['ycoords'] == i)]['binNum']
-                sameBinNum = vor['binNum'] == binNum
-                sameBinX = vor['xcoords'][sameBinNum]
-                sameBinY = vor['ycoords'][sameBinNum]
+                same_bin_num = vor['binNum'] == bin_num
+                same_bin_x = vor['xcoords'][same_bin_num]
+                same_bin_y = vor['ycoords'][same_bin_num]
 
-                for l, m in np.column_stack([sameBinY, sameBinX]):
+                for l, m in np.column_stack([same_bin_y, same_bin_x]):
                     ppxf_sol[:, l, m] = pp.sol
                     ppxf_spec[:, l, m] = pp.galaxy
                     ppxf_model[:, l, m] = pp.bestfit
@@ -1797,16 +1848,16 @@ class Cube:
                 ppxf_model[:, i, j] = pp.bestfit
 
         self.ppxf_sol = ppxf_sol
-        self.ppxf_spec = ppxf_spec * normFactor
-        self.ppxf_model = ppxf_model * normFactor
-        self.ppxf_wl = np.e ** logLam1
+        self.ppxf_spec = ppxf_spec * norm_factor
+        self.ppxf_model = ppxf_model * norm_factor
+        self.ppxf_wl = np.e ** log_lam1
         self.ppxf_goodpixels = gp
 
-        if writefits:
+        if write_fits:
 
             # Basic tests and first header
-            if outimage is None:
-                outimage = self.fitsfile.replace('.fits', '_ppxf.fits')
+            if out_image is None:
+                out_image = self.fitsfile.replace('.fits', '_ppxf.fits')
             hdr = deepcopy(self.header_data)
             try:
                 hdr['REDSHIFT'] = self.redshift
@@ -1851,7 +1902,7 @@ class Cube:
             hdr['object'] = 'goodpixels'
             h.append(fits.ImageHDU(data=self.ppxf_goodpixels, header=hdr, name='GOODPIX'))
 
-            h.writeto(outimage, overwrite=overwrite)
+            h.writeto(out_image, overwrite=overwrite)
 
     def ppxf_plot(self, xy, axis=None):
 

@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     # Actual binning.
     mycube.voronoi_binning(
-        targetsnr=3, writefits=True, overwrite=True, plot=False)
+        target_snr=3, write_fits=True, overwrite=True, plot=False)
 
     #
     # pPXF fitting
@@ -61,11 +61,11 @@ if __name__ == '__main__':
 
     # Actual pPXF fitting.
     mycube.ppxf_kinematics(
-        fitting_window=[5650, 5850],
+        fitting_window=(5650, 5850),
         base_wl=wl,
         base_spec=base,
         base_cdelt=0.9,
-        writefits=True,
+        write_fits=True,
         deg=3,
         overwrite=True,
     )

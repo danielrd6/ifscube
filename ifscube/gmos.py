@@ -144,7 +144,7 @@ class cube(datacube.Cube):
 
         self._set_spec_indices()
 
-    def voronoi_binning(self, targetsnr=10.0, writefits=False,
+    def voronoi_binning(self, target_snr=10.0, write_fits=False,
                         outfile=None, clobber=False, writevortab=True,
                         dataext=1):
         """
@@ -153,9 +153,9 @@ class cube(datacube.Cube):
 
         Parameters
         ----------
-        targetsnr : float
+        target_snr : float
             Desired signal to noise ratio of the binned pixels
-        writefits : boolean
+        write_fits : boolean
             Writes a FITS image with the output of the binning.
         outfile : string
             Name of the output FITS file. If 'None' then the name of
@@ -223,7 +223,7 @@ class cube(datacube.Cube):
         signal, noise = np.ravel(s)[valid_spaxels], np.ravel(n)[valid_spaxels]
 
         binNum, xNode, yNode, xBar, yBar, sn, nPixels, scale = \
-            voronoi_2d_binning(x, y, signal, noise, targetsnr, plot=1, quiet=0)
+            voronoi_2d_binning(x, y, signal, noise, target_snr, plot=1, quiet=0)
         v = np.column_stack([y, x, binNum])
 
         # For every nan in the original cube, fill with nan the
@@ -268,7 +268,7 @@ class cube(datacube.Cube):
                 b_noise[binned_idx] = np.sqrt(np.sum(np.square(
                     self.noise_cube[unbinned_idx]), axis=1))
 
-        if writefits:
+        if write_fits:
 
             # Starting with the original data cube
             hdulist = fits.open(self.fitsfile)
@@ -281,7 +281,7 @@ class cube(datacube.Cube):
                 hdr['REDSHIFT'] = (self.redshift,
                                    'Redshift used in GMOSDC')
             hdr['VORBIN'] = (True, 'Processed by Voronoi binning?')
-            hdr['VORTSNR'] = (targetsnr, 'Target SNR for Voronoi binning.')
+            hdr['VORTSNR'] = (target_snr, 'Target SNR for Voronoi binning.')
 
             hdulist[self.hdrext].header = hdr
 
