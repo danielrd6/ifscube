@@ -17,7 +17,6 @@ from . import elprofile as lprof
 
 
 def scale_bounds(bounds, scale_factor, npars_pc):
-
     b = np.array(deepcopy(bounds))
     for j in b[::npars_pc]:
         for k in (0, 1):
@@ -27,7 +26,7 @@ def scale_bounds(bounds, scale_factor, npars_pc):
     return b
 
 
-class Spectrum():
+class Spectrum:
 
     def __init__(self, *args, **kwargs):
 
@@ -53,7 +52,7 @@ class Spectrum():
             if j is not None:
                 if isinstance(j, str):
                     if j in hdu:
-                        assert hdu[j].data.shape == self.data.shape,\
+                        assert hdu[j].data.shape == self.data.shape, \
                             shmess(lab)
                         i[:] = hdu[j].data
                 elif isinstance(j, np.ndarray):
@@ -91,11 +90,10 @@ class Spectrum():
         else:
             self.redshift = 0
 
-        self.restwl = self.dopcor(
-            self.redshift, self.wl, self.data)
+        self.restwl = self.dopcor(self.redshift, self.wl)
 
     @staticmethod
-    def dopcor(z, wl, flux):
+    def dopcor(z, wl):
 
         restwl = wl / (1. + z)
         return restwl
@@ -111,13 +109,13 @@ class Spectrum():
                 self.feature_wl[idx] * units.angstrom))
         return lam.value
 
-    def _fitTable(self):
+    def _fit_table(self):
 
         cnames = self.component_names
         pnames = self.parnames
 
-        c = np.array([[i for j in pnames] for i in cnames]).flatten()
-        p = np.array([[i for i in pnames] for j in cnames]).flatten()
+        c = np.array([[i for _ in pnames] for i in cnames]).flatten()
+        p = np.array([[i for i in pnames] for _ in cnames]).flatten()
 
         t = table.Table([c, p], names=('component', 'parameter'))
         h = fits.table_to_hdu(t)
@@ -207,13 +205,14 @@ class Spectrum():
 
         # Creates component and parameter names table.
         hdr['object'] = 'parameter names'
-        hdu = self._fitTable()
+        hdu = self._fit_table()
         hdu.name = 'PARNAMES'
         h.append(hdu)
 
         h.writeto(outimage, overwrite=args['overwrite'])
 
-    def _within_bounds(self, x, bounds):
+    @staticmethod
+    def _within_bounds(x, bounds):
 
         low, high = bounds
 
@@ -221,10 +220,10 @@ class Spectrum():
             return (x > low) & (x < high)
 
         elif (low is not None) and (high is None):
-            return (x > low)
+            return x > low
 
         elif (low is None) and (high is not None):
-            return (x < high)
+            return x < high
 
         else:
             return True
@@ -240,12 +239,13 @@ class Spectrum():
                     p[p.index(i)] = self.data[self.valid_pixels].mean()
                 elif i == 'median':
                     p[p.index(i)] = np.median(self.data[self.valid_pixels])
-            except:
+            except ValueError:
                 p[p.index(i)] = np.nan
 
         return p
 
-    def feature_slice(self, wl, lam, s):
+    @staticmethod
+    def feature_slice(wl, lam, s):
 
         low_lam = (lam - s)
         up_lam = (lam + s)
@@ -282,8 +282,8 @@ class Spectrum():
 
         return new_p0
 
-    def optimize_mask(self, data, wl, feature_wl, sigma, width=20,
-                      catch_error=False):
+    @staticmethod
+    def optimize_mask(wl, feature_wl, sigma, width=20, catch_error=False):
 
         mask = np.zeros_like(wl).astype(bool)
 
@@ -294,18 +294,18 @@ class Spectrum():
 
             if catch_error:
 
-                assert low_lam > wl[0],\
-                    'ERROR in optimization mask. Lower limit in optimization '\
+                assert low_lam > wl[0], \
+                    'ERROR in optimization mask. Lower limit in optimization ' \
                     'window is below the lowest available wavelength.'
 
-                assert up_lam < wl[-1],\
-                    'ERROR in optimization mask. Upper limit in optimization '\
+                assert up_lam < wl[-1], \
+                    'ERROR in optimization mask. Upper limit in optimization ' \
                     'window is above the highest available wavelength.'
 
             else:
-                if (low_lam < wl[0]):
+                if low_lam < wl[0]:
                     low_lam = wl[0]
-                if (up_lam > wl[-1]):
+                if up_lam > wl[-1]:
                     up_lam = wl[-1]
 
             wl_lims = [
@@ -319,26 +319,23 @@ class Spectrum():
 
         return mask
 
-    def linefit(self, p0, feature_wl, function='gaussian',
-                fitting_window=None, writefits=False, outimage=None,
-                variance=None, constraints=(), bounds=None,
-                inst_disp=1.0, min_method='SLSQP',
-                minopts={'eps': 1e-3}, copts=None, weights=None,
-                verbose=False, fit_continuum=False,
-                component_names=None, overwrite=False, eqw_opts={},
-                trivial=False, suffix=None, optimize_fit=False,
-                optimization_window=10, guess_parameters=False,
-                test_jacobian=False, good_minfraction=.8):
+    def linefit(self, p0, feature_wl, function='gaussian', fitting_window=None, writefits=False, outimage=None,
+                variance=None, constraints=(), bounds=None, inst_disp=1.0, min_method='SLSQP', minopts=None,
+                copts=None, weights=None, verbose=False, fit_continuum=False, component_names=None, overwrite=False,
+                eqw_opts=None, trivial=False, suffix=None, optimize_fit=False, optimization_window=10,
+                guess_parameters=False, test_jacobian=False, good_minfraction=.8):
         """
         Fits a spectral features.
 
         Parameters
         ----------
-        p0 : iterable
+        p0: iterable
             Initial guess for the fitting funcion, consisting of a list
             of N*M parameters for M components of **function**. In the
             case of a gaussian fucntion, these parameters must be given
             as [amplitude0, center0, sigma0, amplitude1, center1, ...].
+        feature_wl: array-like
+            List of rest wavelengths for the spectral features to be fit.
         function : string
             The function to be fitted to the spectral features.
             Available options and respective parameters are:
@@ -443,17 +440,17 @@ class Spectrum():
         if fitting_window is None:
             fw = np.ones_like(self.data).astype('bool')
         else:
-            fw = (self.restwl > fitting_window[0]) &\
+            fw = (self.restwl > fitting_window[0]) & \
                  (self.restwl < fitting_window[1])
         if not np.any(fw):
             raise RuntimeError(
                 'Fitting window outside the available wavelength range.')
         zero_spec = np.zeros_like(self.restwl[fw])
 
-        assert self.restwl[fw].min() < np.min(feature_wl),\
+        assert self.restwl[fw].min() < np.min(feature_wl), \
             'Attempting to fit a spectral feature below the fitting window.'
 
-        assert self.restwl[fw].max() > np.max(feature_wl),\
+        assert self.restwl[fw].max() > np.max(feature_wl), \
             'Attempting to fit a spectral feature above the fitting window.'
 
         if component_names is None:
@@ -495,7 +492,7 @@ class Spectrum():
                     'Minimum fraction of good pixels not reached!\n'
                     'User set threshold: {:.2f}\n'
                     'Measured good fracion: {:.2f}'
-                    .format(
+                        .format(
                         good_minfraction,
                         np.sum(valid_pixels) / valid_pixels[fw].size)))
             return
@@ -592,6 +589,8 @@ class Spectrum():
             rms = np.sqrt(np.sum(b))
             return rms
 
+        if minopts is None:
+            minopts = {'eps': 1e-3}
         r = minimize(res, x0=p0, method=min_method, bounds=sbounds,
                      constraints=constraints, options=minopts)
 
@@ -631,11 +630,13 @@ class Spectrum():
         p = np.append(r['x'], red_chi2)
         p[0:-1:npars_pc] *= scale_factor
 
-        self.resultspec = self.fitstellar + self.fitcont\
-            + fit_func(self.fitwl, feature_wl, r['x']) * scale_factor
+        self.resultspec = self.fitstellar + self.fitcont \
+                          + fit_func(self.fitwl, feature_wl, r['x']) * scale_factor
 
         self.em_model = p
         self.feature_wl = feature_wl
+        if eqw_opts is None:
+            eqw_opts = {}
         self.eqw(**eqw_opts)
 
         if writefits:
@@ -719,12 +720,12 @@ class Spectrum():
                     cwin = None
 
                 if cwin is not None:
-                    assert len(cwin) == 4, 'Windows must be an '\
-                        'iterable of the form (blue0, blue1, red0, red1)'
+                    assert len(cwin) == 4, 'Windows must be an ' \
+                                           'iterable of the form (blue0, blue1, red0, red1)'
                     weights = np.zeros_like(self.fitwl)
                     cwin_cond = (
-                        ((fwl > cwin[0]) & (fwl < cwin[1])) |
-                        ((fwl > cwin[2]) & (fwl < cwin[3]))
+                            ((fwl > cwin[0]) & (fwl < cwin[1])) |
+                            ((fwl > cwin[2]) & (fwl < cwin[3]))
                     )
                     weights[cwin_cond] = 1
                     nite = 1
@@ -760,8 +761,8 @@ class Spectrum():
 
         """
 
-        warn_message = 'Dn4000 could not be evaluated because the '\
-            'spectrum does not include wavelengths bluer than 3850.'
+        warn_message = 'Dn4000 could not be evaluated because the ' \
+                       'spectrum does not include wavelengths bluer than 3850.'
 
         if self.restwl[0] > 3850:
             warnings.warn(RuntimeWarning(warn_message))
@@ -887,7 +888,7 @@ class Spectrum():
             warnings.warn(
                 RuntimeWarning(
                     'Fit was unsuccessful with exit status {:d}.'
-                    .format(self.fit_status)))
+                        .format(self.fit_status)))
 
         if axis is None:
             fig = plt.figure(1)
@@ -928,7 +929,7 @@ class Spectrum():
         for i in np.arange(0, len(p), npars):
             pars += (
                 ('{:12s}{:12.2e}' + (npars - 1) * '{:12.2f}' + '\n')
-                .format(self.component_names[int(i / npars)], *p[i:i + npars]))
+                    .format(self.component_names[int(i / npars)], *p[i:i + npars]))
 
         if output == 'stdout':
             print(pars)
