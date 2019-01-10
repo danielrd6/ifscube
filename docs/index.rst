@@ -11,6 +11,7 @@ Ifscube documentation.
    quickstart
    oned_fit
    cube_fit
+   check_fit
 
 What is IFSCube?
 ----------------
@@ -94,3 +95,6 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+.. [1]
+   https://astroconda.readthedocs.io/en/latest/

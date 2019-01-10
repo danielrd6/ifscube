@@ -903,8 +903,7 @@ For each spectrum that is fitted a fit status number is returned. If the
 number is 0 it means that the fit was successful, otherwise something
 went wrong.
 
-.. [1]
-   https://astroconda.readthedocs.io/en/latest/
+
 
 .. [2]
    gireds is a pipeline for reducing GMOS data.

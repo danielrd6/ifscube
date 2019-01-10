@@ -1,8 +1,12 @@
 *.c
 *.py[cod]
 
+# jupyter checkpoints
+ifscube/examples/.ipynb_checkpoints
+
 # pycharm
 .idea
+.metadata
 
 # docker
 Dockerfile
@@ -16,6 +20,10 @@ Dockerfile
 *.egg
 *.egg-info
 build
+
+# docs
+docs/_build/
+docs/_static/
 
 # Example outputs
 ifscube/examples/CircinusNir.txt
