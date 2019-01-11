@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     # Defining the initial guess for the parameters.
     # five parameters for the gauss hermite polynomials
-    # flux, wavelength, sigma, h3, h4
+    # amplitude, velocity, sigma, h3, h4
 
     ncomponents = 3
     npars = 3
@@ -36,40 +36,32 @@ if __name__ == '__main__':
 
     b = []
     for i in range(ncomponents):
-        # flux
-        b += [[0, 1e-12]]
-        # wl
-        b += [[lines_wl[i] * (1. + z) - 10, lines_wl[i] * (1. + z) + 10]]
+        # amplitude
+        b += [[0.0, 1e-12]]
+        # velocity
+        b += [[-300.0, +300.0]]
         # sigma
-        b += [[1.5, 9]]
+        b += [[40.0, 500.0]]
 
     # Setting the constraints
 
     c = [
         # Keeping the same doppler shift on all lines
-        {
-            'type': 'eq',
-            'fun': lambda x: x[1] / lines_wl[0] - x[4] / lines_wl[1]},
-        {
-            'type': 'eq',
-            'fun': lambda x: x[4] / lines_wl[1] - x[7] / lines_wl[2]},
+        {'type': 'eq', 'fun': lambda x: x[1] - x[4]},
+        {'type': 'eq', 'fun': lambda x: x[4] - x[7]},
 
         # And the same goes for the sigmas
-        {'type': 'eq', 'fun': lambda x: x[2] / x[1] - x[5] / x[4]},
-        {'type': 'eq', 'fun': lambda x: x[5] / x[4] - x[8] / x[7]},
+        {'type': 'eq', 'fun': lambda x: x[2] - x[5]},
+        {'type': 'eq', 'fun': lambda x: x[5] - x[8]},
     ]
-
-    # Loading the spectrum
-    myspec = ds.Spectrum('ngc6300_nuc.fits')
 
     # Creating a fake variance spectrum with signal-to-noise = 20.
     myspec = ds.Spectrum('ngc6300_nuc.fits')
     myspec.variance = (myspec.data / 10) ** 2
 
     x = myspec.linefit(
-        p0, fitting_window=(6500, 6700), function='gaussian',
-        constraints=c, bounds=b, fit_continuum=True,
-        write_fits=True, overwrite=True)
+        p0, fitting_window=(6500.0, 6700.0), feature_wl=lines_wl, function='gaussian', constraints=c, bounds=b,
+        fit_continuum=True, write_fits=True, overwrite=True)
 
     myspec.plotfit()
 
