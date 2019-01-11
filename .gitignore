@@ -33,6 +33,8 @@ ifscube/examples/ngc1566_HyperCube.fits
 ifscube/examples/ngc1566_HyperCube_linefit.fits
 ifscube/examples/ngc3081_cube_linefit.fits
 ifscube/examples/ngc3081_fit.fits
+ifscube/examples/ngc3081_cube.bin.fits
+ifscube/examples/ngc3081_cube.bin_ppxf.fits
 ifscube/examples/ngc6300_nuc_linefit.fits
 ifscube/examples/plot_profile.py
 

@@ -52,7 +52,7 @@ mycube = Cube('ngc3081_cube.fits')
 idx = (3, 3)
 
 # Performs the fit and stores the results in the variable "x".
-x = mycube.linefit(
+fit = mycube.linefit(
     p0,
     feature_wl=lines_wl,
     fitting_window=(6500, 6700),
