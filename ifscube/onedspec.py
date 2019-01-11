@@ -30,6 +30,28 @@ class Spectrum:
 
     def __init__(self, *args, **kwargs):
 
+        self.component_names = None
+        self.em_model = None
+        self.eqw_direct = None
+        self.eqw_model = None
+        self.feature_wl = None
+        self.fit_func = None
+        self.fit_info = None
+        self.fit_status = None
+        self.fitbounds = None
+        self.fitcont = None
+        self.fitspec = None
+        self.fitstellar = None
+        self.fitwl = None
+        self.flux_err = None
+        self.header = None
+        self.initial_guess = None
+        self.npars = None
+        self.parnames = None
+        self.r = None
+        self.resultspec = None
+        self.valid_pixels = None
+
         if len(args) > 0:
             self._load(*args, **kwargs)
 
@@ -284,6 +306,27 @@ class Spectrum:
 
     @staticmethod
     def optimize_mask(wl, feature_wl, sigma, width=20, catch_error=False):
+        """
+        Creates the fit optimization window by selecting the appropriate portions of the spectrum.
+
+        Parameters
+        ----------
+        wl: numpy.ndarray
+            Wavelength coordinates
+        feature_wl: numpy.ndarray
+            Central wavelength of the spectral features to be fit.
+        sigma: numpy.ndarray
+            Sigma of each of the spectral features.
+        width: float
+            Number of sigmas to each side that will be considered in the fit.
+        catch_error: bool
+            Interrupts the program when the optimization window falls outside the available wavelengths.
+
+        Returns
+        -------
+        mask: numpy.ndarray
+            True for all wavelengths within the window of interest for the fit.
+        """
 
         mask = np.zeros_like(wl).astype(bool)
 
@@ -293,15 +336,8 @@ class Spectrum:
             up_lam = (lam + width * s)
 
             if catch_error:
-
-                assert low_lam > wl[0], \
-                    'ERROR in optimization mask. Lower limit in optimization ' \
-                    'window is below the lowest available wavelength.'
-
-                assert up_lam < wl[-1], \
-                    'ERROR in optimization mask. Upper limit in optimization ' \
-                    'window is above the highest available wavelength.'
-
+                assert low_lam > wl[0], 'Lower limit in optimization window is below the lowest available wavelength.'
+                assert up_lam < wl[-1], 'Upper limit in optimization window is above the highest available wavelength.'
             else:
                 if low_lam < wl[0]:
                     low_lam = wl[0]
@@ -319,93 +355,99 @@ class Spectrum:
 
         return mask
 
-    def linefit(self, p0, feature_wl, function='gaussian', fitting_window=None, writefits=False, outimage=None,
-                variance=None, constraints=(), bounds=None, inst_disp=1.0, min_method='SLSQP', minopts=None,
-                copts=None, weights=None, verbose=False, fit_continuum=False, component_names=None, overwrite=False,
-                eqw_opts=None, trivial=False, suffix=None, optimize_fit=False, optimization_window=10,
-                guess_parameters=False, test_jacobian=False, good_minfraction=.8):
+    def linefit(self, p0, feature_wl, function='gaussian', fitting_window=None, write_fits=False, out_image=None,
+                variance=None, constraints=None, bounds=None, instrument_dispersion=1.0, min_method='SLSQP',
+                minopts=None, copts=None, weights=None, verbose=False, fit_continuum=False, component_names=None,
+                overwrite=False, eqw_opts=None, trivial=False, suffix=None, optimize_fit=False,
+                optimization_window=10.0, guess_parameters=False, test_jacobian=False, good_minfraction=.8):
         """
         Fits a spectral features.
 
         Parameters
         ----------
-        p0: iterable
+        p0: array-like
             Initial guess for the fitting funcion, consisting of a list
             of N*M parameters for M components of **function**. In the
             case of a gaussian fucntion, these parameters must be given
             as [amplitude0, center0, sigma0, amplitude1, center1, ...].
         feature_wl: array-like
             List of rest wavelengths for the spectral features to be fit.
-        function : string
+        function: str
             The function to be fitted to the spectral features.
             Available options and respective parameters are:
-                'gaussian' : amplitude, central wavelength in angstroms,
-                    sigma in angstroms
-                'gauss_hermite' : amplitude, central wavelength in
-                    angstroms, sigma in angstroms, h3 and h4
-        fitting_window : iterable
+
+                - 'gaussian': amplitude, central wavelength in angstroms, sigma in angstroms
+                - 'gauss_hermite' : amplitude, central wavelength in angstroms, sigma in angstroms, h3 and h4
+
+        fitting_window: tuple
             Lower and upper wavelength limits for the fitting
             algorithm. These limits should allow for a considerable
             portion of continuum besides the desired spectral features.
-        writefits : boolean
+        write_fits: bool
             Writes the results in a FITS file.
-        outimage : string
+        out_image: string
             Name of the FITS file in which to write the results.
-        variance : float, 1D, 2D or 3D array
-            The variance of the flux measurments. It can be given
+        variance: float, 1D, 2D or 3D array
+            The variance of the flux measurements. It can be given
             in one of four formats. If variance is a float it is
-            applied as a contant to the whole spectrum. If given as 1D
+            applied as a constant to the whole spectrum. If given as 1D
             array it assumed to be a spectrum that will be applied to
             the whole cube. As 2D array, each spaxel will be applied
-            equally to all wavelenths. Finally the 3D array must
-            represent the variance for each elemente of the data cube.
+            equally to all wavelengths. Finally the 3D array must
+            represent the variance for each element of the data cube.
             It defaults to None, in which case it does not affect the
             minimization algorithm, and the returned Chi2 will be in
             fact just the fit residuals.
-        inst_disp : number
+        constraints: dict or sequence of dicts
+            See scipy.optimize.minimize
+        bounds: list
+            Bounds for the fitting algorithm, given as a list of
+            [xmin, xmax] pairs for each x parameter.
+        instrument_dispersion: float
             Instrumental dispersion in pixel units. This argument is
             used to evaluate the reduced chi squared. If let to default
             it is assumed that each wavelength coordinate is a degree
             of freedom. The physically sound way to do it is to use the
             number of dispersion elements in a spectrum as the degrees
             of freedom.
-        bounds : sequence
-            Bounds for the fitting algorithm, given as a list of
-            [xmin, xmax] pairs for each x parameter.
-        constraints : dict or sequence of dicts
-            See scipy.optimize.minimize
-        min_method : string
+        min_method: str
             Minimization method. See scipy.optimize.minimize.
-        minopts : dict
+        minopts: dict, optional
             Dictionary of options to be passed to the minimization
             routine. See scipy.optimize.minimize.
-        individual_spec : False or x,y pair
-            Pixel coordinates for the spectrum you wish to fit
-            individually.
-        copts : dict
+        copts: dict, optional
             Arguments to be passed to the spectools.continuum function.
-        refit : boolean
-            Use parameters from nearby sucessful fits as the initial
-            guess for the next fit.
-        update_bounds : boolean
-            If using refit, update the bounds for the next fit.
-        bound_range : number
-            Fractional difference for updating the bounds when using refit.
-        spiral_loop : boolean
-            Begins the fitting with the central spaxel and continues
-            spiraling outwards.
-        spiral_center : iterable
-            Central coordinates for the beginning of the spiral given
-            as a list of two coordinates [x0, y0]
-        fit_continuum : boolean
+        weights: numpy.ndarray, optional
+            Array of weights with the same dimensions as the input spectrum.
+        verbose: bool
+            Prints progress messages.
+        fit_continuum: bool
             If True fits the continuum just before attempting to fit
             the emission lines. Setting this option to False will
             cause the algorithm to look for self.cont, which should
             contain a data cube of continua.
-        trivial : boolean
+        component_names: list, optional
+            Names of the spectral features to be fitted.
+        overwrite: bool
+            Overwrites previously written output file.
+        eqw_opts: dict
+            Options for the equivalent width function.
+        trivial: bool
             Attempts a fit with a trivial solution, and if the rms is
             smaller than the fit with the intial guess, selects the
             trivial fit as the correct solution.
+        suffix: str, optional
+            String to be appended to the input file name in case no output name is given.
+        optimize_fit: bool
+            Perform function evaluations only near the spectral features being fit.
+        optimization_window: float
+            Width of the window where the fit functions will be evaluated in units of sigma.
+        guess_parameters: bool
+            Attempt to guess to initial parameters of the fit.
+        test_jacobian: bool
+            Read the Jacobian matrix and set those parameters which yield zeros to nan.
+        good_minfraction: float
+            Minimum fraction of non-flagged pixels within the portion of the spectra selected for the fit.
 
         Returns
         -------
@@ -492,7 +534,7 @@ class Spectrum:
                     'Minimum fraction of good pixels not reached!\n'
                     'User set threshold: {:.2f}\n'
                     'Measured good fracion: {:.2f}'
-                        .format(
+                    .format(
                         good_minfraction,
                         np.sum(valid_pixels) / valid_pixels[fw].size)))
             return
@@ -510,10 +552,10 @@ class Spectrum:
 
         copts.update(dict(returns='polynomial'))
 
-        try:
+        if hasattr(self, 'continuum'):
             cont = self.continuum[valid_pixels]
             self.fitcont = self.continuum[fw]
-        except AttributeError:
+        else:
             if fit_continuum:
                 pcont = spectools.continuum(wl, data - stellar, **copts)
                 self.fitcont = np.polyval(pcont, self.restwl[fw])
@@ -562,12 +604,9 @@ class Spectrum:
         # Optimization mask
         #
         if optimize_fit:
-            sigma = np.array([
-                p0[i] if sbounds[i][1] is None else sbounds[i][1]
-                for i in range(2, len(p0), npars_pc)])
+            sigma = np.array([p0[i] if sbounds[i][1] is None else sbounds[i][1] for i in range(2, len(p0), npars_pc)])
             sigma_lam = self.sigma_lambda(sigma, feature_wl)
-            opt_mask = self.optimize_mask(
-                s, wl, feature_wl, sigma_lam, width=optimization_window)
+            opt_mask = self.optimize_mask(wl=wl, feature_wl=feature_wl, sigma=sigma_lam, width=optimization_window)
             if not np.any(opt_mask):
                 self.fit_status = 80
                 return
@@ -621,7 +660,7 @@ class Spectrum:
 
         # Reduced chi squared of the fit.
         chi2 = np.sum((s - fit_func(wl, feature_wl, r.x)) ** 2 / v)
-        nu = len(s) / inst_disp - npars - len(constraints) - 1
+        nu = len(s) / instrument_dispersion - npars - len(constraints) - 1
         red_chi2 = chi2 / nu
 
         self.fit_status = r.status
@@ -630,8 +669,7 @@ class Spectrum:
         p = np.append(r['x'], red_chi2)
         p[0:-1:npars_pc] *= scale_factor
 
-        self.resultspec = self.fitstellar + self.fitcont \
-                          + fit_func(self.fitwl, feature_wl, r['x']) * scale_factor
+        self.resultspec = self.fitstellar + self.fitcont + fit_func(self.fitwl, feature_wl, r['x']) * scale_factor
 
         self.em_model = p
         self.feature_wl = feature_wl
@@ -639,21 +677,19 @@ class Spectrum:
             eqw_opts = {}
         self.eqw(**eqw_opts)
 
-        if writefits:
+        if write_fits:
             self._write_linefit(args=locals())
         return
 
-    def eqw(self, sigma_factor=5, continuum_windows=None):
+    def eqw(self, sigma_factor=5.0, continuum_windows=None):
         """
         Evaluates the equivalent width of a previous linefit.
 
         Parameters
         ----------
-        component : number
-            Component of emission model
-        sigma_factor : number
+        sigma_factor: float
             Radius of integration as a number of line sigmas.
-        windows : iterable
+        continuum_windows: numpy.ndarray
           Continuum fitting windows in the form
           [blue0, blue1, red0, red1].
 
@@ -781,21 +817,19 @@ class Spectrum:
     def fit_uncertainties(self, snr=10):
 
         if self.fit_func == lprof.gauss:
-
             peak = self.em_model[0]
             flux = self.em_model[0] * self.em_model[2] * np.sqrt(2. * np.pi)
-
         elif self.fit_func == lprof.gausshermite:
-
             # This is a crude estimate for the peak, and only works
             # for small values of h3 and h4.
-
             peak = self.em_model[0] / self.em_model[2] / np.sqrt(2. * np.pi)
             flux = self.em_model[0]
+        else:
+            raise RuntimeError('Could not understand the fit function.')
 
-        try:
+        if hasattr(self, 'err'):
             s_peak = interp1d(self.wl, self.err)(self.em_model[1])
-        except AttributeError:
+        else:
             s_peak = peak / snr
 
         # The third element in em_model is always the sigma
@@ -841,8 +875,7 @@ class Spectrum:
             float(i[1]) for i in h['fitconfig'].data
             if 'rest_wavelength' in i['parameters']])
 
-        fit_info = {}
-        fit_info['function'] = func_name
+        fit_info = {'function': func_name}
 
         if func_name == 'gaussian':
             self.fit_func = lprof.gaussvel
@@ -853,7 +886,7 @@ class Spectrum:
             self.npars = 5
             self.parnames = ('A', 'v', 's', 'h3', 'h4')
         else:
-            raise RuntimeError('Unkonwn function {:s}'.format(func_name))
+            raise RuntimeError('Unknown function {:s}'.format(func_name))
 
         fit_info['parameters'] = self.npars
         fit_info['components'] = (self.em_model.shape[0] - 1) / self.npars
@@ -874,10 +907,15 @@ class Spectrum:
 
         Parameters
         ----------
-        x : number
-            Horizontal coordinate of the desired spaxel.
-        y : number
-            Vertical coordinate of the desired spaxel.
+        show: bool
+            Shows the plot.
+        axis: matplotlib.pyplot.Axes
+            Axes instance onto which to draw the plot. If *None* a new instance will be created.
+        output: str
+            Output destination for the plot results. Possible values are:
+
+                - 'stdout': prints to standard output
+                - 'return': returns the results as string.
 
         Returns
         -------
@@ -885,10 +923,7 @@ class Spectrum:
         """
 
         if self.fit_status != 0:
-            warnings.warn(
-                RuntimeWarning(
-                    'Fit was unsuccessful with exit status {:d}.'
-                        .format(self.fit_status)))
+            warnings.warn(RuntimeWarning('Fit was unsuccessful with exit status {:d}.'.format(self.fit_status)))
 
         if axis is None:
             fig = plt.figure(1)
@@ -928,8 +963,9 @@ class Spectrum:
         pars = ((npars + 1) * '{:12s}' + '\n').format('Name', *parnames)
         for i in np.arange(0, len(p), npars):
             pars += (
-                ('{:12s}{:12.2e}' + (npars - 1) * '{:12.2f}' + '\n')
-                    .format(self.component_names[int(i / npars)], *p[i:i + npars]))
+                ('{:12s}{:12.2e}' + (npars - 1) * '{:12.2f}' + '\n').format(
+                    self.component_names[int(i / npars)], *p[i:i + npars])
+            )
 
         if output == 'stdout':
             print(pars)
@@ -945,11 +981,10 @@ class Spectrum:
     def plotspec(self, overplot=True):
 
         if overplot:
-            try:
-                ax = plt.gca()
-            except:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
+            ax = plt.gca()
+        else:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
 
         ax.plot(self.wl, self.data)
         plt.show()

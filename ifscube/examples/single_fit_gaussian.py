@@ -69,7 +69,7 @@ if __name__ == '__main__':
     x = myspec.linefit(
         p0, fitting_window=(6500, 6700), function='gaussian',
         constraints=c, bounds=b, fit_continuum=True,
-        writefits=True, overwrite=True)
+        write_fits=True, overwrite=True)
 
     myspec.plotfit()
 
