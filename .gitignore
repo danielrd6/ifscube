@@ -32,6 +32,7 @@ ifscube/examples/ifscube_guiCFG.cfg
 ifscube/examples/ngc1566_HyperCube.fits
 ifscube/examples/ngc1566_HyperCube_linefit.fits
 ifscube/examples/ngc3081_cube_linefit.fits
+ifscube/examples/ngc3081_fit.fits
 ifscube/examples/plot_profile.py
 
 # Unfinished work

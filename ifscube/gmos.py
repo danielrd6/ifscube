@@ -19,20 +19,19 @@ class cube(datacube.Cube):
 
     def __init__(self, *args, **kwargs):
 
+        datacube.Cube.__init__(self, *args, **kwargs)
         if len(args) > 0:
             self._load(*args, **kwargs)
 
-    def _load(self, fitsfile, redshift=None, vortab=None,
-              dataext='SCI', hdrext='PRIMARY', var_ext='ERR',
-              ncubes_ext='NCUBE', nan_spaxels='all',
-              spatial_mask=None):
+    def _load(self, fitsfile, redshift=None, vortab=None, dataext='SCI', hdrext='PRIMARY', var_ext='ERR',
+              ncubes_ext='NCUBE', nan_spaxels='all', spatial_mask=None):
         """
         Initializes the class and loads basic information onto the
         object.
 
         Parameters
         ----------
-        fitstile : string
+        fitsfile: string
             Name of the FITS file containing the GMOS datacube. This
             should be the standard output from the GFCUBE task of the
             GEMINI-GMOS IRAF package.
@@ -117,7 +116,7 @@ class cube(datacube.Cube):
             # The self.ncubes variable describes how many different
             # pixels contributed to the final combined pixel. This can
             # also serve as a flag, when zero cubes contributed to the
-            # pixel. Additionaly, it may be useful to mask regions that
+            # pixel. Additionally, it may be useful to mask regions that
             # are present in only one observation, for greater
             # confidence.
             self.ncubes = hdulist[ncubes_ext].data
@@ -177,13 +176,9 @@ class cube(datacube.Cube):
             raise ImportError(
                 'Could not find the voronoi_2d_binning module. '
                 'Please add it to your PYTHONPATH.')
-        try:
-            x = np.shape(self.noise)
-        except AttributeError:
-            print(
-                'This function requires prior execution of the snr_eval' +
-                'method.')
-            return
+
+        if self.noise is None:
+            raise RuntimeError('This function requires prior execution of the snr_eval method.')
 
         # Initializing the binned arrays as zeros.
         try:
@@ -200,12 +195,10 @@ class cube(datacube.Cube):
                 'Could not access the ncubes attribute of the gmosdc object.',)
             raise err
 
-        try:
-            b_noise = np.zeros(np.shape(self.noise_cube), dtype='float32')
-        except AttributeError as err:
-            err.args += (
-                'Could not access the noise_cube attribute of the gmosdc '
-                'object.',)
+        if self.noise_cube is None:
+            raise RuntimeError('Could not access the noise_cube attribute of the gmosdc object.')
+
+        b_noise = np.zeros(np.shape(self.noise_cube), dtype='float32')
 
         valid_spaxels = np.ravel(~np.isnan(self.signal))
 
@@ -222,16 +215,16 @@ class cube(datacube.Cube):
 
         signal, noise = np.ravel(s)[valid_spaxels], np.ravel(n)[valid_spaxels]
 
-        binNum, xNode, yNode, xBar, yBar, sn, nPixels, scale = \
+        bin_num, x_node, y_node, x_bar, y_bar, sn, n_pixels, scale = \
             voronoi_2d_binning(x, y, signal, noise, target_snr, plot=1, quiet=0)
-        v = np.column_stack([y, x, binNum])
+        v = np.column_stack([y, x, bin_num])
 
         # For every nan in the original cube, fill with nan the
         # binned cubes.
         for i in [b_data, b_ncubes, b_noise]:
             i[:, ynan, xnan] = np.nan
 
-        for i in np.arange(binNum.max() + 1):
+        for i in np.arange(bin_num.max() + 1):
             samebin = v[:, 2] == i
             samebin_coords = v[samebin, :2]
 
@@ -296,19 +289,19 @@ class cube(datacube.Cube):
                 [
                     fits.Column(name='xcoords', format='i8', array=x),
                     fits.Column(name='ycoords', format='i8', array=y),
-                    fits.Column(name='binNum', format='i8', array=binNum),
+                    fits.Column(name='binNum', format='i8', array=bin_num),
                 ], name='VOR')
 
             tbhdu_plus = fits.BinTableHDU.from_columns(
                 [
                     fits.Column(name='ubin', format='i8',
-                                array=np.unique(binNum)),
-                    fits.Column(name='xNode', format='F16.8', array=xNode),
-                    fits.Column(name='yNode', format='F16.8', array=yNode),
-                    fits.Column(name='xBar', format='F16.8', array=xBar),
-                    fits.Column(name='yBar', format='F16.8', array=yBar),
+                                array=np.unique(bin_num)),
+                    fits.Column(name='xNode', format='F16.8', array=x_node),
+                    fits.Column(name='yNode', format='F16.8', array=y_node),
+                    fits.Column(name='xBar', format='F16.8', array=x_bar),
+                    fits.Column(name='yBar', format='F16.8', array=y_bar),
                     fits.Column(name='sn', format='F16.8', array=sn),
-                    fits.Column(name='nPixels', format='i8', array=nPixels),
+                    fits.Column(name='nPixels', format='i8', array=n_pixels),
                 ], name='VORPLUS')
 
             hdulist.append(tbhdu)
