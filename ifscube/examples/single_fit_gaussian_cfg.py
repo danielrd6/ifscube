@@ -16,7 +16,7 @@ if __name__ == '__main__':
     # Creating a fake variance spectrum with signal-to-noise = 20.
     myspec.variance = (myspec.data / 10) ** 2
 
-    c = parser.LineFitParser('halpha.cfg')
+    c = parser.LineFitParser('halpha_gauss.cfg')
     linefit_args = c.get_vars()
 
     x = myspec.linefit(**linefit_args)

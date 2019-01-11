@@ -489,7 +489,7 @@ class Spectrum:
                 'Fitting window outside the available wavelength range.')
         zero_spec = np.zeros_like(self.restwl[fw])
 
-        assert self.restwl[fw].min() < np.min(feature_wl), \
+        assert self.restwl[fw].min() < np.min(feature_wl),\
             'Attempting to fit a spectral feature below the fitting window.'
 
         assert self.restwl[fw].max() > np.max(feature_wl), \
@@ -817,10 +817,10 @@ class Spectrum:
 
     def fit_uncertainties(self, snr=10):
 
-        if self.fit_func == lprof.gauss:
+        if self.fit_func == lprof.gaussvel:
             peak = self.em_model[0]
             flux = self.em_model[0] * self.em_model[2] * np.sqrt(2. * np.pi)
-        elif self.fit_func == lprof.gausshermite:
+        elif self.fit_func == lprof.gausshermitevel:
             # This is a crude estimate for the peak, and only works
             # for small values of h3 and h4.
             peak = self.em_model[0] / self.em_model[2] / np.sqrt(2. * np.pi)
