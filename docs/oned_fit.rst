@@ -56,7 +56,7 @@ process.
     either 'gaussian' or 'gausshermite'. 
 * fitting_window: lambda_0:lambda_1
     Spectral window in which to perform the fit.
-* outimage: string
+* out_image: string
     Name of the output FITS file.
 * overwrite: 'yes', 'no'
     Overwrites the output file if it already exists.
@@ -76,7 +76,7 @@ process.
     will be the output file's name.
 * verbose: 'yes', 'no'
     Shows a nice progress bar.
-* writefits: 'yes', 'no'
+* write_fits: 'yes', 'no'
     Writes the output of the fit to a file.  
 * guess_parameters: 'yes', 'no'
     Makes an initial guess for the amplitude, centroid and sigma of each
@@ -92,7 +92,7 @@ process.
 loading
 -------
 
-The **loading** section is dedicated to parameter that tell specfit how
+The **loading** section is dedicated to parameters that tell :any:`specfit` how
 to load your spectrum from the FITS file. Each parameter listed below
 takes as input value a string that should match the name of the FITS
 extension in the input MEF file containing the appropriate data. It is
