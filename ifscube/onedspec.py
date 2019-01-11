@@ -147,12 +147,12 @@ class Spectrum:
     def _write_linefit(self, args):
 
         suffix = args['suffix']
-        outimage = args['outimage']
+        out_image = args['out_image']
         # Basic tests and first header
-        if outimage is None:
+        if out_image is None:
             if suffix is None:
                 suffix = '_linefit'
-            outimage = self.fitsfile.replace('.fits', suffix + '.fits')
+            out_image = self.fitsfile.replace('.fits', suffix + '.fits')
 
         hdr = self.header
         try:
@@ -231,7 +231,7 @@ class Spectrum:
         hdu.name = 'PARNAMES'
         h.append(hdu)
 
-        h.writeto(outimage, overwrite=args['overwrite'])
+        h.writeto(out_image, overwrite=args['overwrite'])
 
     @staticmethod
     def _within_bounds(x, bounds):

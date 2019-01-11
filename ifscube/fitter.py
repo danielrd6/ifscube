@@ -60,7 +60,7 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
         suffix = None
 
     try:
-        outname = linefit_args['outimage']
+        outname = linefit_args['out_image']
     except KeyError:
         outname = None
 
@@ -107,7 +107,7 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
         elif cubetype == 'intmanga':
             a = manga.IntegratedSpectrum(fname, **loading)
 
-    linefit_args['outimage'] = outname
+    linefit_args['out_image'] = outname
     a.linefit(**linefit_args)
 
     try:
