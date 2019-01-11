@@ -630,8 +630,9 @@ class Spectrum:
 
         if minopts is None:
             minopts = {'eps': 1e-3}
-        r = minimize(res, x0=p0, method=min_method, bounds=sbounds,
-                     constraints=constraints, options=minopts)
+        if constraints is None:
+            constraints = []
+        r = minimize(res, x0=p0, method=min_method, bounds=sbounds, constraints=constraints, options=minopts)
 
         # Perform the fit a second time with the RMS as the flux
         # initial guess. This was added after a number of fits returned

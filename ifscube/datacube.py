@@ -177,8 +177,7 @@ class Cube:
         else:
             self.redshift = 0
 
-        self.restwl = onedspec.Spectrum.dopcor(
-            self.redshift, self.wl, self.data)
+        self.restwl = onedspec.Spectrum.dopcor(self.redshift, self.wl)
 
         try:
             if self.header['VORBIN']:
@@ -945,7 +944,7 @@ class Cube:
             if is_first_spec and (spec.fit_status == 0):
                 is_first_spec = False
 
-            if not hasattr(self, 'eqw_model'):
+            if self.eqw_model is None:
                 self.eqw_model = np.zeros(
                     (len(spec.component_names),) + self.fit_status.shape)
                 self.eqw_direct = np.zeros_like(self.eqw_model)

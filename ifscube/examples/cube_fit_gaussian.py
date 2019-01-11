@@ -1,4 +1,4 @@
-from ifscube import gmos
+from ifscube import Cube
 import numpy as np
 
 # Definition of line centers
@@ -14,38 +14,39 @@ z = 0.008
 
 # Defining the initial guess for the parameters.
 
+# The number of components is the number of spectral features to be fit.
 ncomponents = 3
-npars = 3  # three parameters for each gaussian component
-           # flux, wavelength, sigma
+# Three parameters for each gaussian component: amplitude, velocity, sigma:
+npars = 3
 
 p0 = np.zeros(ncomponents * npars)
 
 p0[0::npars] = 1e-15                # flux
-p0[1::npars] = lines_wl * (1. + z)  # wavelength
-p0[2::npars] = 2.0                  # sigma
+p0[1::npars] = 0.0  # velocity
+p0[2::npars] = 120.0                  # sigma
 
 # Setting bounds
 
 b = []
 for i in range(ncomponents):
-    b += [[1e-17, 1e-14]]                                            # flux
-    b += [[lines_wl[i] * (1. + z) - 5, lines_wl[i] * (1. + z) + 5]]  # wl
-    b += [[1.0, 4]]                                                  # sigma
+    b += [[1e-17, 1e-14]]   # amplitude
+    b += [[-500.0, 500.0]]  # velocity
+    b += [[40.0, 500.0]]    # sigma
 
 # Setting the constraints
 
 c = [
-    # Keeping the same doppler shift on all lines
-    {'type': 'eq', 'fun': lambda x: x[1]/lines_wl[0] - x[4]/lines_wl[1]},
-    {'type': 'eq', 'fun': lambda x: x[4]/lines_wl[1] - x[7]/lines_wl[2]},
+    # Keeping the same velocity on all lines.
+    {'type': 'eq', 'fun': lambda x: x[1] - x[4]},
+    {'type': 'eq', 'fun': lambda x: x[4] - x[7]},
 
-    # And the same goes for the sigmas
-    {'type': 'eq', 'fun': lambda x: x[2]/x[1] - x[5]/x[4]},
-    {'type': 'eq', 'fun': lambda x: x[5]/x[4] - x[8]/x[7]},
+    # And the same goes for the velocity dispersions (sigmas).
+    {'type': 'eq', 'fun': lambda x: x[2] - x[5]},
+    {'type': 'eq', 'fun': lambda x: x[5] - x[8]},
 ]
 
 # Loading the spectrum.
-mycube = gmos.cube('ngc3081_cube.fits', var_ext=2)
+mycube = Cube('ngc3081_cube.fits')
 
 # Index of a good spectrum.
 idx = (3, 3)
@@ -53,6 +54,7 @@ idx = (3, 3)
 # Performs the fit and stores the results in the variable "x".
 x = mycube.linefit(
     p0,
+    feature_wl=lines_wl,
     fitting_window=(6500, 6700),
     function='gaussian',
     constraints=c,
@@ -64,6 +66,7 @@ x = mycube.linefit(
     spiral_center=idx,
     minopts=dict(eps=1e-3),
     fit_continuum=True,
+    overwrite=True,
 )
 
 # Plots the fit for the spaxel defined in "idx".
