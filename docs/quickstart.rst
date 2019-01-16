@@ -9,7 +9,7 @@ for one dimensional spectra and for data cubes.
 
 We start by running the fit with one of the configuration files provided
 in the examples directory. Navigate to the examples directory within the
-:mod:ifscube installation directory and execute the following command.
+:mod:`ifscube` installation directory and execute the following command.
 
 ::
 
@@ -35,7 +35,7 @@ Data cubes
 
 As with the one dimensional case, we recommend starting by running the example.
 Navigate to the examples directory within the
-:mod:ifscube installation directory and execute the following command.
+:mod:`ifscube` installation directory and execute the following command.
 
 ::
 
