@@ -1,9 +1,7 @@
+.. _check_fit:
+
 Checking fit results
 ******************************
-
-[t].5
-
-Frank Zappa
 
 The fastest way to check the results of your fit is to use the
 fit_scrutinizer program. This program has graphical user interface
