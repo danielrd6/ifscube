@@ -172,8 +172,9 @@ provide enough room for an adequate sampling of valid continuum points.
 Feature definition
 ==================
 
-Features to be fitted are defined as sections with arbitrary names, with
-the exception of fit, minimization and continuum, which are reserved.
+Features to be fitted are defined as sections with arbitrary names, as long
+as these names are not *fit*, *continuum*, *minimization* and *loading*,
+which are reserved.
 The basic syntax for a feature, or spectral line, definition is as
 follows:
 
@@ -187,20 +188,43 @@ follows:
 Parameters
 ----------
 
-The valid parameters are for each feature are: wavelength, sigma, flux,
-k\_group and continuum\_windows. Wavelength, sigma and flux are
-mandatory for every spectral feature, and are pretty much self
-explanatory. Note that here **sigma is given in units of wavelength**.
-The last two parameters are optional, and deserve some explanation.
+The valid parameters are for each feature are: rest_wavelength, velocity
+sigma, amplitude, k_group and continuum_windows. With the exception of
+**rest_wavelength**, **k_group** and **continuum_windows**, all the
+values for each parameter are in fact initial guesses for the fitter, unless
+they are explicitly defined as fixed values.
+We will now discuss each these in more detail:
 
-The parameter **k\_group** stands for kinematic grouping, and it
+* rest_wavelength:
+    The wavelength of the spectral feature (or line) to be fit as it
+    is observed in the rest frame. The accuracy of this parameter is
+    very important, as all the velocity evaluations will be based on this value.
+    Units for these parameter are the same as the input spectrum.
+
+* velocity:
+    Centroid velocity of the spectral feature in units of km/s. Blue shifted
+    lines have negative velocity, while red shifted ones have positive velocity.
+
+* sigma:
+    The second moment of the Gaussian or Gauss-Hermite polynomial, commonly
+    known as the standard deviation. It should be given in units of km/s.
+
+* amplitude:
+    Amplitude of the Gaussian function or Gauss-Hermite polynomial in units
+    of the input spectrum.
+
+All the above parameters are mandatory for every spectral feature,
+The last two parameters that a spectral feature can take are optional,
+and deserve a somewhat more detailed explanation.
+
+The parameter **k_group** stands for kinematic grouping, and it
 basically is an automated way to specify that the Doppler shift and
-sigma of all features sharing the same **k\_group** should be equal. To
+sigma of all features sharing the same **k_group** should be equal. To
 set it, one only needs to specify an arbitrary integer number as the
 value for a given feature, and repeat that same number for all other
 features sharing the same kinematics.
 
-Lastly, **continuum\_windows** specifies the windows for the pseudo
+Lastly, **continuum_windows** specifies the windows for the pseudo
 continuum fitting used in the equivalent width evaluation, and are not
 used anywhere else. It should be given as four wavelength values
 separated by commas.
@@ -214,19 +238,19 @@ instance, if you want to set the wavelength for a given feature
 
 ::
 
-    wavelength: 6562.8, 6552.8:6572.8
+    velocity: 300.0, 1000:500.0
 
 or
 
 ::
 
-    wavelength: 6562.8, +-10 
+    velocity: 300.0, +-200
 
 Bounds can also be one-sided, as in
 
 ::
 
-    flux: 1e-15, 1e-19:
+    amplitude: 1e-15, 1e-19:
 
 which will be interpreted as having only the lower limit of 1e-19 and no
 upper limit.
@@ -237,23 +261,25 @@ Constraints
 Constraints are perhaps the most valuable tool for any spectral feature
 fitting. We already discussed the automated constraints that keep the
 same kinematical parameters for different spectral features using the
-**k\_group** parameter, but specfit also accepts arbitrary relations
+**k_group** parameter, but :mod:`specfit` also accepts arbitrary relations
 between the same parameter of different features. For instance, suppose
 you want fix the flux relation between two lines you know to be
-physically connected, such as the [N ii] lines at 6548Åand 6583Å.
+physically connected, such as the [N II] lines at 6548A and 6583A.
 
 ::
 
     [n2_a]
-    wavelength: 6548
-    sigma: 2
-    flux: 1e-15,, n2_b / 3
+    rest_wavelength: 6548
+    velocity: 0
+    sigma: 60
+    amplitude: 1e-15,, n2_b / 3
     k_group: 0
 
     [n2_b]
-    wavelength: 6583
-    sigma: 2
-    flux: 1e-15
+    rest_wavelength: 6583
+    velocity: 0
+    sigma: 60
+    amplitude: 1e-15
     k_group: 0
 
 The double comma before the constraint is there because value, bounds
@@ -262,9 +288,9 @@ set any bounds, an extra comma is necessary for the parser to correctly
 identify the constraint.
 
 Now let us discuss the syntax of the constraint, which is the expression
-**n2\_b / 3**. The parser accepts simple arithmetic operations (\*, /,
+**n2_b / 3**. The parser accepts simple arithmetic operations (\*, /,
 +, -), inequality relations (:math:`<`, :math:`>`), numbers and feature
 names. The feature name is the name given to the section containing the
 spectral feature parameters, and the parameters constrained are always
 the same parameters in different features. Currently the parser does not
-support relating the sigma of some line to the flux of some other line.
+support relating the sigma of some line to the amplitude of some other line.
