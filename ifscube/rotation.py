@@ -1,75 +1,115 @@
-from matplotlib import patches
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from scipy.ndimage import gaussian_filter as gf
-from scipy.optimize import minimize
+import configparser
+import argparse
+
 from astropy.io import fits
-import matplotlib as mpl
+from astropy.modeling.fitting import LevMarLSQFitter
 import matplotlib.pyplot as plt
 import numpy as np
 
-
-def bertola(r,phi,x):
-    eta = np.sin(phi - x[2]) ** 2 + np.cos(x[3]) ** 2 *\
-        np.cos(phi - x[2]) ** 2
-    v = x[0] +\
-        (
-            x[1] * r * np.cos(phi - x[2]) *
-            np.sin(x[3]) * np.cos(x[3]) ** x[4]) /\
-        (r ** 2 * eta + x[5] ** 2 * np.cos(x[3]) ** 2) ** (x[4] ** 2.)
-    return v
+from .models import DiskRotation
 
 
-def bertola_freecenter(x):
+class Rotation(object):
+    """Class for fitting rotation models to velocity fields."""
 
-    r = np.sqrt( (vx-x[6])**2 + (vy-x[7])**2 )
-    phi = np.arctan2((vy-x[7]), -(vx-x[6]))
-    eta = np.sin(phi-x[2])**2 + np.cos(x[3])**2*np.cos(phi-x[2])**2
-    v = x[0] + ( x[1] * r * np.cos(phi-x[2]) * np.sin(x[3]) * np.cos(x[3])**x[4] )\
-        / ( r**2 * eta + x[5]**2 * np.cos(x[3])**2)**(x[4]**2.)
-    return v, r, phi
+    def __init__(self, input_data=None, extension=0, plane=0, model=None):
+        """
+        Initializes the instance and optionally loads the observation data.
+
+        Parameters
+        ----------
+        input_data: str or numpy.ndarray
+            Name of the FITS file containing the velocity field data or
+            the data in the form of a numpy.ndarray.
+        extension: integer or str
+            Name or number of the extension of the FITS file which
+            contains the velocity field.
+        plane: int
+            If the FITS file extension contains a data cube, specify the
+            plane containing the correct velocity field with this parameter.
+        model: astropy.modeling.Fittable2DModel
+            Model to be fit. If *None* defaults to ifscube.models.DiskRotation.
+        """
+
+        if input_data is not None:
+
+            if isinstance(input_data, str):
+                with fits.open(input_data) as h:
+                    self.obs = h[extension].data
+            elif isinstance(input_data, np.ndarray):
+                self.obs = input_data
+            else:
+                raise IOError('Could not understand input data.')
+
+            dimensions = len(self.obs.shape)
+            if dimensions not in [2, 3]:
+                raise RuntimeError('Invalid format for input data. Dimensions must be 2 or 3.')
+            if dimensions == 3:
+                self.obs = self.obs[int(plane)]
+
+            self.y, self.x = np.indices(self.obs.shape)
+
+        else:
+            self.obs = np.array([])
+
+        if model is None:
+            self.model = DiskRotation()
+        else:
+            self.model = model
+
+        self.solution = None
+        self.best_fit = np.array([])
+
+    def update_model(self, parameters):
+        """
+        Updates the model parameters.
+
+        Parameters
+        ----------
+        parameters: dict
+            Dictionary of parameters.
+        """
+
+        for key in parameters:
+            n = list(self.model.param_names).index(key)
+            self.model.parameters[n] = parameters[key]
+
+    def fit_model(self):
+        """
+        Fits a rotation model to the data.
+        """
+        fit = LevMarLSQFitter()
+        self.solution = fit(self.model, self.x, self.y, self.obs)
+        self.best_fit = self.solution(self.x, self.y)
+
+    def plot_results(self):
+        """Plots the fit results."""
+
+        fig = plt.figure()
+
+        for i, data in zip(range(1, 4), [self.obs, self.best_fit, self.obs - self.best_fit]):
+            ax = fig.add_subplot(1, 3, i)
+            ax.set_aspect('equal')
+            ax.contourf(data, cmap='Spectral_r')
+
+        plt.show()
 
 
-def rotationfit(file_name):
-    """Fits a disk rotation model to a velocity field."""
-    
-    # new rscale = 576.928  # parsec/arcsec
-    pxscale = 0.1        # arcsec/pixel
-    rscale = 0.587         # kiloparsec/arcsec
-    
-    data = fits.getdata(file_name) + 0.029751*2.99792e+5
-    #data = pf.getdata('slits.rvel.fits')
-    
-    
-    y, x = np.indices(np.shape(data))
-    x0, y0 = 33, 23.5
-    rproj = np.sqrt( (x-x0)**2 + (y-y0)**2 )
-    # This projection of the phi angle has the zero at the WCS north,
-    # or the negative x in the image, and increases towards the WCS east,
-    # or the positive y in the image.
-    phi = np.arctan2((y-y0), -(x-x0))
-    phi[phi < 0] += 2*np.pi
-    
-    vcoords = np.loadtxt('voronoi_binning_snr10.dat')
-    bins = np.reshape(vcoords[:,2], np.shape(x))
-    vx, vy = np.zeros(np.shape(x)), np.zeros(np.shape(y))
-    for i in np.unique(vcoords[:,2]):
-        vx[bins == i] = np.average(x[bins == i])
-        vy[bins == i] = np.average(y[bins == i])
-    vrproj = np.sqrt( (vx-x0)**2 + (vy-y0)**2 )
-    vphi = np.arctan2((vy-y0), -(vx-x0))
-    res = lambda x : sum( ( data - bertola_freecenter(x)[0] )**2 / variance )
-    
-    p0 = [9000, 60, np.deg2rad(64.), np.deg2rad(-57.), .7, 1, 33, 22]
-    b = [
-        [8000, 10000],
-        [0, 400],
-        [np.deg2rad(50.), np.deg2rad(90.)],
-        [np.deg2rad(-57.5), np.deg2rad(-56.5)],
-        [.6, .8],
-        [0, 30],
-        [20, 40],
-        [20, 40]]
+def main():
+    """
+    Fits a rotation model to a 2D array of velocities.
+    """
 
-    r = minimize(res, x0=p0, method='SLSQP', options=opts, bounds=b)
+    ap = argparse.ArgumentParser()
+    ap.add_argument('config', help='Configuration file.')
 
-    return r
+    args = ap.parse_args()
+
+    config = configparser.ConfigParser()
+    config.read(args.config)
+
+    r = Rotation(**config['loading'])
+    r.update_model(config['model'])
+    r.fit_model()
+    print(r.solution)
+    r.plot_results()
