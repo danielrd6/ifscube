@@ -1,10 +1,9 @@
 from astropy.io import fits
 import numpy as np
 import matplotlib.pyplot as plt
-import pdb
 
 
-class cube:
+class Cube:
 
     def __init__(self, fitsfile):
 
@@ -14,8 +13,8 @@ class cube:
 
         # Valid apertures, which must equal the number of lines
         # in the data array.
-        apid_mask = self._full_mdf['apid'] != 0
-        self.mdf = self._full_mdf[apid_mask]
+        aperture_id_mask = self._full_mdf['apid'] != 0
+        self.mdf = self._full_mdf[aperture_id_mask]
 
         self.sky_mask = self.mdf['beam'] == 0
         self.obj_mask = self.mdf['beam'] == 1
