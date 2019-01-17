@@ -78,6 +78,10 @@ class Rotation(object):
         for key in bounds:
             self.model.bounds[key] = bounds[key]
 
+    def updated_fixed(self, fixed):
+        for key in fixed:
+            self.model.fixed[key] = fixed[key]
+
     def fit_model(self, maxiter=100):
         """
         Fits a rotation model to the data.
@@ -111,6 +115,7 @@ class Rotation(object):
 
         kwargs = dict(cmap='Spectral_r', vmin=vmin, vmax=vmax)
 
+        im = None
         for ax, d, lab in zip(axes, data, labels):
             ax.set_aspect('equal')
             if contours:
@@ -152,12 +157,16 @@ class Config(ConfigParser):
         else:
             self.bounds = None
 
+        if 'fixed' in self.sections():
+            self._read_fixed()
+        else:
+            self.fixed = None
+
     def _read_general(self):
         self.general = {'fit': self.getboolean('general', 'fit')}
 
     def _read_loading(self):
-        self.loading = {}
-        self.loading['input_data'] = self.get('loading', 'input_data')
+        self.loading = {'input_data': self.get('loading', 'input_data')}
         if 'extension' in self['loading']:
             e = self.get('loading', 'extension')
             self.loading['extension'] = (int(e) if e.isdigit() else e)
@@ -177,6 +186,12 @@ class Config(ConfigParser):
                 b = tuple([np.deg2rad(i) for i in b])
             self.bounds.update({key: b})
 
+    def _read_fixed(self):
+        self.fixed = {}
+        for key in self['fixed']:
+            self.fixed.update({key: self.getboolean('fixed', key)})
+
+
 def main():
     """
     Fits a rotation model to a 2D array of velocities.
@@ -194,6 +209,7 @@ def main():
 
     if config.getboolean('general', 'fit'):
         r.update_bounds(config.bounds)
+        r.updated_fixed(config.fixed)
         r.fit_model(maxiter=1000)
     else:
         r.solution = r.model
