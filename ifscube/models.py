@@ -92,21 +92,8 @@ class DiskRotation(Fittable2DModel):
     """
     Observed radial velocity according to Bertola et al 1991.
 
-    Parameters
-    ----------
-    amplitude : float
-        Integrated flux of the profile.
-    c_0 : float
-        Concentration index.
-    p : float
-        Velocity curve exponent. 
-    phi_0 : float
-        Position angle of the line of nodes. 
-    theta : float
-        Inclination of the disk (theta = 0 for a face-on disk).
-
-    Description
-    -----------
+    Notes
+    -----
     This model returns a two-dimensional velocity field of observed
     radial velocities based on a rotation curve equal to
 
@@ -120,17 +107,36 @@ class DiskRotation(Fittable2DModel):
     inputs = ('x', 'y',)
     outputs = ('v',)
 
-    amplitude = Parameter(default=100)
-    c_0 = Parameter(default=1)
-    p = Parameter(default=1)
-    phi_0 = Parameter(default=45)
-    theta = Parameter(default=45)
-    v_sys = Parameter(default=0)
-    x_0 = Parameter(default=0)
-    y_0 = Parameter(default=0)
+    amplitude = Parameter(default=100.0)
+    c_0 = Parameter(default=1.0)
+    p = Parameter(default=0.7)
+    phi_0 = Parameter(default=0.7854)
+    theta = Parameter(default=0.7854)
+    v_sys = Parameter(default=0.0)
+    x_0 = Parameter(default=0.0)
+    y_0 = Parameter(default=0.0)
 
     @staticmethod
     def evaluate(x, y, amplitude, c_0, p, phi_0, theta, v_sys, x_0, y_0):
+        """
+        Parameters
+        ----------
+        amplitude: float
+            Integrated flux of the profile.
+        c_0: float
+            Concentration index.
+        p: float
+            Velocity curve exponent.
+        phi_0: float
+            Position angle of the line of nodes in radians.
+        theta: float
+            Inclination of the disk in radians(theta = 0 for a face-on disk).
+
+        Returns
+        -------
+        v: numpy.ndarray
+            Velocity at coordinates x, y.
+        """
 
         r = np.sqrt((x - x_0) ** 2 + (y - y_0) ** 2)
         phi = np.arctan2((y - y_0), (x - x_0))
@@ -142,5 +148,6 @@ class DiskRotation(Fittable2DModel):
         
         d = amplitude * r * cop * sit * cot**p
         n = r**2 * (sip**2 + cot**2 * cop**2) + c_0**2 * cot**2
-        
-        return v_sys + d / n**(p / 2)
+        v = v_sys + d / n**(p / 2)
+
+        return v

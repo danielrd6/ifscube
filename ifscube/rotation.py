@@ -78,32 +78,50 @@ class Rotation(object):
         for key in bounds:
             self.model.bounds[key] = bounds[key]
 
-    def fit_model(self):
+    def fit_model(self, maxiter=100):
         """
         Fits a rotation model to the data.
         """
         fit = LevMarLSQFitter()
-        self.solution = fit(self.model, self.x, self.y, self.obs)
+        self.solution = fit(self.model, self.x, self.y, self.obs, maxiter=maxiter)
         self.best_fit = self.solution(self.x, self.y)
 
-    def plot_results(self, contrast=1.0, contours=True):
+    def print_solution(self):
+        for key in self.solution.param_names:
+            n = self.solution.param_names.index(key)
+            if key in ['phi_0', 'theta']:
+                print('{:12s}: {:8.3f}'.format(key, np.rad2deg(self.solution.parameters[n])))
+            else:
+                print('{:12s}: {:8.3f}'.format(key, self.solution.parameters[n]))
+
+    def plot_results(self, contrast=1.0, contours=True, symetric=True):
         """Plots the fit results."""
 
         vmin = np.percentile(self.obs, contrast)
         vmax = np.percentile(self.obs, 100.0 - contrast)
 
-        fig = plt.figure()
+        if symetric:
+            m = np.max(np.abs([vmin, vmax]))
+            vmin = -m
+            vmax = m
 
+        fig, axes = plt.subplots(nrows=1, ncols=3, sharey='row')
         data = [self.obs, self.best_fit, self.obs - self.best_fit]
         labels = ['Observation', 'Model', 'Residual']
-        for i, d, lab in zip(range(1, 4), data, labels):
-            ax = fig.add_subplot(1, 3, i)
+
+        kwargs = dict(cmap='Spectral_r', vmin=vmin, vmax=vmax)
+
+        for ax, d, lab in zip(axes, data, labels):
             ax.set_aspect('equal')
             if contours:
-                ax.contourf(d, cmap='Spectral_r', vmin=vmin, vmax=vmax)
+                im = ax.contourf(d, **kwargs)
             else:
-                ax.imshow(d, cmap='Spectral_r', vmin=vmin, vmax=vmax, origin='lower')
+                im = ax.imshow(d, origin='lower', **kwargs)
             ax.set_title(lab)
+
+        fig.subplots_adjust(bottom=0.2)
+        cbar_ax = fig.add_axes([0.2, 0.15, 0.6, 0.05])
+        fig.colorbar(im, cax=cbar_ax, orientation='horizontal')
 
         plt.show()
 
@@ -155,6 +173,8 @@ class Config(ConfigParser):
         self.bounds = {}
         for key in self['bounds']:
             b = tuple([float(i) for i in self['bounds'][key].split(',')])
+            if key in ['phi_0', 'theta']:
+                b = tuple([np.deg2rad(i) for i in b])
             self.bounds.update({key: b})
 
 def main():
@@ -174,10 +194,10 @@ def main():
 
     if config.getboolean('general', 'fit'):
         r.update_bounds(config.bounds)
-        r.fit_model()
+        r.fit_model(maxiter=1000)
     else:
         r.solution = r.model
         r.best_fit = r.model(r.x, r.y)
 
-    print(r.solution)
+    r.print_solution()
     r.plot_results(contours=False)
