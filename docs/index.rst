@@ -12,6 +12,7 @@ Ifscube documentation.
    oned_fit
    cube_fit
    check_fit
+   modules
 
 What is IFSCube?
 ----------------

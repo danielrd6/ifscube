@@ -2,7 +2,7 @@ from matplotlib import patches
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.ndimage import gaussian_filter as gf
 from scipy.optimize import minimize
-import astropy.io import fits
+from astropy.io import fits
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np

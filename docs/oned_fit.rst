@@ -7,7 +7,7 @@ fits using a combined, higher signal-to-noise, spectrum from the data cube.
 There is even a executable script to perform the fits using parameters given in
 a configuration file.
 
-:func:`specfit` usage
+:program:`specfit` usage
 ============================================================
 
 After the installation of IFSCube the executable {\sc specfit} should be
@@ -27,7 +27,7 @@ command line options of linefit just execute it with the **-h** option, and a
 help page will be printed.
 
 The configuration file halpha.cfg, present in the examples directory, showcases
-the syntax and some of the possibilities of :func:`specfit`. The reader is
+the syntax and some of the possibilities of :program:`specfit`. The reader is
 strongly encouraged to start with that file and modify it for her/his fits.
 
 Configuration file
@@ -92,7 +92,7 @@ process.
 loading
 -------
 
-The **loading** section is dedicated to parameters that tell :any:`specfit` how
+The **loading** section is dedicated to parameters that tell :program:`specfit` how
 to load your spectrum from the FITS file. Each parameter listed below
 takes as input value a string that should match the name of the FITS
 extension in the input MEF file containing the appropriate data. It is

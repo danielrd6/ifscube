@@ -550,7 +550,7 @@ class Spectrum:
             copts = dict(
                 niterate=5, degr=4, upper_threshold=2, lower_threshold=2)
 
-        copts.update(dict(returns='polynomial'))
+        copts.update(dict(output='polynomial'))
 
         if hasattr(self, 'continuum'):
             cont = self.continuum[valid_pixels]
@@ -773,7 +773,7 @@ class Spectrum:
                 cont = spectools.continuum(
                     fwl, syn + fitcont, weights=weights,
                     degr=1, niterate=nite, lower_threshold=3,
-                    upper_threshold=3, returns='function')[1][cond]
+                    upper_threshold=3, output='function')[1][cond]
 
                 # Remember that 1 - (g + c)/c = -g/c, where g is the
                 # line profile and c is the local continuum level.

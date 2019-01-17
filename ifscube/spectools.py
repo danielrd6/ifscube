@@ -61,10 +61,6 @@ def fitgauss(x, y, p0=None, fitcenter=True, fitbg=True):
     requires a background subtraction, meaning that the data should
     fall to zero within the fitting limits.
 
-                  (  -(mu-x)^2  )
-    f(x) = m * exp| ----------- | + bg
-                  (  2*sigma^2  )
-
     Parameters
     ----------
     p0 : iterable
@@ -352,7 +348,7 @@ def dopcor(wl, z):
     return wlnew
 
 
-def continuum(x, y, returns='ratio', degr=6, niterate=5,
+def continuum(x, y, output='ratio', degr=6, niterate=5,
               lower_threshold=2, upper_threshold=3, verbose=False,
               weights=None):
     """
@@ -365,12 +361,13 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
         Independent variable
     y : array-like
         y = f(x)
-    returns : string
+    output: string
         Specifies what will be returned by the function
-        'ratio' = ratio between fitted continuum and the spectrum
-        'difference' = difference between fitted continuum and the
-            spectrum
-        'function' = continuum function evaluated at x
+
+        'ratio'      = ratio between fitted continuum and the spectrum
+        'difference' = difference between fitted continuum and the spectrum
+        'function'   = continuum function evaluated at x
+
     degr : integer
         Degree of polynomial for the fit
     niterate : integer
@@ -387,10 +384,12 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
     Returns
     -------
     c : tuple
-        c[0] : numpy.ndarray
+
+        c[0]: numpy.ndarray
             Input x coordinates
-        c[1] : numpy.ndarray
+        c[1]: numpy.ndarray
             See parameter "returns".
+
     """
 
     xfull = copy.deepcopy(x)
@@ -445,7 +444,7 @@ def continuum(x, y, returns='ratio', degr=6, niterate=5,
         polynomial=p,
     )
 
-    return out[returns]
+    return out[output]
 
 
 def eqw(wl, flux, lims, cniterate=5):

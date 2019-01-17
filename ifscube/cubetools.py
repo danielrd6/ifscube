@@ -97,6 +97,7 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
     filtertype : string
       Type of function to be multiplied by the spectrum to return
       the argument for the integral.
+
       'box'      = Box function that is zero everywhere and 1
                    between wl0-fwhm/2 and wl0+fwhm/2.
       'gaussian' = Normalized gaussian function with center at

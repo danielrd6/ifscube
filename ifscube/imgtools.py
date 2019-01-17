@@ -13,22 +13,25 @@ def gauss2d(x, y, p):
     """
     Returns a 2-dimensional gaussian function, following the equation
 
-                          (x-x0)**2   (y-y0)**2
-    g(x,y) = a * exp( - ( --------- + --------- ) ) + b
-                           2*sx**2     2*sy**2
+
 
     Parameters
-    -----------
-    As described in the formula above.
+    ----------
+    x, y: numpy.ndarray
+        The coordinates, or array of coordinates, of the point
+        of interest.
+    p: list
+        Parameters of the gaussian function in the following order:
+        [a,b,x0,y0,sx,sy]
 
     Returns
-    --------
-    x,y : nd.array
-      The coordinates, or array of coordinates, of the point
-      of interest.
-    p : list
-      Parameters of the gaussian function in the following order:
-      [a,b,x0,y0,sx,sy]
+    -------
+    g: numpy.ndarray
+        2D Gaussian.
+
+    Notes
+    -----
+    g(x, y) = a * exp(-(x-x0)**2/(2 * sx**2) - (y-y0)**2/(2 * sy**2))
     """
 
     A, B, x0, y0, sx, sy, t = p

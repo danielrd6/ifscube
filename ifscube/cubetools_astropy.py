@@ -76,26 +76,27 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
 
         Parameters
         -----------
-        arr : np.ndarray
-          Array to projected.
-        wl : np.ndarray
-          Wavelength coordinates of the arr pixels.
-        wl0 : float
-          Central wavelength at the rest frame.
-        fwhm : float
-          Full width at half maximum. See 'filtertype'.
-        filtertype : string
-          Type of function to be multiplied by the spectrum to return
-          the argument for the integral.
-          'box'      = Box function that is zero everywhere and 1
-                       between wl0-fwhm/2 and wl0+fwhm/2.
-          'gaussian' = Normalized gaussian function with center at
-                       wl0 and sigma = fwhm/(2*sqrt(2*log(2)))
+        arr: np.ndarray
+            Array to projected.
+        wl: np.ndarray
+            Wavelength coordinates of the arr pixels.
+        wl0: float
+            Central wavelength at the rest frame.
+        fwhm: float
+            Full width at half maximum. See 'filtertype'.
+        filtertype: string
+              Type of function to be multiplied by the spectrum to return
+              the argument for the integral.
+
+                  'box'      = Box function that is zero everywhere and 1
+                               between wl0-fwhm/2 and wl0+fwhm/2.
+                  'gaussian' = Normalized gaussian function with center at
+                               wl0 and sigma = fwhm/(2*sqrt(2*log(2)))
 
         Returns
         --------
         outim : numpy.ndarray
-          The integrated flux of the cube times the filter.
+            The integrated flux of the cube times the filter.
         """
 
         if filtertype == 'box':
@@ -445,10 +446,12 @@ class gmosdc:
         filtertype : string
             Type of function to be multiplied by the spectrum to return
             the argument for the integral.
+
             'box'      = Box function that is zero everywhere and 1
                          between wl0-fwhm/2 and wl0+fwhm/2.
             'gaussian' = Normalized gaussian function with center at
                          wl0 and sigma = fwhm/(2*sqrt(2*log(2)))
+
         outimage : string
             Name of the output image
 
