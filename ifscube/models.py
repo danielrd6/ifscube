@@ -97,9 +97,7 @@ class DiskRotation(Fittable2DModel):
     This model returns a two-dimensional velocity field of observed
     radial velocities based on a rotation curve equal to
 
-                           A * r
-    v_c(r) = -------------------------------.
-              (r ** 2 + c_0 ** 2) ** (p / 2)
+    v_c(r) = A * r / ( (r ** 2 + c_0 ** 2) ** (p / 2) )
 
     This equation was taken from Bertola et al. 1991 (ApJ, 373, 369B).
     """

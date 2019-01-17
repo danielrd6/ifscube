@@ -12,6 +12,7 @@ Ifscube documentation.
    oned_fit
    cube_fit
    check_fit
+   Fitting rotation models <rotation>
    IFSCube modules <modules>
 
 Indices and tables
