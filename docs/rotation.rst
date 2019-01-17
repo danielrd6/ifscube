@@ -69,8 +69,19 @@ bounds
 For each parameter of the last section a pair of bounds can be set in this section,
 repeating the parameter name and given lower and upper bounds separated by a comma.
 
+.. code-block:: ini
+
+    [bounds]
+    theta = 30, 60
+
 fixed
 *****
 
 Parameters can also be set to be fixed, by writing the parameter name in this section
 followed by a 'yes'.
+
+.. code-block:: ini
+
+    [fixed]
+    x_0 = 'yes'
+    y_0 = 'yes'
