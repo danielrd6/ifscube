@@ -10,7 +10,7 @@ a configuration file.
 :program:`specfit` usage
 ============================================================
 
-After the installation of IFSCube the executable {\sc specfit} should be
+After the installation of IFSCube the executable :program:`specfit` should be
 available in your path. If not, the script is located in the bin directory of
 the IFSCube installation directory.
 

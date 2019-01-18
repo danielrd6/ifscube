@@ -5,23 +5,24 @@ What is IFSCube?
 ====================
 
 IFSCube is a python package designed to perform analysis tasks in data
-cubes of integral field spectroscopy. It was originally designed to work with
-the data from Gemini's Multi-Object Spectrograph (GMOS), and as such, many
-default parameters are set to work best with this kind of data. Using it with
-data cubes from other instruments should be possible by explicitly setting a
-few more parameters.
-
-Keep in mind that this is not a closed software that will be called from the
-command line and perform the tasks that you might want. Instead it is intended
+cubes of integral field spectroscopy. It was originally intended
 to be used as part of your own scripts, hopefully making them a lot more
-concise, and saving you a lot of time. At the same time, since everything you
-can do in a python script can also be done using an interactive interpreter
-such as ipython, you can also perform your analysis on the fly. 
+concise, and saving you a lot of time. However, since everything you
+can do in a Python script can also be done using an interactive interpreter
+such as ipython, you can choose to perform your analysis on the fly.
 
-For the specific task of fitting spectral features there is an executable
-script that can be called from the command line, and controlled via an ASCII
-configuration file. This is the recommended method for line fitting, as many of
-the preparation steps can be easily set up by the configuration parser.
+During development I found out that some tasks work better as executable
+programs that the user could call directly from the command line, with
+options being set by an ASCII configuration file. These tasks are the fitting of
+spectral features in 1D spectra and data cubes, the fitting of rotation models
+to velocity fields and the inspection of fit results, which are accomplished
+by the programs :program:`specfit`, :program:`ifscube`, :program:`fit_rotation`
+and :program:`fit_scrutinizer` respectively.
+
+The preferred data format for IFSCube is the Flexible Image Transport System (FITS) standard. However, if you wish to
+use other formats or perform some preliminary processing of your data, it is enough to subclass the
+:class:`ifscube.datacube.Cube` or :class:`ifscube.onedspec.Spectrum` classes, substituting the :meth:`__init__`
+and :meth:`_load` methods.
 
 Installation instructions
 ==================================================

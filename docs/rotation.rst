@@ -15,8 +15,8 @@ directory.
 
     fit_rotation rotation.ini
 
-This command assumes that you have already run the cube fitting example with
-the data for NGC3081.
+This command assumes that you have already run the :doc:`cube fitting <cube_fit>`
+example with the data for NGC3081.
 
 Configuration file
 ------------------
@@ -41,6 +41,8 @@ loading
     Name or number of the extension in case of a multi-extension FITS file.
 * plane: int
     Plane of the velocity field, in case of data cube.
+
+.. _model:
 
 model
 *****
