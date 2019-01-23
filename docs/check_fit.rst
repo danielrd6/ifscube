@@ -18,7 +18,7 @@ should read
 
 ::
 
-    fit_scrutinizer ngc3081_cube.fits myfit.fits
+    fit_scrutinizer ngc3081_cube_linefit.fits
 
 This will star a GUI similar to the one in the figure below, but
 without any of the plots yet. To start plotting your results you have to
@@ -31,7 +31,7 @@ component in the upper left.
 .. figure:: figs/scrutinizer.png
 
     Example of the interface of the fit_scrutinizer program, showing the
-    velocity image, and the spectrum in the spaxel (3, 5).
+    velocity image, and the spectrum in the spaxel (2, 4).
 
 At this point only the image is visible, but no spectral plot will be
 produced until you click on either “Follow mouse” or “Plot on click”.

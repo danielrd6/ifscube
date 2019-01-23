@@ -1,14 +1,12 @@
 #!/usr/bin/python
 # stdlib
 import argparse
-import dill as pickle
-import tkinter as Tk
+import tkinter as tk
 
 # third party
 import matplotlib
-matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
+from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 from matplotlib.figure import Figure
 import numpy as np
 from numpy import ma
@@ -23,44 +21,27 @@ class mclass:
     def __init__(self, window, args):
 
         self.fitstatus_mask = args.fitstatus_mask
-        self.astropy = args.astropy
 
-        if self.astropy:
-            with open(args.fitfile, 'rb') as f:
-                cube = pickle.load(f)
-        else:
-            cube = ifscube.Cube()
-            cube.loadfit(args.fitfile)
+        cube = ifscube.Cube()
+        cube.loadfit(args.fitfile)
 
         self.window = window
-        self.buttonPlot = Tk.Button(
+        self.buttonPlot = tk.Button(
             window, text='Image plot', command=self.plot)
-        self.buttonFollow = Tk.Button(
+        self.buttonFollow = tk.Button(
             window, text='Follow mouse', command=self.follow)
-        self.buttonSinglePlot = Tk.Button(
+        self.buttonSinglePlot = tk.Button(
             window, text='Plot on click', command=self.singleplot)
 
-        self.text = Tk.Text(
+        self.text = tk.Text(
             window, bg='white', height=10, width=80, font=('Fixedsys', 12))
 
-        l_par = Tk.Listbox(window, selectmode='single', exportselection=0)
-        l_component = Tk.Listbox(
+        l_par = tk.Listbox(window, selectmode='single', exportselection=0)
+        l_component = tk.Listbox(
             window, selectmode='single', exportselection=0)
 
-        if args.astropy:
-            try:
-                n_components = len(cube.fit_func._submodels)
-            except AttributeError:
-                n_components = 1
-
-            if n_components > 1:
-                n_parameters = len(cube.fit_func[0].parameters)
-            else:
-                n_parameters = len(cube.fit_func.parameters)
-
-        else:
-            n_components, n_parameters = [
-                int(cube.fit_info[i]) for i in ['components', 'parameters']]
+        n_components, n_parameters = [
+            int(cube.fit_info[i]) for i in ['components', 'parameters']]
 
         if hasattr(cube, 'parnames'):
             for i in cube.parnames:
@@ -102,14 +83,14 @@ class mclass:
         canvas2.get_tk_widget()\
             .grid(row=0, column=7, rowspan=6, columnspan=12)
 
-        tb_frame = Tk.Frame(window)
+        tb_frame = tk.Frame(window)
         tb_frame.grid(row=7, column=0, columnspan=6, sticky='W')
-        toolbar = NavigationToolbar2TkAgg(canvas, tb_frame)
+        toolbar = NavigationToolbar2Tk(canvas, tb_frame)
         toolbar.update()
 
-        other_tb_frame = Tk.Frame(window)
+        other_tb_frame = tk.Frame(window)
         other_tb_frame.grid(row=7, column=7, columnspan=12, sticky='W')
-        other_toolbar = NavigationToolbar2TkAgg(canvas2, other_tb_frame)
+        other_toolbar = NavigationToolbar2Tk(canvas2, other_tb_frame)
         other_toolbar.update()
 
         self.buttonPlot.grid(row=8, column=0, sticky='W')
@@ -258,23 +239,17 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        '-a', '--astropy', action='store_true',
-        help='Fitfile refers to an astropy modeling fit.')
     parser.add_argument('fitfile', type=str, help='Result of the fit')
+    parser.add_argument('-m', '--fitstatus_mask', help='Apply fit status mask.', action='store_true')
     parser.add_argument(
-        '-m', '--fitstatus_mask', help='Apply fit status mask.',
-        action='store_true')
-    parser.add_argument(
-        '-s', '--single-spectrum', action='store_true',
-        help='Use this option for one-dimensional spectra.')
+        '-s', '--single-spectrum', action='store_true', help='Use this option for one-dimensional spectra.')
 
     args = parser.parse_args()
 
     if args.single_spectrum:
         s = onedfit(args.fitfile) 
     else:
-        window = Tk.Tk()
+        window = tk.Tk()
         window.title('IFSCUBE Fit Scrutinizer')
         start = mclass(window, args)
         window.mainloop()
