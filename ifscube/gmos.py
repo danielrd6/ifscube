@@ -87,7 +87,7 @@ class cube(datacube.Cube):
                     'WARNING! Redshift not given and not found in the image' +
                     ' header. Using redshift = 0.')
                 redshift = 0.0
-        self.restwl = self.wl / (1. + redshift)
+        self.rest_wavelength = self.wl / (1. + redshift)
 
         if var_ext is not None:
             # The noise for each pixel in the cube
