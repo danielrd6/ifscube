@@ -1647,7 +1647,7 @@ class Cube:
 
     def ppxf_kinematics(self, fitting_window, base_wl, base_spec, base_cdelt, write_fits=True, out_image=None, vel=0.0,
                         fwhm_gal=2, fwhm_model=1.8, noise=0.05, individual_spec=None, plot_fit=False, quiet=False,
-                        deg=4, mask=None, cushion=100., moments=4, overwrite=False):
+                        deg=4, mask=None, cushion=100., moments=4, overwrite=False, verbose=False):
         """
         Executes pPXF fitting of the stellar spectrum over the whole
         data cube.
@@ -1691,6 +1691,8 @@ class Cube:
             Number of moments in the Gauss-Hermite polynomial used to fit the kinematics.
         overwrite: bool
             Overwrites previously saved fits.
+        verbose : bool
+            Prints progress messages.
 
         Returns
         -------
@@ -1812,7 +1814,12 @@ class Cube:
         ppxf_model = np.zeros(np.shape(ppxf_spec), dtype='float64')
 
         norm_factor = 1.0
-        for k, h in enumerate(xy):
+        if verbose:
+            iterator = tqdm(xy, desc='pPXF fitting.', unit='spectrum')
+        else:
+            iterator = xy
+
+        for h in iterator:
             i, j = h
 
             gal_lin = deepcopy(self.data[fw, i, j])
