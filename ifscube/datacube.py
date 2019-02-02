@@ -48,7 +48,7 @@ class Cube:
         self.fitspec = None
         self.fitstellar = None
         self.fitweights = None
-        self.fitwl = None
+        self.fit_wavelength = None
         self.flags = None
         self.header = None
         self.initial_guess = None
@@ -177,7 +177,7 @@ class Cube:
         else:
             self.redshift = 0
 
-        self.restwl = onedspec.Spectrum.dopcor(self.redshift, self.wl)
+        self.rest_wavelength = onedspec.Spectrum.dopcor(self.redshift, self.wl)
 
         try:
             if self.header['VORBIN']:
@@ -256,8 +256,8 @@ class Cube:
         hdr = fits.Header()
         hdr['object'] = ('spectrum', 'Data in this extension')
         hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
-        hdr['CRVAL3'] = (self.fitwl[0], 'Reference value for wavelength')
-        hdr['CD3_3'] = (np.average(np.diff(self.fitwl)), 'CD3_3')
+        hdr['CRVAL3'] = (self.fit_wavelength[0], 'Reference value for wavelength')
+        hdr['CD3_3'] = (np.average(np.diff(self.fit_wavelength)), 'CD3_3')
         hdu = fits.ImageHDU(data=self.fitspec, header=hdr)
         hdu.name = 'FITSPEC'
         h.append(hdu)
@@ -435,9 +435,9 @@ class Cube:
             xy = self.spec_indices
 
         fw = fitting_window
-        fwidx = (self.restwl > fw[0]) & (self.restwl < fw[1])
+        fwidx = (self.rest_wavelength > fw[0]) & (self.rest_wavelength < fw[1])
 
-        wl = deepcopy(self.restwl[fwidx])
+        wl = deepcopy(self.rest_wavelength[fwidx])
         data = deepcopy(self.data[fwidx])
 
         c = np.zeros_like(data)
@@ -596,7 +596,7 @@ class Cube:
         """
 
         outim = cubetools.wlprojection(
-            arr=self.data, wl=self.restwl, wl0=wl0, fwhm=fwhm,
+            arr=self.data, wl=self.rest_wavelength, wl0=wl0, fwhm=fwhm,
             filtertype=filtertype)
 
         if writefits:
@@ -692,7 +692,7 @@ class Cube:
         else:
             s = self.data[:, y, x]
 
-        ax.plot(self.restwl, s)
+        ax.plot(self.rest_wavelength, s)
 
         if show_noise and hasattr(self, 'noise_cube'):
 
@@ -712,14 +712,14 @@ class Cube:
             n = gaussian_filter(n, noise_smooth)
             sg = gaussian_filter(s, noise_smooth)
 
-            ax.fill_between(self.restwl, sg - n, sg + n, edgecolor='',
+            ax.fill_between(self.rest_wavelength, sg - n, sg + n, edgecolor='',
                             alpha=0.2, color='green')
 
         if hasattr(self, 'flags') \
                 and not hasattr(x, '__iter__') \
                 and not hasattr(y, '__iter__'):
             sflags = self.flags[:, y, x].astype('bool')
-            ax.scatter(self.restwl[sflags], s[sflags], marker='x', color='red')
+            ax.scatter(self.rest_wavelength[sflags], s[sflags], marker='x', color='red')
 
         plt.show()
 
@@ -804,12 +804,12 @@ class Cube:
         fitting_window = kwargs.get('fitting_window', None)
         if fitting_window is not None:
             fw_mask = (
-                    (self.restwl > fitting_window[0])
-                    & (self.restwl < fitting_window[1]))
+                    (self.rest_wavelength > fitting_window[0])
+                    & (self.rest_wavelength < fitting_window[1]))
             fit_npixels = np.sum(fw_mask)
         else:
-            fw_mask = np.ones_like(self.restwl).astype('bool')
-            fit_npixels = self.restwl.size
+            fw_mask = np.ones_like(self.rest_wavelength).astype('bool')
+            fit_npixels = self.rest_wavelength.size
 
         # A few assertions
         assert np.any(self.data[fw_mask]), \
@@ -915,7 +915,7 @@ class Cube:
             cube_slice = (Ellipsis, i, j)
 
             spec = onedspec.Spectrum()
-            spec.restwl = self.restwl
+            spec.restwl = self.rest_wavelength
             spec.data = self.data[cube_slice]
             spec.variance = self.variance[cube_slice]
             spec.flags = self.flags[cube_slice]
@@ -977,7 +977,7 @@ class Cube:
                     k if k is not None else np.nan
                     for k in np.array(spec.fitbounds).flatten()]
 
-        self.fitwl = spec.fitwl
+        self.fit_wavelength = spec.fitwl
         self.fit_func = spec.fit_func
         self.parnames = spec.parnames
         self.component_names = spec.component_names
@@ -1014,54 +1014,57 @@ class Cube:
         Nothing.
         """
 
-        fitfile = fits.open(fname)
+        fit_file = fits.open(fname)
         if not hasattr(self, 'header'):
-            self.header = fitfile[0].header
+            self.header = fit_file[0].header
 
-        self.fitwl = spectools.get_wl(
+        self.fit_wavelength = spectools.get_wl(
             fname, pix0key='crpix3', wl0key='crval3', dwlkey='cd3_3',
             hdrext=1, dataext=1)
 
+        if 'fitconfig' not in fit_file:
+            raise RuntimeError('Extension "fitconfig" is not present in the input file.')
+
         self.feature_wl = np.array([
-            float(i[1]) for i in fitfile['fitconfig'].data
+            float(i[1]) for i in fit_file['fitconfig'].data
             if 'rest_wavelength' in i['parameters']])
 
-        self.fitspec = fitfile['FITSPEC'].data
-        self.fitcont = fitfile['FITCONT'].data
-        self.resultspec = fitfile['MODEL'].data
+        self.fitspec = fit_file['FITSPEC'].data
+        self.fitcont = fit_file['FITCONT'].data
+        self.resultspec = fit_file['MODEL'].data
 
-        self.em_model = fitfile['SOLUTION'].data
-        self.fit_status = fitfile['STATUS'].data
-        self.fitstellar = fitfile['STELLAR'].data
+        self.em_model = fit_file['SOLUTION'].data
+        self.fit_status = fit_file['STATUS'].data
+        self.fitstellar = fit_file['STELLAR'].data
 
-        if 'fit_x0' in fitfile['SOLUTION'].header:
-            self.fit_x0 = fitfile['SOLUTION'].header['fit_x0']
-        if 'fit_y0' in fitfile['SOLUTION'].header:
-            self.fit_y0 = fitfile['SOLUTION'].header['fit_y0']
+        if 'fit_x0' in fit_file['SOLUTION'].header:
+            self.fit_x0 = fit_file['SOLUTION'].header['fit_x0']
+        if 'fit_y0' in fit_file['SOLUTION'].header:
+            self.fit_y0 = fit_file['SOLUTION'].header['fit_y0']
 
         try:
-            self.eqw_model = fitfile['EQW_M'].data
+            self.eqw_model = fit_file['EQW_M'].data
         except KeyError:
             pass
 
         try:
-            self.eqw_direct = fitfile['EQW_D'].data
+            self.eqw_direct = fit_file['EQW_D'].data
         except KeyError:
             pass
 
         try:
-            self.spatial_mask = fitfile['MASK2D'].data.astype('bool')
+            self.spatial_mask = fit_file['MASK2D'].data.astype('bool')
         except KeyError:
             pass
 
         try:
-            t = fitfile['SPECIDX'].data
+            t = fit_file['SPECIDX'].data
             self.spec_indices = np.array([i for i in t])
         except KeyError:
             pass
 
         fit_info = {}
-        func_name = fitfile['SOLUTION'].header['function']
+        func_name = fit_file['SOLUTION'].header['function']
         fit_info['function'] = func_name
 
         if func_name == 'gaussian':
@@ -1076,7 +1079,7 @@ class Cube:
             raise IOError('Unkwon function name "{:s}"'.format(func_name))
 
         try:
-            par_table = fitfile['PARNAMES'].data
+            par_table = fit_file['PARNAMES'].data
             self.component_names = par_table['component'][::self.npars]
         except KeyError:
             pass
@@ -1086,7 +1089,7 @@ class Cube:
 
         self.fit_info = fit_info
 
-        fitfile.close()
+        fit_file.close()
 
     def w80(self, component, sigma_factor=5, individual_spec=False,
             verbose=False, smooth=0, remove_components=()):
@@ -1125,7 +1128,7 @@ class Cube:
                 print(i, j)
 
             # Wavelength vector of the line fit
-            fwl = self.fitwl
+            fwl = self.fit_wavelength
             # Rest wavelength vector of the whole data cube
             # rwl = self.restwl
             # Center wavelength coordinate of the fit
@@ -1230,7 +1233,7 @@ class Cube:
         pp = np.array([i if np.isfinite(i) else 0.0 for i in p])
         rest_wl = np.array(self.feature_wl)
         c = self.fitcont[:, y, x]
-        wl = self.fitwl
+        wl = self.fit_wavelength
         f = self.fit_func
         s = self.fitspec[:, y, x]
         star = self.fitstellar[:, y, x]
@@ -1633,8 +1636,8 @@ class Cube:
             specs = np.array([])
             for k, i, j in enumerate(unique_indices):
                 z = self.em_model[0, i, j] / 2.99792458e+5
-                interp_spec = interp1d(self.restwl / (1. + z), self.data[i, j])
-                specs = np.row_stack([specs, interp_spec(self.restwl)])
+                interp_spec = interp1d(self.rest_wavelength / (1. + z), self.data[i, j])
+                specs = np.row_stack([specs, interp_spec(self.rest_wavelength)])
 
         else:
             specs = np.row_stack(
@@ -1714,7 +1717,7 @@ class Cube:
             raise ImportError('Could not find the ppxf_util module. Please add it to your PYTHONPATH.')
 
         w0, w1 = fitting_window
-        fw = (self.restwl >= w0) & (self.restwl < w1)
+        fw = (self.rest_wavelength >= w0) & (self.rest_wavelength < w1)
 
         base_cut = (base_wl > w0 - cushion) & (base_wl < w1 + cushion)
 
@@ -1727,7 +1730,7 @@ class Cube:
         base_spec = base_spec[:, base_cut]
         base_wl = base_wl[base_cut]
 
-        lam_range1 = self.restwl[fw][[0, -1]]
+        lam_range1 = self.rest_wavelength[fw][[0, -1]]
         center_spaxel = np.array(
             [int(i / 2) for i in np.shape(self.data[0])], dtype='int')
         gal_lin = deepcopy(self.data[fw, center_spaxel[0], center_spaxel[1]])
@@ -1874,8 +1877,8 @@ class Cube:
             hdr = fits.Header()
             hdr['object'] = ('spectrum', 'Data in this extension')
             hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
-            hdr['CRVAL3'] = (self.restwl[0], 'Reference value for wavelength')
-            hdr['CD3_3'] = (np.average(np.diff(self.restwl)), 'CD3_3')
+            hdr['CRVAL3'] = (self.rest_wavelength[0], 'Reference value for wavelength')
+            hdr['CD3_3'] = (np.average(np.diff(self.rest_wavelength)), 'CD3_3')
             h.append(fits.ImageHDU(data=self.ppxf_spec, header=hdr, name='SCI'))
 
             # Creates the residual spectrum extension
