@@ -1,21 +1,18 @@
-# STDLIB
 from copy import deepcopy
 
-# THIRD PARTY
-import numpy as np
-from numpy import ma
 import matplotlib.pyplot as plt
-from scipy.interpolate import interp1d
-from scipy.ndimage import gaussian_filter, center_of_mass
+import numpy as np
 from astropy import constants, units, table, wcs
 from astropy.io import fits
+from numpy import ma
+from scipy.interpolate import interp1d
+from scipy.ndimage import gaussian_filter, center_of_mass
 from tqdm import tqdm
 
-# LOCAL
-from . import cubetools, spectools, onedspec
-from . import plots as ifsplots
-from . import elprofile as lprof
 from . import channel_maps
+from . import cubetools, spectools, onedspec, ppxf_wrapper
+from . import elprofile as lprof
+from . import plots as ifsplots
 
 
 class Cube:
@@ -618,8 +615,26 @@ class Cube:
 
         return outim
 
-    def aperture_spectrum(self, radius=1, x0=None, y0=None,
-                          flag_threshold=0.5):
+    def aperture_spectrum(self, radius=1.0, x0=None, y0=None, flag_threshold=0.5):
+        """
+        Makes an aperture spectrum out of the data cube.
+
+        Parameters
+        ----------
+        radius : float
+            Radius of the virtual aperture in pixels.
+        x0, y0 : float or None
+            Central coordinates of the aperture in pixels. If both are
+            set to *None* the center of the datacube will be used.
+        flag_threshold : float
+            Amount of flagged pixels for the output spectrum to also
+            be flagged in this pixel.
+
+        Returns
+        -------
+        s : ifscube.onedspec.Spectrum
+            Spectrum object.
+        """
 
         if x0 is None:
             x0 = int(self.spec_indices[:, 1].mean())
@@ -647,7 +662,7 @@ class Cube:
         s.stellar = ste
         s.flags = fla
 
-        keys = ['wl', 'restwl', 'redshift']
+        keys = ['wl', 'rest_wavelength', 'redshift']
 
         for i in keys:
             s.__dict__[i] = self.__dict__[i]
@@ -1645,9 +1660,10 @@ class Cube:
 
         return specs
 
-    def ppxf_kinematics(self, fitting_window, base_wl, base_spec, base_cdelt, write_fits=True, out_image=None, vel=0.0,
-                        fwhm_gal=2, fwhm_model=1.8, noise=0.05, individual_spec=None, plot_fit=False, quiet=False,
-                        deg=4, mask=None, cushion=100., moments=4, overwrite=False, verbose=False):
+    def ppxf_kinematics(self, fitting_window, base_wl=None, base_spec=None, base_cdelt=None, write_fits=True,
+                        out_image=None, vel=0.0, fwhm_gal=2, fwhm_model=1.8, noise=0.05, individual_spec=None,
+                        plot_fit=False, quiet=False, deg=4, mask=None, cushion=100., moments=4, overwrite=False,
+                        verbose=False):
         """
         Executes pPXF fitting of the stellar spectrum over the whole
         data cube.
@@ -1700,8 +1716,9 @@ class Cube:
 
         Notes
         -----
-        This function is merely a wrapper for Michelle Capellari's pPXF Python algorithm for
-        penalized pixel fitting of stellar spectra.
+        This function is merely a wrapper for Michelle Capellari's
+        pPXF Python algorithm for penalized pixel fitting of stellar
+        spectra.
 
         See also
         --------
@@ -1717,6 +1734,13 @@ class Cube:
             from ppxf import ppxf_util
         except ImportError:
             raise ImportError('Could not find the ppxf_util module. Please add it to your PYTHONPATH.')
+
+        if base_wl is None:
+            ppxf_obj = ppxf_wrapper.Fit()
+            base_wl = ppxf_obj.base_wavelength
+            base_cdelt = ppxf_obj.base_delta
+            base_spec = ppxf_obj.base
+            del ppxf_obj
 
         w0, w1 = fitting_window
         fw = (self.rest_wavelength >= w0) & (self.rest_wavelength < w1)
@@ -1750,15 +1774,13 @@ class Cube:
                 gp = gp[
                     (lam1 < mask[0][0]) | (lam1 > mask[0][1])]
             else:
-                m = np.array([
-                    (lam1 < i[0]) | (lam1 > i[1]) for i in mask])
+                m = np.array([(lam1 < i[0]) | (lam1 > i[1]) for i in mask])
                 gp = gp[np.sum(m, 0) == m.shape[0]]
 
         lam_range2 = base_wl[[0, -1]]
         ssp = base_spec[0]
 
-        ssp_new, log_lam2, velscale = ppxf_util.log_rebin(
-            lam_range2, ssp, velscale=velscale)
+        ssp_new, log_lam2, velscale = ppxf_util.log_rebin(lam_range2, ssp, velscale=velscale)
         templates = np.empty((ssp_new.size, len(base_spec)))
 
         # Convolve the whole Vazdekis library of spectral templates
@@ -1778,8 +1800,7 @@ class Cube:
         for j in range(len(base_spec)):
             ssp = base_spec[j]
             ssp = gaussian_filter(ssp, sigma)
-            ssp_new, log_lam2, velscale = ppxf_util.log_rebin(
-                lam_range2, ssp, velscale=velscale)
+            ssp_new, log_lam2, velscale = ppxf_util.log_rebin(lam_range2, ssp, velscale=velscale)
             # Normalizes templates
             templates[:, j] = ssp_new / np.median(ssp_new)
 
@@ -1797,20 +1818,16 @@ class Cube:
         if self.binned:
             vor = self.voronoi_tab
             xy = np.column_stack([
-                vor[coords][np.unique(vor['binNum'], return_index=True)[1]]
-                for coords in ['ycoords', 'xcoords']])
+                vor[coords][np.unique(vor['binNum'], return_index=True)[1]] for coords in ['ycoords', 'xcoords']
+            ])
         else:
             xy = self.spec_indices
 
         if individual_spec is not None:
             xy = [individual_spec[::-1]]
 
-        ppxf_sol = np.zeros(
-            (4, np.shape(self.data)[1], np.shape(self.data)[2]),
-            dtype='float64')
-        ppxf_spec = np.zeros(
-            (len(galaxy), np.shape(self.data)[1], np.shape(self.data)[2]),
-            dtype='float64')
+        ppxf_sol = np.zeros((4, np.shape(self.data)[1], np.shape(self.data)[2]), dtype='float64')
+        ppxf_spec = np.zeros((len(galaxy), np.shape(self.data)[1], np.shape(self.data)[2]), dtype='float64')
         ppxf_model = np.zeros(np.shape(ppxf_spec), dtype='float64')
 
         norm_factor = 1.0
@@ -1823,8 +1840,7 @@ class Cube:
             i, j = h
 
             gal_lin = deepcopy(self.data[fw, i, j])
-            galaxy, log_lam1, velscale = ppxf_util.log_rebin(
-                lam_range1, gal_lin)
+            galaxy, log_lam1, velscale = ppxf_util.log_rebin(lam_range1, gal_lin)
             norm_factor = np.nanmean(galaxy)
             galaxy = galaxy / norm_factor
 
@@ -1833,16 +1849,15 @@ class Cube:
                 pp.ppxf(ppxf_sol[:, 0, 0], galaxy)
             else:
                 pp = ppxf.ppxf(
-                    templates, galaxy, noise, velscale, start, goodpixels=gp,
-                    plot=plot_fit, moments=moments, degree=deg, vsyst=dv,
-                    quiet=quiet)
+                    templates, galaxy, noise, velscale, start, goodpixels=gp, plot=plot_fit, moments=moments,
+                    degree=deg, vsyst=dv, quiet=quiet
+                )
                 if plot_fit:
                     plt.show()
 
             if vor is not None:
 
-                bin_num = vor[
-                    (vor['xcoords'] == j) & (vor['ycoords'] == i)]['binNum']
+                bin_num = vor[(vor['xcoords'] == j) & (vor['ycoords'] == i)]['binNum']
                 same_bin_num = vor['binNum'] == bin_num
                 same_bin_x = vor['xcoords'][same_bin_num]
                 same_bin_y = vor['ycoords'][same_bin_num]
