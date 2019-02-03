@@ -1172,8 +1172,7 @@ class Cube:
                 cont = self.fitcont[cond, i, j]
 
                 # Evaluates the W80 over the modeled emission line.
-                w80_model[i, j], m0, m1, mv, ms = spectools.w80eval(
-                    fwl[cond], fit, cwl)
+                w80_model[i, j], m0, m1, mv, ms = spectools.w80eval(fwl[cond], fit, cwl)
 
                 # Evaluating the W80 over the observed spectrum
                 # directly is a bit more complicated due to the overlap
@@ -1187,9 +1186,7 @@ class Cube:
                             fwl[cond], self.em_model[ci:ci + npars, i, j],
                         )
                 # And now for the actual W80 evaluation.
-                w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(
-                    fwl[cond], obs_spec - cont, cwl, smooth=smooth,
-                )
+                w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(fwl[cond], obs_spec - cont, cwl, smooth=smooth)
 
                 # Plots the fit when evaluating only one spectrum.
                 if len(xy) == 1:
