@@ -645,6 +645,8 @@ class Cube:
             self.data, x0=x0, y0=y0, radius=radius, combine='sum')
         var, npix_var = cubetools.aperture_spectrum(
             self.variance, x0=x0, y0=y0, radius=radius, combine='sum')
+        if np.all(self.variance == 1.0):
+            var = self.variance[:, 0, 0]
         ste, npix_ste = cubetools.aperture_spectrum(
             self.stellar, x0=x0, y0=y0, radius=radius, combine='sum')
         fla, npix_fla = cubetools.aperture_spectrum(
@@ -662,7 +664,7 @@ class Cube:
         s.stellar = ste
         s.flags = fla
 
-        keys = ['wl', 'rest_wavelength', 'redshift']
+        keys = ['wl', 'rest_wavelength', 'redshift', 'header']
 
         for i in keys:
             s.__dict__[i] = self.__dict__[i]
@@ -930,7 +932,7 @@ class Cube:
             cube_slice = (Ellipsis, i, j)
 
             spec = onedspec.Spectrum()
-            spec.restwl = self.rest_wavelength
+            spec.rest_wavelength = self.rest_wavelength
             spec.data = self.data[cube_slice]
             spec.variance = self.variance[cube_slice]
             spec.flags = self.flags[cube_slice]
