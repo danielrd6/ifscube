@@ -682,8 +682,14 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args):
 
     Returns
     -------
-    w80 : number
+    w80 : float
       The resulting w80 parameter.
+    r0 : float
+    r1 : float
+    velocity : numpy.ndarray
+        Velocity vector.
+    velocity_spectrum : numpy.ndarray
+        Spectrum in velocity coordinates.
 
     Description
     -----------
@@ -697,8 +703,7 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args):
     # space.
 
     velocity = (wl * units.angstrom).to(
-        units.km / units.s,
-        equivalencies=units.doppler_relativistic(wl0 * units.angstrom),
+        units.km / units.s, equivalencies=units.doppler_relativistic(wl0 * units.angstrom),
     )
 
     # Linearly interpolates spectrum in the velocity coordinates
@@ -720,6 +725,7 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args):
     # In order to have a good initial guess, the code will find the
     # the Half-Width at Half Maximum (hwhm) of the specified feature.
 
+    hwhm = None
     for i in np.linspace(0, velocity[-1]):
         if s(i) <= spec.max() / 2:
             hwhm = i
@@ -734,17 +740,18 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args):
     # not be set.  This next conditional expression sets w80 to
     # numpy.nan when such events occur.
 
-    if 'hwhm' in locals():
+    velocity_spectrum = s(velocity)
+    if hwhm is None:
         # Finds the velocity of the 10-percentile
-        r0 = root(cumulative_fun(cumulative, .1), -hwhm).x
+        r0 = root(cumulative_fun(cumulative, .1), - hwhm).x
         # Finds the velocity of the 90-percentile
-        r1 = root(cumulative_fun(cumulative, .9), +hwhm).x
+        r1 = root(cumulative_fun(cumulative, .9), + hwhm).x
         # W80 is the difference between the two.
         w80 = r1 - r0
-        return w80, r0, r1, velocity, s(velocity)
+        return w80, r0, r1, velocity, velocity_spectrum
     else:
         w80 = np.nan
-        return w80, np.nan, np.nan, velocity, s(velocity)
+        return w80, np.nan, np.nan, velocity, velocity_spectrum
 
 
 class Constraints():
