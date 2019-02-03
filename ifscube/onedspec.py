@@ -112,7 +112,7 @@ class Spectrum:
         else:
             self.redshift = 0
 
-        self.restwl = self.dopcor(self.redshift, self.wl)
+        self.rest_wavelength = self.dopcor(self.redshift, self.wl)
 
     @staticmethod
     def dopcor(z, wl):
@@ -482,17 +482,17 @@ class Spectrum:
         if fitting_window is None:
             fw = np.ones_like(self.data).astype('bool')
         else:
-            fw = (self.restwl > fitting_window[0]) & \
-                 (self.restwl < fitting_window[1])
+            fw = (self.rest_wavelength > fitting_window[0]) & \
+                 (self.rest_wavelength < fitting_window[1])
         if not np.any(fw):
             raise RuntimeError(
                 'Fitting window outside the available wavelength range.')
-        zero_spec = np.zeros_like(self.restwl[fw])
+        zero_spec = np.zeros_like(self.rest_wavelength[fw])
 
-        assert self.restwl[fw].min() < np.min(feature_wl),\
+        assert self.rest_wavelength[fw].min() < np.min(feature_wl),\
             'Attempting to fit a spectral feature below the fitting window.'
 
-        assert self.restwl[fw].max() > np.max(feature_wl), \
+        assert self.rest_wavelength[fw].max() > np.max(feature_wl), \
             'Attempting to fit a spectral feature above the fitting window.'
 
         if component_names is None:
@@ -506,14 +506,14 @@ class Spectrum:
         valid_pixels = (self.flags == 0) & fw
         self.valid_pixels = valid_pixels
 
-        wl = deepcopy(self.restwl[valid_pixels])
+        wl = deepcopy(self.rest_wavelength[valid_pixels])
         data = deepcopy(self.data[valid_pixels])
         stellar = deepcopy(self.stellar[valid_pixels])
 
         self.fitspec = self.data[fw]
         self.resultspec = zero_spec
         self.fitcont = zero_spec
-        self.fitwl = self.restwl[fw]
+        self.fitwl = self.rest_wavelength[fw]
         self.fitstellar = self.stellar[fw]
         self.r = None
         self.initial_guess = p0
@@ -558,7 +558,7 @@ class Spectrum:
         else:
             if fit_continuum:
                 pcont = spectools.continuum(wl, data - stellar, **copts)
-                self.fitcont = np.polyval(pcont, self.restwl[fw])
+                self.fitcont = np.polyval(pcont, self.rest_wavelength[fw])
                 cont = np.polyval(pcont, wl)
             else:
                 cont = np.zeros_like(data)
@@ -801,15 +801,15 @@ class Spectrum:
         warn_message = 'Dn4000 could not be evaluated because the ' \
                        'spectrum does not include wavelengths bluer than 3850.'
 
-        if self.restwl[0] > 3850:
+        if self.rest_wavelength[0] > 3850:
             warnings.warn(RuntimeWarning(warn_message))
             dn = np.nan
 
         else:
             # Mask for the blue part
-            bm = (self.restwl >= 3850) & (self.restwl <= 3950)
+            bm = (self.rest_wavelength >= 3850) & (self.rest_wavelength <= 3950)
             # Mask for the red part
-            rm = (self.restwl >= 4000) & (self.restwl <= 4100)
+            rm = (self.rest_wavelength >= 4000) & (self.rest_wavelength <= 4100)
             # Dn4000
             dn = np.sum(self.data[rm]) / np.sum(self.data[bm])
 
@@ -987,5 +987,5 @@ class Spectrum:
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
-        ax.plot(self.wl, self.data)
+        ax.plot(self.rest_wavelength, self.data)
         plt.show()
