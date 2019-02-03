@@ -20,6 +20,7 @@ class Fit(object):
         self.base = np.array([])
         self.base_wavelength = np.array([])
         self.base_delta = 1.0
+        self.normalization_factor = 1.0
 
         self.load_miles_models()
 
@@ -63,7 +64,7 @@ class Fit(object):
         self.base_wavelength = self.base_wavelength[base_cut]
     
     def fit(self, wavelength, data, initial_velocity=0.0, initial_sigma=150.0, fwhm_gal=2, fwhm_model=1.8, noise=0.05,
-            plot_fit=False, quiet=False, deg=4, mask=None, cushion=100., moments=4):
+            plot_fit=False, quiet=False, deg=4, moments=4):
         """
         Performs the pPXF fit.
         
@@ -94,12 +95,12 @@ class Fit(object):
         gp = np.arange(len(log_lam1))
         lam1 = np.exp(log_lam1)
 
-        if mask is not None:
-            if len(mask) == 1:
+        if self.mask is not None:
+            if len(self.mask) == 1:
                 gp = gp[
-                    (lam1 < mask[0][0]) | (lam1 > mask[0][1])]
+                    (lam1 < self.mask[0][0]) | (lam1 > self.mask[0][1])]
             else:
-                m = np.array([(lam1 < i[0]) | (lam1 > i[1]) for i in mask])
+                m = np.array([(lam1 < i[0]) | (lam1 > i[1]) for i in self.mask])
                 gp = gp[np.sum(m, 0) == m.shape[0]]
 
         lam_range2 = self.base_wavelength[[0, -1]]
@@ -129,8 +130,8 @@ class Fit(object):
         # Assumes uniform noise accross the spectrum
         noise = np.zeros(len(galaxy), dtype=galaxy.dtype) + noise
 
-        norm_factor = np.nanmean(galaxy)
-        galaxy = galaxy / norm_factor
+        self.normalization_factor = np.nanmean(galaxy)
+        galaxy = galaxy / self.normalization_factor
 
         pp = ppxf.ppxf(
             templates, galaxy, noise, velscale, start, goodpixels=gp, plot=plot_fit, moments=moments, degree=deg,
