@@ -10,7 +10,7 @@ from scipy.ndimage import gaussian_filter, center_of_mass
 from tqdm import tqdm
 
 from . import channel_maps
-from . import cubetools, spectools, onedspec, ppxf_wrapper
+from . import cubetools, spectools, onedspec
 from . import elprofile as lprof
 from . import plots as ifsplots
 
@@ -1734,6 +1734,8 @@ class Cube:
             from ppxf import ppxf_util
         except ImportError:
             raise ImportError('Could not find the ppxf_util module. Please add it to your PYTHONPATH.')
+        from . import ppxf_wrapper
+
 
         if base_wl is None:
             ppxf_obj = ppxf_wrapper.Fit()

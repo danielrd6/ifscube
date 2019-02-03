@@ -12,7 +12,7 @@ from ppxf import ppxf, ppxf_util
 
 class Fit(object):
 
-    def __init__(self, fitting_window=None, mask=None):
+    def __init__(self, fitting_window=None, mask=None, cushion=100.0):
         
         self.fitting_window = fitting_window
         self.mask = mask
@@ -22,6 +22,8 @@ class Fit(object):
         self.base_delta = 1.0
 
         self.load_miles_models()
+
+        self._cut_base(self.fitting_window[0], self.fitting_window[1], cushion=cushion)
 
     def load_miles_models(self):
 
@@ -46,7 +48,7 @@ class Fit(object):
             raise UserWarning('Base is not evenly sampled in wavelength.')
 
         self.base_delta = np.mean(np.diff(self.base_wavelength))
-    
+
     def _cut_base(self, start_wavelength, end_wavelength, cushion=100.0):
         
         base_cut = (self.base_wavelength > start_wavelength - cushion) \
@@ -58,7 +60,7 @@ class Fit(object):
                 'base and/or fitting window.')
 
         self.base = self.base[:, base_cut]
-        base_wl = self.base_wavelength[base_cut]
+        self.base_wavelength = self.base_wavelength[base_cut]
     
     def fit(self, wavelength, data, initial_velocity=0.0, initial_sigma=150.0, fwhm_gal=2, fwhm_model=1.8, noise=0.05,
             plot_fit=False, quiet=False, deg=4, mask=None, cushion=100., moments=4):
@@ -78,13 +80,13 @@ class Fit(object):
         -------
         """
 
-        w0, w1 = self.fitting_window
-        self._cut_base(w0, w1, cushion=cushion)
-
-        fw = (wavelength >= w0) & (wavelength < w1)
+        fw = (wavelength >= self.fitting_window[0]) & (wavelength < self.fitting_window[1])
         
         lam_range1 = wavelength[fw][[0, -1]]
         gal_lin = copy.deepcopy(data[fw])
+
+        self.obs_wavelenght = wavelength[fw]
+        self.obs_flux = gal_lin
 
         galaxy, log_lam1, velscale = ppxf_util.log_rebin(lam_range1, gal_lin)
         
