@@ -19,6 +19,9 @@ class Fit(object):
 
         self.base = np.array([])
         self.base_wavelength = np.array([])
+        self.obs_wavelenght = np.array([])
+        self.obs_flux = np.array([])
+
         self.base_delta = 1.0
         self.normalization_factor = 1.0
 
@@ -74,8 +77,6 @@ class Fit(object):
             Wavelength coordinates of the data.
         data : numpy.ndarray
             Input spectrum flux vector.
-        mask : numpy.ndarray
-            Boolean array with True where pixels are to be disregarded.
 
         Returns
         -------
@@ -86,7 +87,6 @@ class Fit(object):
         lam_range1 = wavelength[fw][[0, -1]]
         gal_lin = copy.deepcopy(data[fw])
 
-        self.obs_wavelenght = wavelength[fw]
         self.obs_flux = gal_lin
 
         galaxy, log_lam1, velscale = ppxf_util.log_rebin(lam_range1, gal_lin)
@@ -94,6 +94,7 @@ class Fit(object):
         # Here we use the goodpixels as the fitting window
         gp = np.arange(len(log_lam1))
         lam1 = np.exp(log_lam1)
+        self.obs_wavelenght = lam1
 
         if self.mask is not None:
             if len(self.mask) == 1:
