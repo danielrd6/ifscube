@@ -173,7 +173,7 @@ class mclass:
 
         return d, cm
 
-    def plot(self):
+    def plot(self, contrast=1):
 
         a = self.ax1
         a.cla()
@@ -181,8 +181,11 @@ class mclass:
 
         d, cm = self.getim()
 
+        z0 = np.percentile(d[~d.mask], contrast)
+        z1 = np.percentile(d[~d.mask], 100 - contrast)
+
         if cm == 'Spectral_r':
-            im = a.pcolormesh(d, cmap=cm, vmin=-abs(d.max()), vmax=d.max())
+            im = a.pcolormesh(d, cmap=cm, vmin=z0, vmax=z1)
         else:
             im = a.pcolormesh(d, cmap=cm)
 
