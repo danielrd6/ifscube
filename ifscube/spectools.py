@@ -10,17 +10,17 @@ points.
 """
 # STDLIB
 import copy
-import warnings
 import re
+import warnings
 
 # THIRD PARTY
 import astropy.io.fits as pf
 import numpy as np
-from scipy.integrate import trapz, quad, cumtrapz
-from scipy.ndimage import gaussian_filter1d
-from scipy.interpolate import interp1d, UnivariateSpline
-from scipy.optimize import curve_fit, minimize, root
 from astropy import units
+from scipy.integrate import trapz, quad, cumtrapz
+from scipy.interpolate import interp1d, UnivariateSpline
+from scipy.ndimage import gaussian_filter1d
+from scipy.optimize import curve_fit, minimize, root
 
 
 def rmbg(x, y, samp, order=1):
@@ -55,7 +55,7 @@ def rmbg(x, y, samp, order=1):
     return x, ynew
 
 
-def fitgauss(x, y, p0=None, fitcenter=True, fitbg=True):
+def fit_gauss(x, y, p0=None, fit_center=True, fit_background=True):
     """
     Returns a gaussian function that fits the data. This function
     requires a background subtraction, meaning that the data should
@@ -63,17 +63,19 @@ def fitgauss(x, y, p0=None, fitcenter=True, fitbg=True):
 
     Parameters
     ----------
+    x, y : numpy.ndarray
+        Independent variable and flux value vectors.
     p0 : iterable
-        Initial guesses for m,mu,sigma and bg respectively
+        Initial guesses for m, mu, sigma and bg respectively
         m = maximum value
         mu = center
         sigma = FWHM/(2*sqrt(2*log(2)))
         bg = background level
-    fitcenter : boolean
+    fit_center : boolean
         Chooses whether to fit center or accept the value given
         in p0[1].
-    fitbg : boolean
-        Chooses wether to fit a horizontal background level or accept
+    fit_background : boolean
+        Chooses whether to fit a horizontal background level or accept
         the value given in p0[3].
 
     Returns
@@ -95,17 +97,17 @@ def fitgauss(x, y, p0=None, fitcenter=True, fitbg=True):
     p = copy.deepcopy(p0)
 
     def gauss(t, m, mu, sigma, bg):
-        return m * np.exp(-(t - mu)**2 / (2 * sigma**2)) + bg
+        return m * np.exp(-(t - mu) ** 2 / (2 * sigma ** 2)) + bg
 
-    fitpars = np.array([True, fitcenter, True, fitbg])
+    fitpars = np.array([True, fit_center, True, fit_background])
 
-    if not fitcenter and fitbg:
+    if not fit_center and fit_background:
         p[fitpars] = curve_fit(lambda a, b, c, d:
                                gauss(a, b, p0[1], c, d), x, y, p0[fitpars])[0]
-    elif fitcenter and not fitbg:
+    elif fit_center and not fit_background:
         p[fitpars] = curve_fit(lambda a, b, c, d:
                                gauss(a, b, c, d, p0[3]), x, y, p0[fitpars])[0]
-    elif not fitcenter and not fitbg:
+    elif not fit_center and not fit_background:
         p[fitpars] = curve_fit(lambda a, b, c:
                                gauss(a, b, p0[1], c, p0[3]), x, y,
                                p0[fitpars])[0]
@@ -113,13 +115,13 @@ def fitgauss(x, y, p0=None, fitcenter=True, fitbg=True):
         p = curve_fit(gauss, x, y, p0)[0]
 
     def fit(t):
-        return p[0] * np.exp(-(t - p[1])**2 / (2 * p[2]**2)) + p[3]
+        return p[0] * np.exp(-(t - p[1]) ** 2 / (2 * p[2] ** 2)) + p[3]
 
     p[2] = np.abs(p[2])
     return fit, p
 
 
-def fwhm(x, y, bg=[0, 100, 150, 240]):
+def fwhm(x, y, bg=(0, 100, 150, 240)):
     """
     Evaluates the full width half maximum of y in units of x.
 
@@ -136,15 +138,15 @@ def fwhm(x, y, bg=[0, 100, 150, 240]):
       Full width half maximum
     """
 
-    xnew, ynew = rmbg(x, y, bg)
+    x_new, y_new = rmbg(x, y, bg)
 
-    f = UnivariateSpline(xnew, ynew / max(ynew) - .5, s=0)
+    f = UnivariateSpline(x_new, y_new / max(y_new) - .5, s=0)
     fwhm = f.roots()[1] - f.roots()[0]
 
     return fwhm
 
 
-def blackbody(x, T, coordinate='wavelength'):
+def blackbody(x, t, coordinate='wavelength'):
     """
     Evaluates the blackbody spectrum for a given temperature.
 
@@ -152,7 +154,7 @@ def blackbody(x, T, coordinate='wavelength'):
     -----------
     x : numpy.array
       Wavelength or frequency coordinatei (CGS).
-    T : number
+    t : number
       Blacbody temperature in Kelvin
     coordinate : string
       Specify the coordinates of x as 'wavelength' or 'frequency'.
@@ -169,14 +171,14 @@ def blackbody(x, T, coordinate='wavelength'):
 
     if coordinate == 'wavelength':
         def b(x, t):
-            return 2. * h * c**2. / x**5 * \
-                (1. / (np.exp(h * c / (x * kb * t)) - 1.))
+            return 2. * h * c ** 2. / x ** 5 * \
+                   (1. / (np.exp(h * c / (x * kb * t)) - 1.))
     elif coordinate == 'frequency':
         def b(x, t):
-            return 2 * h * c**2 / \
-                x**5 * (np.exp((h * c) / (x * kb * t)) - 1)**(-1)
+            return 2 * h * c ** 2 / \
+                   x ** 5 * (np.exp((h * c) / (x * kb * t)) - 1) ** (-1)
 
-    return b(x, T)
+    return b(x, t)
 
 
 def natural_sort(l):
@@ -199,7 +201,7 @@ def closest(arr, value):
     to the given value. The returned variable is an integer. This
     function expects a one-dimensional array.
 
-    >>> closest(arange(5),3.7)
+    >>> closest(np.arange(5), 3.7)
     4
     """
 
@@ -207,8 +209,7 @@ def closest(arr, value):
     return idx
 
 
-def get_wl(image, dimension=0, hdrext=0, dataext=0, dwlkey='CD1_1',
-           wl0key='CRVAL1', pix0key='CRPIX1'):
+def get_wl(image, dimension=0, hdrext=0, dataext=0, dwlkey='CD1_1', wl0key='CRVAL1', pix0key='CRPIX1'):
     """
     Obtains the wavelenght coordinates from the header keywords of the
     FITS file image. The default keywords are CD1_1 for the delta
@@ -249,7 +250,7 @@ def get_wl(image, dimension=0, hdrext=0, dataext=0, dwlkey='CD1_1',
 
     try:
         if h['dc-flag'] == 1:
-            wl = 10.**wl
+            wl = 10. ** wl
     except KeyError:
         pass
 
@@ -288,64 +289,6 @@ def normspec(x, y, wl, span):
     y2 = y2 / np.average(f(np.linspace(wl - span / 2., wl + span / 2., 1000)))
 
     return y2
-
-
-def resampspec(arr_in, dx=1, integers=True, smooth=False, swidth=1):
-    """
-    Resamples a 1D spectrum given as `arr_in`, with arr_in[:,0]
-    being the wavelength coordinates and arr_in[:,1] being the flux.
-    The resampling returns an array with one point per `dx`.
-
-    Parameters
-    ----------
-    arr_in : two-dimensional array where arr_in[:,0] is the wavelength
-             and arr_in[:,1] is the flux
-    dx : the wavelenght interval of the resampled spectrum
-    integers : round the wavelength coordinate to integers
-    smooth : apply scipy.ndimage.gaussian_filter1d
-    swidth : standard deviation for Gaussian kernel
-
-    Returns
-    -------
-
-    arr : resampled version of arr_in
-    """
-
-    arr = copy.deepcopy(arr_in)
-
-    f = interp1d(arr[:, 0], arr[:, 1])
-
-    if integers:
-        x0, x1 = int(arr[0, 0] + 1), int(arr[-1, 0] - 1)
-    else:
-        x0, x1 = arr[0, 0], arr[-1, 0]
-
-    x = np.linspace(x0, x1, num=abs(x0 - x1) / dx + 1)
-
-    if smooth:
-        arr = np.column_stack([x, gaussian_filter1d(f(x), swidth)])
-    else:
-        arr = np.column_stack([x, f(x)])
-
-    return arr
-
-
-def dopcor(wl, z):
-    """
-    Applies the Doppler correction to an array of wavelength
-    coordinates. z is defined as:
-
-      z = (wo - we)/we
-
-    where `wo` is the observed wavelength and `we` is the emitted wavelength.
-
-    """
-
-    wlnew = copy.deepcopy(wl)
-
-    wlnew = wlnew / (z + 1.)
-
-    return wlnew
 
 
 def continuum(x, y, output='ratio', degr=6, niterate=5,
@@ -406,7 +349,7 @@ def continuum(x, y, output='ratio', degr=6, niterate=5,
         res = s(x) - f(x)
         sig = np.std(res)
         rej_cond = (
-            (res < upper_threshold * sig) & (res > -lower_threshold * sig)
+                (res < upper_threshold * sig) & (res > -lower_threshold * sig)
         )
 
         if (np.sum(rej_cond) <= degr):
@@ -474,7 +417,7 @@ def eqw(wl, flux, lims, cniterate=5):
     sn = np.average(fspec(ctnwl)) / np.std(fspec(ctnwl))
     sigma_eqw = np.sqrt(
         1 + np.average(np.polyval(fctn, ctnwl)) / np.average(flux)) * \
-        (lims[1] - lims[0] - eqw) / sn
+                (lims[1] - lims[0] - eqw) / sn
 
     return eqw, sigma_eqw
 
@@ -754,35 +697,34 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args):
         return w80, np.nan, np.nan, velocity, velocity_spectrum
 
 
-class Constraints():
+class Constraints:
 
     def __init__(self, function='gaussian'):
-
         pass
 
     @staticmethod
     def redshift(wla, wlb, rest0, rest1):
-
         def func(x):
             return (x[wla] / rest0) - (x[wlb] / rest1)
+
         d = dict(type='eq', fun=func)
 
         return d
 
     @staticmethod
     def sigma(sa, sb, wla, wlb):
-
         def func(x):
             return x[sa] / x[wla] - x[sb] / x[wlb]
+
         d = dict(type='eq', fun=func)
 
         return d
 
     @staticmethod
     def same(ha, hb):
-
         def func(x):
             return x[ha] - x[hb]
+
         d = dict(type='eq', fun=func)
 
         return d
