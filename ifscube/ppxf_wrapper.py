@@ -12,14 +12,14 @@ from ppxf import ppxf, ppxf_util
 
 class Fit(object):
 
-    def __init__(self, fitting_window=None, mask=None, cushion=100.0):
+    def __init__(self, fitting_window, mask=None, cushion=100.0):
         
         self.fitting_window = fitting_window
         self.mask = mask
 
         self.base = np.array([])
         self.base_wavelength = np.array([])
-        self.obs_wavelenght = np.array([])
+        self.obs_wavelength = np.array([])
         self.obs_flux = np.array([])
 
         self.base_delta = 1.0
@@ -94,7 +94,7 @@ class Fit(object):
         # Here we use the goodpixels as the fitting window
         gp = np.arange(len(log_lam1))
         lam1 = np.exp(log_lam1)
-        self.obs_wavelenght = lam1
+        self.obs_wavelength = lam1
 
         if self.mask is not None:
             if len(self.mask) == 1:
