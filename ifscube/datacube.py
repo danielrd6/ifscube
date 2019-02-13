@@ -1659,10 +1659,8 @@ class Cube:
 
         return specs
 
-    def ppxf_kinematics(self, fitting_window, base_wl=None, base_spec=None, base_cdelt=None, write_fits=True,
-                        out_image=None, vel=0.0, fwhm_gal=2, fwhm_model=1.8, noise=0.05, individual_spec=None,
-                        plot_fit=False, quiet=False, deg=4, mask=None, cushion=100., moments=4, overwrite=False,
-                        verbose=False):
+    def ppxf_kinematics(self, fitting_window, write_fits=True, out_image=None, individual_spec=None, mask=None,
+                        overwrite=False, verbose=False, **kwargs):
         """
         Executes pPXF fitting of the stellar spectrum over the whole
         data cube.
@@ -1735,85 +1733,6 @@ class Cube:
             raise ImportError('Could not find the ppxf_util module. Please add it to your PYTHONPATH.')
         from . import ppxf_wrapper
 
-        if base_wl is None:
-            ppxf_obj = ppxf_wrapper.Fit(fitting_window=fitting_window)
-            base_wl = ppxf_obj.base_wavelength
-            base_cdelt = ppxf_obj.base_delta
-            base_spec = ppxf_obj.base
-            del ppxf_obj
-
-        w0, w1 = fitting_window
-        fw = (self.rest_wavelength >= w0) & (self.rest_wavelength < w1)
-
-        base_cut = (base_wl > w0 - cushion) & (base_wl < w1 + cushion)
-
-        if not np.any(base_cut):
-            raise RuntimeError(
-                'The interval defined by fitting_window lies outside '
-                'the range covered by base_wl. Please review your base '
-                'and/or fitting window.')
-
-        base_spec = base_spec[:, base_cut]
-        base_wl = base_wl[base_cut]
-
-        lam_range1 = self.rest_wavelength[fw][[0, -1]]
-        center_spaxel = np.array(
-            [int(i / 2) for i in np.shape(self.data[0])], dtype='int')
-        gal_lin = deepcopy(self.data[fw, center_spaxel[0], center_spaxel[1]])
-
-        galaxy, log_lam1, velscale = ppxf_util.log_rebin(
-            lam_range1, gal_lin)
-
-        # Here we use the goodpixels as the fitting window
-        # gp = np.arange(np.shape(self.data)[0])[fw]
-        gp = np.arange(len(log_lam1))
-        lam1 = np.exp(log_lam1)
-
-        if mask is not None:
-            if len(mask) == 1:
-                gp = gp[
-                    (lam1 < mask[0][0]) | (lam1 > mask[0][1])]
-            else:
-                m = np.array([(lam1 < i[0]) | (lam1 > i[1]) for i in mask])
-                gp = gp[np.sum(m, 0) == m.shape[0]]
-
-        lam_range2 = base_wl[[0, -1]]
-        ssp = base_spec[0]
-
-        ssp_new, log_lam2, velscale = ppxf_util.log_rebin(lam_range2, ssp, velscale=velscale)
-        templates = np.empty((ssp_new.size, len(base_spec)))
-
-        # Convolve the whole Vazdekis library of spectral templates
-        # with the quadratic difference between the SAURON and the
-        # Vazdekis instrumental resolution. Logarithmically rebin
-        # and store each template as a column in the array TEMPLATES.
-
-        # Quadratic sigma difference in pixels Vazdekis --> SAURON
-        # The formula below is rigorously valid if the shapes of the
-        # instrumental spectral profiles are well approximated by
-        # Gaussians.
-
-        fwhm_dif = np.sqrt(fwhm_gal ** 2 - fwhm_model ** 2)
-        # Sigma difference in pixels
-        sigma = fwhm_dif / 2.355 / base_cdelt
-
-        for j in range(len(base_spec)):
-            ssp = base_spec[j]
-            ssp = gaussian_filter(ssp, sigma)
-            ssp_new, log_lam2, velscale = ppxf_util.log_rebin(lam_range2, ssp, velscale=velscale)
-            # Normalizes templates
-            templates[:, j] = ssp_new / np.median(ssp_new)
-
-        c = constants.c.value * 1.e-3
-        dv = (log_lam2[0] - log_lam1[0]) * c  # km/s
-        # z = np.exp(vel/c) - 1
-
-        # Here the actual fit starts.
-        start = [vel, 180.]  # (km/s), starting guess for [V,sigma]
-
-        # Assumes uniform noise accross the spectrum
-        noise = np.zeros(len(galaxy), dtype=galaxy.dtype) + noise
-
         vor = None
         if self.binned:
             vor = self.voronoi_tab
@@ -1826,34 +1745,23 @@ class Cube:
         if individual_spec is not None:
             xy = [individual_spec[::-1]]
 
-        ppxf_sol = np.zeros((4, np.shape(self.data)[1], np.shape(self.data)[2]), dtype='float64')
-        ppxf_spec = np.zeros((len(galaxy), np.shape(self.data)[1], np.shape(self.data)[2]), dtype='float64')
-        ppxf_model = np.zeros(np.shape(ppxf_spec), dtype='float64')
+        ppxf = ppxf_wrapper.Fit(fitting_window=fitting_window, mask=mask)
 
-        norm_factor = 1.0
         if verbose:
             iterator = tqdm(xy, desc='pPXF fitting.', unit='spectrum')
         else:
             iterator = xy
 
+        is_first_fit = True
         for h in iterator:
             i, j = h
 
-            gal_lin = deepcopy(self.data[fw, i, j])
-            galaxy, log_lam1, velscale = ppxf_util.log_rebin(lam_range1, gal_lin)
-            norm_factor = np.nanmean(galaxy)
-            galaxy = galaxy / norm_factor
-
-            if np.any(np.isnan(galaxy)):
-                pp = cubetools.NanSolution()
-                pp.ppxf(ppxf_sol[:, 0, 0], galaxy)
-            else:
-                pp = ppxf.ppxf(
-                    templates, galaxy, noise, velscale, start, goodpixels=gp, plot=plot_fit, moments=moments,
-                    degree=deg, vsyst=dv, quiet=quiet
-                )
-                if plot_fit:
-                    plt.show()
+            pp = ppxf.fit(self.rest_wavelength, self.data[:, i, j], **kwargs)
+            if is_first_fit:
+                ppxf_sol = np.zeros((4, np.shape(self.data)[1], np.shape(self.data)[2]), dtype='float64')
+                ppxf_spec = np.zeros((pp.galaxy.size, np.shape(self.data)[1], np.shape(self.data)[2]), dtype='float64')
+                ppxf_model = np.zeros(np.shape(ppxf_spec), dtype='float64')
+                is_first_fit = False
 
             if vor is not None:
 
@@ -1864,19 +1772,19 @@ class Cube:
 
                 for l, m in np.column_stack([same_bin_y, same_bin_x]):
                     ppxf_sol[:, l, m] = pp.sol
-                    ppxf_spec[:, l, m] = pp.galaxy
-                    ppxf_model[:, l, m] = pp.bestfit
+                    ppxf_spec[:, l, m] = pp.galaxy * ppxf.normalization_factor
+                    ppxf_model[:, l, m] = pp.bestfit * ppxf.normalization_factor
 
             else:
                 ppxf_sol[:, i, j] = pp.sol
-                ppxf_spec[:, i, j] = pp.galaxy
-                ppxf_model[:, i, j] = pp.bestfit
+                ppxf_spec[:, i, j] = pp.galaxy * ppxf.normalization_factor
+                ppxf_model[:, i, j] = pp.bestfit * ppxf.normalization_factor
 
         self.ppxf_sol = ppxf_sol
-        self.ppxf_spec = ppxf_spec * norm_factor
-        self.ppxf_model = ppxf_model * norm_factor
-        self.ppxf_wl = np.e ** log_lam1
-        self.ppxf_goodpixels = gp
+        self.ppxf_spec = ppxf_spec
+        self.ppxf_model = ppxf_model
+        self.ppxf_wl = ppxf.obs_wavelength
+        self.ppxf_goodpixels = ppxf.good_pixels
 
         if write_fits:
 
