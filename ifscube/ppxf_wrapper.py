@@ -21,6 +21,8 @@ class Fit(object):
         self.base_wavelength = np.array([])
         self.obs_wavelength = np.array([])
         self.obs_flux = np.array([])
+        self.good_pixels = np.array([])
+        self.solution = None
 
         self.base_delta = 1.0
         self.normalization_factor = 1.0
@@ -98,11 +100,11 @@ class Fit(object):
 
         if self.mask is not None:
             if len(self.mask) == 1:
-                gp = gp[
-                    (lam1 < self.mask[0][0]) | (lam1 > self.mask[0][1])]
+                gp = gp[(lam1 < self.mask[0][0]) | (lam1 > self.mask[0][1])]
             else:
                 m = np.array([(lam1 < i[0]) | (lam1 > i[1]) for i in self.mask])
                 gp = gp[np.sum(m, 0) == m.shape[0]]
+        self.good_pixels = gp
 
         lam_range2 = self.base_wavelength[[0, -1]]
         ssp = self.base[0]
@@ -135,10 +137,35 @@ class Fit(object):
         galaxy = galaxy / self.normalization_factor
 
         pp = ppxf.ppxf(
-            templates, galaxy, noise, velscale, start, goodpixels=gp, plot=plot_fit, moments=moments, degree=deg,
+            templates, galaxy, noise, velscale, start, goodpixels=gp, moments=moments, degree=deg,
             vsyst=dv, quiet=quiet,
         )
+
+        self.solution = pp
+
         if plot_fit:
-            plt.show()
+            self.plot_fit()
 
         return pp
+
+    def plot_fit(self):
+
+        fig = plt.figure(1)
+        plt.clf()
+        ax = fig.add_subplot(111)
+
+        gp = self.good_pixels
+
+        ax.plot(self.obs_wavelength[gp], self.solution.galaxy[gp])
+        ax.plot(self.obs_wavelength, self.solution.galaxy)
+        ax.plot(self.obs_wavelength, self.solution.bestfit)
+
+        ax.set_xlabel(r'Wavelength')
+        ax.set_ylabel(r'Normalized density')
+
+        ax.set_ylim(self.solution.bestfit.min() * 0.8, self.solution.bestfit.max() * 1.2)
+
+        print('Velocity: {:.2f}\nSigma: {:.2f}\nh3: {:.2f}\nh4: {:.2f}'.format(*self.solution.sol))
+
+        plt.show()
+
