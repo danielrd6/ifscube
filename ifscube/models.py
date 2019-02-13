@@ -107,7 +107,7 @@ class DiskRotation(Fittable2DModel):
 
     amplitude = Parameter(default=100.0)
     c_0 = Parameter(default=1.0)
-    p = Parameter(default=0.7)
+    p = Parameter(default=1.25)
     phi_0 = Parameter(default=0.7854)
     theta = Parameter(default=0.7854)
     v_sys = Parameter(default=0.0)
