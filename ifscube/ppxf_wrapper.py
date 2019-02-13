@@ -156,7 +156,10 @@ class Fit(object):
 
         gp = self.good_pixels
 
-        ax.plot(self.obs_wavelength[gp], self.solution.galaxy[gp])
+        if self.mask is not None:
+            for region in self.mask:
+                ax.axvspan(region[0], region[1], color='grey', alpha=0.1)
+
         ax.plot(self.obs_wavelength, self.solution.galaxy)
         ax.plot(self.obs_wavelength, self.solution.bestfit)
 
