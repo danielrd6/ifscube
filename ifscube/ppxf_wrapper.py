@@ -1,21 +1,22 @@
 # This module is a wrapper for the ppxf package available in PyPI
 import copy
+import glob
+
 import matplotlib.pyplot as plt
-from pkg_resources import resource_filename
+import numpy as np
 from astropy import wcs, constants
 from astropy.io import fits
-from scipy.ndimage import gaussian_filter
-import numpy as np
-import glob
+from pkg_resources import resource_filename
 from ppxf import ppxf, ppxf_util
+from scipy.ndimage import gaussian_filter
 
 
 class Fit(object):
 
-    def __init__(self, fitting_window, mask=None, cushion=100.0):
-        
+    def __init__(self, fitting_window, cushion=100.0):
+
         self.fitting_window = fitting_window
-        self.mask = mask
+        self.mask = None
 
         self.base = np.array([])
         self.base_wavelength = np.array([])
@@ -56,7 +57,7 @@ class Fit(object):
         self.base_delta = np.mean(np.diff(self.base_wavelength))
 
     def _cut_base(self, start_wavelength, end_wavelength, cushion=100.0):
-        
+
         base_cut = (self.base_wavelength > start_wavelength - cushion) \
                    & (self.base_wavelength < end_wavelength + cushion)
 
@@ -67,9 +68,9 @@ class Fit(object):
 
         self.base = self.base[:, base_cut]
         self.base_wavelength = self.base_wavelength[base_cut]
-    
-    def fit(self, wavelength, data, initial_velocity=0.0, initial_sigma=150.0, fwhm_gal=2, fwhm_model=1.8, noise=0.05,
-            plot_fit=False, quiet=False, deg=4, moments=4):
+
+    def fit(self, wavelength, data, mask=None, initial_velocity=0.0, initial_sigma=150.0, fwhm_gal=2, fwhm_model=1.8,
+            noise=0.05, plot_fit=False, quiet=False, deg=4, moments=4):
         """
         Performs the pPXF fit.
         
@@ -84,15 +85,17 @@ class Fit(object):
         -------
         """
 
+        self.mask = mask
+
         fw = (wavelength >= self.fitting_window[0]) & (wavelength < self.fitting_window[1])
-        
+
         lam_range1 = wavelength[fw][[0, -1]]
         gal_lin = copy.deepcopy(data[fw])
 
         self.obs_flux = gal_lin
 
         galaxy, log_lam1, velscale = ppxf_util.log_rebin(lam_range1, gal_lin)
-        
+
         # Here we use the goodpixels as the fitting window
         gp = np.arange(len(log_lam1))
         lam1 = np.exp(log_lam1)
@@ -104,6 +107,7 @@ class Fit(object):
             else:
                 m = np.array([(lam1 < i[0]) | (lam1 > i[1]) for i in self.mask])
                 gp = gp[np.sum(m, 0) == m.shape[0]]
+
         self.good_pixels = gp
 
         lam_range2 = self.base_wavelength[[0, -1]]
@@ -111,7 +115,7 @@ class Fit(object):
 
         ssp_new, log_lam2, velscale = ppxf_util.log_rebin(lam_range2, ssp, velscale=velscale)
         templates = np.empty((ssp_new.size, len(self.base)))
-        
+
         fwhm_dif = np.sqrt(fwhm_gal ** 2 - fwhm_model ** 2)
         # Sigma difference in pixels
         sigma = fwhm_dif / 2.355 / self.base_delta
@@ -131,10 +135,14 @@ class Fit(object):
         start = [initial_velocity, initial_sigma]  # (km/s), starting guess for [V,sigma]
 
         # Assumes uniform noise accross the spectrum
-        noise = np.zeros(len(galaxy), dtype=galaxy.dtype) + noise
+        if isinstance(noise, float):
+            noise = np.zeros(len(galaxy), dtype=galaxy.dtype) + noise
+        elif isinstance(noise, np.ndarray):
+            noise, log_lam1, velscale = ppxf_util.log_rebin(lam_range1, copy.deepcopy(noise)[fw])
 
         self.normalization_factor = np.nanmean(galaxy)
         galaxy = galaxy / self.normalization_factor
+        noise = np.abs(noise / self.normalization_factor)
 
         pp = ppxf.ppxf(
             templates, galaxy, noise, velscale, start, goodpixels=gp, moments=moments, degree=deg,
@@ -171,4 +179,3 @@ class Fit(object):
         print('Velocity: {:.2f}\nSigma: {:.2f}\nh3: {:.2f}\nh4: {:.2f}'.format(*self.solution.sol))
 
         plt.show()
-
