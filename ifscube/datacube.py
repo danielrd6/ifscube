@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import matplotlib.pyplot as plt
 import numpy as np
-from astropy import constants, units, table, wcs
+from astropy import units, table, wcs
 from astropy.io import fits
 from numpy import ma
 from scipy.interpolate import interp1d
@@ -186,6 +186,27 @@ class Cube:
 
         self._set_spec_indices()
         self.cont = None
+
+    def _flags_to_mask(self, flags):
+
+        mask = []
+        c = 0
+        d = len(self.rest_wavelength)
+        while c < d:
+            region = []
+            if flags[c] == 1:
+                region.append(self.rest_wavelength[c])
+                while c < d:
+                    if flags[c] == 1:
+                        c += 1
+                    else:
+                        break
+                region.append(self.rest_wavelength[c - 1])
+                mask.append(region)
+            else:
+                c += 1
+
+        return mask
 
     def _set_spec_indices(self):
 
@@ -1659,7 +1680,7 @@ class Cube:
 
         return specs
 
-    def ppxf_kinematics(self, fitting_window, write_fits=True, out_image=None, individual_spec=None, mask=None,
+    def ppxf_kinematics(self, fitting_window, write_fits=True, out_image=None, individual_spec=None,
                         overwrite=False, verbose=False, **kwargs):
         """
         Executes pPXF fitting of the stellar spectrum over the whole
@@ -1745,22 +1766,47 @@ class Cube:
         if individual_spec is not None:
             xy = [individual_spec[::-1]]
 
-        ppxf = ppxf_wrapper.Fit(fitting_window=fitting_window, mask=mask)
+        ppxf = ppxf_wrapper.Fit(fitting_window=fitting_window)
 
         if verbose:
             iterator = tqdm(xy, desc='pPXF fitting.', unit='spectrum')
         else:
             iterator = xy
 
+        fw = (self.rest_wavelength >= fitting_window[0]) & (self.rest_wavelength <= fitting_window[1])
+        spectrum_length = np.sum(fw)
+
+        ppxf_sol = np.zeros((4, np.shape(self.data)[1], np.shape(self.data)[2]), dtype='float64')
+        ppxf_spec = np.zeros((spectrum_length, np.shape(self.data)[1], np.shape(self.data)[2]), dtype='float64')
+        ppxf_model = np.zeros_like(ppxf_spec)
+
         is_first_fit = True
+
+        if 'mask' in kwargs:
+            mask = deepcopy(kwargs['mask'])
+            kwargs.pop('mask')
+        else:
+            mask = None
+
         for h in iterator:
             i, j = h
 
-            pp = ppxf.fit(self.rest_wavelength, self.data[:, i, j], **kwargs)
+            if ('noise' not in kwargs) and (self.variance is not None):
+                kwargs['noise'] = np.sqrt(self.variance[:, i, j])
+
+            if ('mask' is not None) and (self.flags is not None):
+                m = mask + self._flags_to_mask(self.flags[:, i, j])
+            elif self.flags is not None:
+                m = self._flags_to_mask(self.flags[:, i, j])
+            else:
+                m = None
+
+            if np.sum(self.flags[:, i, j]) / spectrum_length > 0.5:
+                Warning('Skipping spectrum ({:d}, {:d}).'.format(j, i))
+                continue
+
+            pp = ppxf.fit(self.rest_wavelength, self.data[:, i, j], mask=m, **kwargs)
             if is_first_fit:
-                ppxf_sol = np.zeros((4, np.shape(self.data)[1], np.shape(self.data)[2]), dtype='float64')
-                ppxf_spec = np.zeros((pp.galaxy.size, np.shape(self.data)[1], np.shape(self.data)[2]), dtype='float64')
-                ppxf_model = np.zeros(np.shape(ppxf_spec), dtype='float64')
                 is_first_fit = False
 
             if vor is not None:
