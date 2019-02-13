@@ -1736,7 +1736,7 @@ class Cube:
         from . import ppxf_wrapper
 
         if base_wl is None:
-            ppxf_obj = ppxf_wrapper.Fit()
+            ppxf_obj = ppxf_wrapper.Fit(fitting_window=fitting_window)
             base_wl = ppxf_obj.base_wavelength
             base_cdelt = ppxf_obj.base_delta
             base_spec = ppxf_obj.base
