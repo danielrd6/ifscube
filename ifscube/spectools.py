@@ -8,12 +8,10 @@ If the spectrum is specified as an array, the default is to assume that
 arr[:,0] are the wavelength coordinates and arr[:,1] are the flux
 points.
 """
-# STDLIB
 import copy
 import re
 import warnings
 
-# THIRD PARTY
 import astropy.io.fits as pf
 import numpy as np
 from astropy import units
@@ -289,6 +287,44 @@ def normspec(x, y, wl, span):
     y2 = y2 / np.average(f(np.linspace(wl - span / 2., wl + span / 2., 1000)))
 
     return y2
+
+
+def flags_to_mask(wavelength: np.ndarray, flags: np.ndarray) -> list:
+    """
+    Converts an array of flags into a list of masked intervals.
+
+    Parameters
+    ----------
+    wavelength : numpy.ndarray
+        Wavelength coordinates of the flags. These values will be the ones
+        used in the mask list.
+    flags : numpy.ndarray
+        Flags vector.
+
+    Returns
+    -------
+    new_mask : list
+        A list of wavelength pairs defining masked regions.
+
+    """
+    new_mask = []
+    c = 0
+    d = len(wavelength)
+    while c < d:
+        region = []
+        if flags[c] == 1:
+            region.append(wavelength[c])
+            while c < d:
+                if flags[c] == 1:
+                    c += 1
+                else:
+                    break
+            region.append(wavelength[c - 1])
+            new_mask.append(region)
+        else:
+            c += 1
+
+    return new_mask
 
 
 def continuum(x, y, output='ratio', degr=6, niterate=5,
