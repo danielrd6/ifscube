@@ -10,7 +10,7 @@ from astropy import wcs
 from . import datacube
 
 
-class cube(datacube.Cube):
+class Cube(datacube.Cube):
 
     """
     A class for dealing with data cubes, originally written to work
