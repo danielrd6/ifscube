@@ -541,8 +541,7 @@ class Cube:
             Image of the SNR for each spectrum.
         """
 
-        snrwindow = (self.restwl >= wl_range[0]) & \
-                    (self.restwl <= wl_range[1])
+        snrwindow = (self.rest_wavelength >= wl_range[0]) & (self.rest_wavelength <= wl_range[1])
 
         # FIXME: This is only here because I am always setting
         # a variance attribute, when it really shouldn't be.
@@ -1794,7 +1793,7 @@ class Cube:
             if ('noise' not in kwargs) and (self.variance is not None):
                 kwargs['noise'] = np.sqrt(self.variance[:, i, j])
 
-            if ('mask' is not None) and (self.flags is not None):
+            if (mask is not None) and (self.flags is not None):
                 m = mask + self._flags_to_mask(self.flags[:, i, j])
             elif self.flags is not None:
                 m = self._flags_to_mask(self.flags[:, i, j])
@@ -1818,19 +1817,26 @@ class Cube:
 
                 for l, m in np.column_stack([same_bin_y, same_bin_x]):
                     ppxf_sol[:, l, m] = pp.sol
-                    ppxf_spec[:, l, m] = pp.galaxy * ppxf.normalization_factor
-                    ppxf_model[:, l, m] = pp.bestfit * ppxf.normalization_factor
+                    ppxf_spec[:, l, m] = np.interp(
+                        self.rest_wavelength[fw], ppxf.obs_wavelength, pp.galaxy * ppxf.normalization_factor
+                    )
+                    ppxf_model[:, l, m] = np.interp(
+                        self.rest_wavelength[fw], ppxf.obs_wavelength, pp.bestfit * ppxf.normalization_factor
+                    )
 
             else:
                 ppxf_sol[:, i, j] = pp.sol
-                ppxf_spec[:, i, j] = pp.galaxy * ppxf.normalization_factor
-                ppxf_model[:, i, j] = pp.bestfit * ppxf.normalization_factor
+                ppxf_spec[:, i, j] = np.interp(
+                    self.rest_wavelength[fw], ppxf.obs_wavelength, pp.galaxy * ppxf.normalization_factor
+                )
+                ppxf_model[:, i, j] = np.interp(
+                    self.rest_wavelength[fw], ppxf.obs_wavelength, pp.bestfit * ppxf.normalization_factor
+                )
 
         self.ppxf_sol = ppxf_sol
         self.ppxf_spec = ppxf_spec
         self.ppxf_model = ppxf_model
-        self.ppxf_wl = ppxf.obs_wavelength
-        self.ppxf_goodpixels = ppxf.good_pixels
+        self.ppxf_wl = self.rest_wavelength[fw]
 
         if write_fits:
 
@@ -1838,48 +1844,37 @@ class Cube:
             if out_image is None:
                 out_image = self.fitsfile.replace('.fits', '_ppxf.fits')
             hdr = deepcopy(self.header_data)
-            try:
-                hdr['REDSHIFT'] = self.redshift
-            except KeyError:
-                hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
+            hdr['REDSHIFT'] = 0.0
 
             # Creates MEF output.
             h = fits.HDUList()
             h.append(fits.PrimaryHDU(header=hdr))
-            h[0].name = ''
+            h[0].name = 'PRIMARY'
             print(h.info())
 
-            # Creates the fitted spectrum extension
+            # Observed spectrum
             hdr = fits.Header()
             hdr['object'] = ('spectrum', 'Data in this extension')
             hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
-            hdr['CRVAL3'] = (self.rest_wavelength[0], 'Reference value for wavelength')
-            hdr['CD3_3'] = (np.average(np.diff(self.rest_wavelength)), 'CD3_3')
+            hdr['CRVAL3'] = (self.rest_wavelength[fw][0], 'Reference value for wavelength')
+            hdr['CD3_3'] = (np.mean(np.diff(self.rest_wavelength)), 'CD3_3')
             h.append(fits.ImageHDU(data=self.ppxf_spec, header=hdr, name='SCI'))
 
-            # Creates the residual spectrum extension
-            hdr = fits.Header()
-            hdr['object'] = ('residuals', 'Data in this extension')
-            hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
-            hdr['CRVAL3'] = (self.ppxf_wl[0], 'Reference value for wavelength')
-            hdr['CD3_3'] = (np.average(np.diff(self.ppxf_wl)), 'CD3_3')
-            h.append(fits.ImageHDU(data=self.ppxf_spec - self.ppxf_model, header=hdr, name='RES'))
-
-            # Creates the fitted model extension.
+            # Best fit.
             hdr['object'] = 'model'
-            h.append(fits.ImageHDU(data=self.ppxf_model, header=hdr, name='MODEL'))
+            h.append(fits.ImageHDU(data=self.ppxf_model, header=hdr, name='STELLAR'))
 
-            # Creates the solution extension.
+            # Variance.
+            hdr['object'] = 'model'
+            h.append(fits.ImageHDU(data=self.variance[fw], header=hdr, name='VAR'))
+
+            # Flags.
+            hdr['object'] = 'model'
+            h.append(fits.ImageHDU(data=self.flags[fw], header=hdr, name='FLAGS'))
+
+            # Solution.
             hdr['object'] = 'parameters'
-            h.append(fits.ImageHDU(data=self.ppxf_sol, header=hdr, name='SOL'))
-
-            # Creates the wavelength extension.
-            hdr['object'] = 'wavelength'
-            h.append(fits.ImageHDU(data=self.ppxf_wl, header=hdr, name='WAVELEN'))
-
-            # Creates the goodpixels extension.
-            hdr['object'] = 'goodpixels'
-            h.append(fits.ImageHDU(data=self.ppxf_goodpixels, header=hdr, name='GOODPIX'))
+            h.append(fits.ImageHDU(data=self.ppxf_sol, header=hdr, name='PPXFSOL'))
 
             h.writeto(out_image, overwrite=overwrite)
 
