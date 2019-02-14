@@ -329,7 +329,7 @@ class LineFitParser:
                     [int(i) for i in fit_opts[key].split(',')])
 
         boolean_args = [
-            'writefits', 'refit', 'update_bounds', 'spiral_loop', 'verbose',
+            'write_fits', 'refit', 'update_bounds', 'spiral_loop', 'verbose',
             'fit_continuum', 'optimize_fit', 'guess_parameters', 'trivial',
             'test_jacobian']
         for i in boolean_args:
