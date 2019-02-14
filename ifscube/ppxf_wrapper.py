@@ -22,6 +22,8 @@ class Fit(object):
         self.base_wavelength = np.array([])
         self.obs_wavelength = np.array([])
         self.obs_flux = np.array([])
+        self.noise = np.array([])
+        self.flags = np.array([])
         self.good_pixels = np.array([])
         self.solution = None
 
@@ -139,6 +141,7 @@ class Fit(object):
             noise = np.zeros(len(galaxy), dtype=galaxy.dtype) + noise
         elif isinstance(noise, np.ndarray):
             noise, log_lam1, velscale = ppxf_util.log_rebin(lam_range1, copy.deepcopy(noise)[fw])
+        self.noise = noise
 
         self.normalization_factor = np.nanmean(galaxy)
         galaxy = galaxy / self.normalization_factor
