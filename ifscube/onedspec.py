@@ -1,19 +1,16 @@
-# STDLIB
-from copy import deepcopy
 import warnings
+from copy import deepcopy
 
-# THIRD PARTY
-import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import minimize
-from scipy.interpolate import interp1d
-from scipy.integrate import trapz
+import numpy as np
 from astropy import wcs, table, constants, units
 from astropy.io import fits
+from scipy.integrate import trapz
+from scipy.interpolate import interp1d
+from scipy.optimize import minimize
 
-# LOCAL
-from . import stats, spectools
 from . import elprofile as lprof
+from . import stats, spectools
 
 
 def scale_bounds(bounds, scale_factor, npars_pc):
@@ -51,6 +48,8 @@ class Spectrum:
         self.r = None
         self.resultspec = None
         self.valid_pixels = None
+
+        self.ppxf_sol = np.ndarray([])
 
         if len(args) > 0:
             self._load(*args, **kwargs)
@@ -489,7 +488,7 @@ class Spectrum:
                 'Fitting window outside the available wavelength range.')
         zero_spec = np.zeros_like(self.rest_wavelength[fw])
 
-        assert self.rest_wavelength[fw].min() < np.min(feature_wl),\
+        assert self.rest_wavelength[fw].min() < np.min(feature_wl), \
             'Attempting to fit a spectral feature below the fitting window.'
 
         assert self.rest_wavelength[fw].max() > np.max(feature_wl), \
@@ -534,7 +533,7 @@ class Spectrum:
                     'Minimum fraction of good pixels not reached!\n'
                     'User set threshold: {:.2f}\n'
                     'Measured good fracion: {:.2f}'
-                    .format(
+                        .format(
                         good_minfraction,
                         np.sum(valid_pixels) / valid_pixels[fw].size)))
             return
