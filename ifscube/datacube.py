@@ -226,6 +226,7 @@ class Cube:
 
         return h
 
+
     def _write_linefit(self, args):
 
         suffix = args['suffix']
@@ -414,6 +415,50 @@ class Cube:
         xy = np.column_stack([np.ravel(y)[s], np.ravel(x)[s]])
 
         return xy
+
+    def write(self, file_name: str, overwrite=False):
+
+        hdr = deepcopy(self.header_data)
+        try:
+            hdr['REDSHIFT'] = self.redshift
+        except KeyError:
+            hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
+
+        # Creates MEF output.
+        h = fits.HDUList()
+        hdu = fits.PrimaryHDU(header=self.header)
+        hdu.name = 'PRIMARY'
+        h.append(hdu)
+
+        hdr = fits.Header()
+        hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
+        hdr['CRVAL3'] = (self.rest_wavelength[0], 'Reference value for wavelength')
+        hdr['CD3_3'] = (np.average(np.diff(self.rest_wavelength)), 'CD3_3')
+        hdu = fits.ImageHDU(data=self.data, header=hdr)
+        hdu.name = 'SCI'
+        h.append(hdu)
+
+        hdu = fits.ImageHDU(data=self.variance, header=hdr)
+        hdu.name = 'VAR'
+        h.append(hdu)
+
+        if hasattr(self, 'flags'):
+            hdu = fits.ImageHDU(data=self.flags, header=hdr)
+            hdu.name = 'FLAGS'
+            h.append(hdu)
+
+        if hasattr(self, 'stellar'):
+            # noinspection PyTypeChecker
+            hdu = fits.ImageHDU(data=self.stellar, header=hdr)
+            hdu.name = 'STELLAR'
+            h.append(hdu)
+
+        with fits.open(self.fitsfile) as original_cube:
+            for ext_name in ['vor', 'vorplus']:
+                if ext_name in original_cube:
+                    h.append(original_cube[ext_name])
+
+            h.writeto(file_name, overwrite=overwrite)
 
     def continuum(self, writefits=False, outimage=None,
                   fitting_window=None, copts=None):
@@ -1657,223 +1702,6 @@ class Cube:
                 [self.data[:, i, j] for i, j in unique_indices])
 
         return specs
-
-    def ppxf_kinematics(self, fitting_window, write_fits=True, out_image=None, individual_spec=None,
-                        overwrite=False, verbose=False, **kwargs):
-        """
-        Executes pPXF fitting of the stellar spectrum over the whole
-        data cube.
-
-        Parameters
-        ----------
-        fitting_window: tuple
-            Initial and final values of wavelength for fitting.
-        base_wl: numpy.ndarray
-            Wavelength coordinates of the base spectra.
-        base_spec: numpy.ndarray
-            Flux density coordinates of the base spectra.
-        base_cdelt: float
-            Step in wavelength coordinates.
-        write_fits: bool
-            Writes the output to a FITS file.
-        out_image: str
-            Name of the output file.
-        vel: float
-            Systemic velocity of the spectrum.
-        fwhm_gal: float
-            Full width at half maximum of an element of spectral resolution in the observation.
-        fwhm_model: float
-            Full width at half maximum of an element of spectral resolution in the base spectra.
-        noise: float
-            Estimate of the noise level.
-        individual_spec: tuple, optional
-            Coordinates of a spaxel to be fitted individually.
-        plot_fit: bool
-            Plots the resulting fit.
-        quiet: bool
-            Be verbose about it.
-        deg: integer
-            Degree of the continuum smoothing polynomial.
-        mask: numpy.ndarray, optional
-            Mask of pixels to ignore in the fit.
-        cushion: float
-            Wavelength interval to be ignored at the borders of the spectrum, to
-            avoid border effects on the convolution.
-        moments: integer
-            Number of moments in the Gauss-Hermite polynomial used to fit the kinematics.
-        overwrite: bool
-            Overwrites previously saved fits.
-        verbose : bool
-            Prints progress messages.
-
-        Returns
-        -------
-        Nothing
-
-        Notes
-        -----
-        This function is merely a wrapper for Michelle Capellari's
-        pPXF Python algorithm for penalized pixel fitting of stellar
-        spectra.
-
-        See also
-        --------
-        ppxf
-        """
-
-        try:
-            from ppxf import ppxf
-        except ImportError:
-            raise ImportError('Could not find the ppxf module. Please add it to your PYTHONPATH.')
-
-        try:
-            from ppxf import ppxf_util
-        except ImportError:
-            raise ImportError('Could not find the ppxf_util module. Please add it to your PYTHONPATH.')
-        from . import ppxf_wrapper
-
-        vor = None
-        if self.binned:
-            vor = self.voronoi_tab
-            xy = np.column_stack([
-                vor[coords][np.unique(vor['binNum'], return_index=True)[1]] for coords in ['ycoords', 'xcoords']
-            ])
-        else:
-            xy = self.spec_indices
-
-        if individual_spec is not None:
-            xy = [individual_spec[::-1]]
-
-        ppxf = ppxf_wrapper.Fit(fitting_window=fitting_window)
-
-        if verbose:
-            iterator = tqdm(xy, desc='pPXF fitting.', unit='spectrum')
-        else:
-            iterator = xy
-
-        fw = (self.rest_wavelength >= fitting_window[0]) & (self.rest_wavelength <= fitting_window[1])
-        spectrum_length = np.sum(fw)
-
-        ppxf_sol = np.zeros((4, np.shape(self.data)[1], np.shape(self.data)[2]), dtype='float64')
-        ppxf_spec = np.zeros((spectrum_length, np.shape(self.data)[1], np.shape(self.data)[2]), dtype='float64')
-        ppxf_model = np.zeros_like(ppxf_spec)
-
-        is_first_fit = True
-
-        if 'mask' in kwargs:
-            mask = deepcopy(kwargs['mask'])
-            kwargs.pop('mask')
-        else:
-            mask = None
-
-        for h in iterator:
-            i, j = h
-
-            if ('noise' not in kwargs) and (self.variance is not None):
-                kwargs['noise'] = np.sqrt(self.variance[:, i, j])
-
-            if (mask is not None) and (self.flags is not None):
-                m = mask + spectools.flags_to_mask(self.rest_wavelength, self.flags[:, i, j])
-            elif self.flags is not None:
-                m = spectools.flags_to_mask(self.rest_wavelength, self.flags[:, i, j])
-            else:
-                m = None
-
-            if np.sum(self.flags[:, i, j]) / spectrum_length > 0.5:
-                Warning('Skipping spectrum ({:d}, {:d}).'.format(j, i))
-                continue
-
-            pp = ppxf.fit(self.rest_wavelength, self.data[:, i, j], mask=m, **kwargs)
-            if is_first_fit:
-                is_first_fit = False
-
-            if vor is not None:
-
-                bin_num = vor[(vor['xcoords'] == j) & (vor['ycoords'] == i)]['binNum']
-                same_bin_num = vor['binNum'] == bin_num
-                same_bin_x = vor['xcoords'][same_bin_num]
-                same_bin_y = vor['ycoords'][same_bin_num]
-
-                for l, m in np.column_stack([same_bin_y, same_bin_x]):
-                    ppxf_sol[:, l, m] = pp.sol
-                    ppxf_spec[:, l, m] = np.interp(
-                        self.rest_wavelength[fw], ppxf.obs_wavelength, pp.galaxy * ppxf.normalization_factor
-                    )
-                    ppxf_model[:, l, m] = np.interp(
-                        self.rest_wavelength[fw], ppxf.obs_wavelength, pp.bestfit * ppxf.normalization_factor
-                    )
-
-            else:
-                ppxf_sol[:, i, j] = pp.sol
-                ppxf_spec[:, i, j] = np.interp(
-                    self.rest_wavelength[fw], ppxf.obs_wavelength, pp.galaxy * ppxf.normalization_factor
-                )
-                ppxf_model[:, i, j] = np.interp(
-                    self.rest_wavelength[fw], ppxf.obs_wavelength, pp.bestfit * ppxf.normalization_factor
-                )
-
-        self.ppxf_sol = ppxf_sol
-        self.ppxf_spec = ppxf_spec
-        self.ppxf_model = ppxf_model
-        self.ppxf_wl = self.rest_wavelength[fw]
-
-        if write_fits:
-
-            # Basic tests and first header
-            if out_image is None:
-                out_image = self.fitsfile.replace('.fits', '_ppxf.fits')
-            hdr = deepcopy(self.header_data)
-            hdr['REDSHIFT'] = 0.0
-
-            # Creates MEF output.
-            h = fits.HDUList()
-            h.append(fits.PrimaryHDU(header=hdr))
-            h[0].name = 'PRIMARY'
-            print(h.info())
-
-            # Observed spectrum
-            hdr = fits.Header()
-            hdr['object'] = ('spectrum', 'Data in this extension')
-            hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
-            hdr['CRVAL3'] = (self.rest_wavelength[fw][0], 'Reference value for wavelength')
-            hdr['CD3_3'] = (np.mean(np.diff(self.rest_wavelength)), 'CD3_3')
-            h.append(fits.ImageHDU(data=self.ppxf_spec, header=hdr, name='SCI'))
-
-            # Best fit.
-            hdr['object'] = 'model'
-            h.append(fits.ImageHDU(data=self.ppxf_model, header=hdr, name='STELLAR'))
-
-            # Variance.
-            hdr['object'] = 'model'
-            h.append(fits.ImageHDU(data=self.variance[fw], header=hdr, name='VAR'))
-
-            # Flags.
-            hdr['object'] = 'model'
-            h.append(fits.ImageHDU(data=self.flags[fw], header=hdr, name='FLAGS'))
-
-            # Solution.
-            hdr['object'] = 'parameters'
-            h.append(fits.ImageHDU(data=self.ppxf_sol, header=hdr, name='PPXFSOL'))
-
-            h.writeto(out_image, overwrite=overwrite)
-
-    def ppxf_plot(self, xy, axis=None):
-
-        if axis is None:
-            fig = plt.figure(1)
-            plt.clf()
-            ax = fig.add_subplot(111)
-        else:
-            ax = axis
-            ax.cla()
-
-        gp = self.ppxf_goodpixels
-
-        ax.plot(self.ppxf_wl[gp], self.ppxf_spec[gp, xy[1], xy[0]])
-        ax.plot(self.ppxf_wl, self.ppxf_spec[:, xy[1], xy[0]])
-        ax.plot(self.ppxf_wl, self.ppxf_model[:, xy[1], xy[0]])
-
-        print('Velocity: {:.2f}\nSigma: {:.2f}\nh3: {:.2f}\nh4: {:.2f}'.format(*self.ppxf_sol[:, xy[1], xy[0]]))
 
     @staticmethod
     def lineflux(amplitude, sigma):
