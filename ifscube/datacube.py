@@ -54,11 +54,7 @@ class Cube:
         self.noise_cube = None
         self.npars = None
         self.parnames = None
-        self.ppxf_goodpixels = None
-        self.ppxf_model = None
         self.ppxf_sol = None
-        self.ppxf_spec = None
-        self.ppxf_wl = None
         self.resultspec = None
         self.signal = None
         self.spatial_mask = None
@@ -419,14 +415,12 @@ class Cube:
     def write(self, file_name: str, overwrite=False):
 
         hdr = deepcopy(self.header_data)
-        try:
-            hdr['REDSHIFT'] = self.redshift
-        except KeyError:
-            hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
+        hdr['REDSHIFT'] = 0.0
 
         # Creates MEF output.
         h = fits.HDUList()
         hdu = fits.PrimaryHDU(header=self.header)
+        hdu.header['REDSHIFT'] = 0.0
         hdu.name = 'PRIMARY'
         h.append(hdu)
 
@@ -451,6 +445,12 @@ class Cube:
             # noinspection PyTypeChecker
             hdu = fits.ImageHDU(data=self.stellar, header=hdr)
             hdu.name = 'STELLAR'
+            h.append(hdu)
+
+        if self.ppxf_sol is not None:
+            # noinspection PyTypeChecker
+            hdu = fits.ImageHDU(data=self.ppxf_sol, header=hdr)
+            hdu.name = 'PPXFSOL'
             h.append(hdu)
 
         with fits.open(self.fitsfile) as original_cube:
@@ -755,7 +755,7 @@ class Cube:
 
         ax.plot(self.rest_wavelength, s)
 
-        if show_noise and hasattr(self, 'noise_cube'):
+        if show_noise and (self.noise_cube is not None):
 
             if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
                 n = np.average(
