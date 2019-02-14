@@ -4,11 +4,231 @@ import glob
 
 import matplotlib.pyplot as plt
 import numpy as np
+import tqdm
 from astropy import wcs, constants
 from astropy.io import fits
 from pkg_resources import resource_filename
 from ppxf import ppxf, ppxf_util
 from scipy.ndimage import gaussian_filter
+
+from . import spectools
+from .onedspec import Spectrum
+
+
+def spectrum_kinematics(spectrum, fitting_window=None, **kwargs):
+    """
+    Executes pPXF fitting of the stellar spectrum over the whole
+    data cube.
+
+    Parameters
+    ----------
+    spectrum : onedspec.Spectrum
+        Spectrum object.
+    fitting_window: tuple or list
+        Initial and final values of wavelength for fitting.
+    **kwargs
+        Passed directly to ppxf_wrapper.Fit.fit.
+
+    Returns
+    -------
+    output : onedspec.Spectrum
+        Output spectrum instance.
+
+
+    Notes
+    -----
+    This function is merely a wrapper for Michelle Capellari's
+    pPXF Python algorithm for penalized pixel fitting of stellar
+    spectra.
+
+    See also
+    --------
+    ppxf
+    """
+
+    if fitting_window is None:
+        fitting_window = [spectrum.rest_wavelength[i] for i in [0, -1]]
+
+    fit = Fit(fitting_window=fitting_window)
+
+    fw = (spectrum.rest_wavelength >= fitting_window[0]) & (spectrum.rest_wavelength <= fitting_window[1])
+    spectrum_length = np.sum(fw)
+
+    if 'mask' in kwargs:
+        mask = copy.deepcopy(kwargs['mask'])
+        kwargs.pop('mask')
+    else:
+        mask = None
+
+    if ('noise' not in kwargs) and (spectrum.variance is not None):
+        kwargs['noise'] = np.sqrt(spectrum.variance)
+
+    if (mask is not None) and (spectrum.flags is not None):
+        m = mask + spectools.flags_to_mask(spectrum.rest_wavelength, spectrum.flags)
+    elif spectrum.flags is not None:
+        m = spectools.flags_to_mask(spectrum.rest_wavelength, spectrum.flags)
+    else:
+        m = None
+
+    if np.sum(spectrum.flags[fw]) / spectrum_length > 0.5:
+        raise RuntimeError('Skipping spectrum due to too many (> 0.5) flagged pixels.')
+
+    pp = fit.fit(spectrum.rest_wavelength, spectrum.data, mask=m, **kwargs)
+
+    output = Spectrum()
+    output.sol = pp.sol
+    output.data = np.interp(
+        spectrum.rest_wavelength[fw], fit.obs_wavelength, pp.galaxy * fit.normalization_factor)
+    output.stellar = np.interp(
+        spectrum.rest_wavelength[fw], fit.obs_wavelength, pp.bestfit * fit.normalization_factor)
+
+    output.rest_wavelength = spectrum.rest_wavelength[fw]
+    output.flags = spectrum.flags[fw]
+    output.variance = spectrum.variance[fw]
+
+    output.header = copy.deepcopy(spectrum.header)
+
+    if hasattr(output, 'header_data'):
+        output.header_data = copy.deepcopy(spectrum.header_data)
+        output.header_data['CRPIX3'] = (1, 'Reference pixel for wavelength')
+        output.header_data['CRVAL3'] = (spectrum.rest_wavelength[fw][0], 'Reference value for wavelength')
+        output.header_data['CD3_3'] = (np.mean(np.diff(spectrum.rest_wavelength)), 'CD3_3')
+    else:
+        w = wcs.WCS(naxis=1)
+        w.wcs.crpix = np.array([1.])
+        w.wcs.crval = np.array([spectrum.rest_wavelength[fw][0]])
+        w.wcs.cdelt = np.array([np.mean(np.diff(spectrum.rest_wavelength))])
+        output.header_data = w.to_header()
+
+    return output
+
+
+def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, **kwargs):
+    """
+    Executes pPXF fitting of the stellar spectrum over the whole
+    data cube.
+
+    Parameters
+    ----------
+    cube : datacube.Cube
+        Input data cube.
+    fitting_window: tuple
+        Initial and final values of wavelength for fitting.
+    individual_spec : tuple
+        (x, y) coordinates of the individual spaxel to be fit.
+    verbose : bool
+        Prints progress messages.
+    **kwargs
+        Arguments passed directly to ppxf_wrapper.Fit.fit.
+
+    Returns
+    -------
+    Nothing
+
+    Notes
+    -----
+    This function is merely a wrapper for Michelle Capellari's
+    pPXF Python algorithm for penalized pixel fitting of stellar
+    spectra.
+
+    See also
+    --------
+    ppxf
+    """
+
+    vor = None
+    if cube.binned:
+        vor = cube.voronoi_tab
+        xy = np.column_stack(
+            [vor[coords][np.unique(vor['binNum'], return_index=True)[1]] for coords in ['ycoords', 'xcoords']])
+    else:
+        xy = cube.spec_indices
+
+    if individual_spec is not None:
+        xy = [individual_spec[::-1]]
+
+    fit = Fit(fitting_window=fitting_window)
+
+    if verbose:
+        iterator = tqdm.tqdm(xy, desc='pPXF fitting.', unit='spectrum')
+    else:
+        iterator = xy
+
+    fw = (cube.rest_wavelength >= fitting_window[0]) & (cube.rest_wavelength <= fitting_window[1])
+    spectrum_length = np.sum(fw)
+
+    sol = np.zeros((4, np.shape(cube.data)[1], np.shape(cube.data)[2]), dtype='float64')
+    spec = np.zeros((spectrum_length, np.shape(cube.data)[1], np.shape(cube.data)[2]), dtype='float64')
+    model = np.zeros_like(spec)
+    noise = np.zeros_like(spec)
+    flags = np.zeros_like(spec)
+
+    if 'mask' in kwargs:
+        mask = copy.deepcopy(kwargs['mask'])
+        kwargs.pop('mask')
+    else:
+        mask = None
+
+    for h in iterator:
+        i, j = h
+
+        if ('noise' not in kwargs) and (cube.variance is not None):
+            kwargs['noise'] = np.sqrt(cube.variance[:, i, j])
+
+        if (mask is not None) and (cube.flags is not None):
+            m = mask + spectools.flags_to_mask(cube.rest_wavelength, cube.flags[:, i, j])
+        elif cube.flags is not None:
+            m = spectools.flags_to_mask(cube.rest_wavelength, cube.flags[:, i, j])
+            if not m:
+                m = None
+        else:
+            m = None
+
+        if np.sum(cube.flags[fw, i, j]) / spectrum_length > 0.5:
+            Warning('Skipping spectrum ({:d}, {:d}).'.format(j, i))
+            continue
+
+        pp = fit.fit(cube.rest_wavelength, cube.data[:, i, j], mask=m, **kwargs)
+
+        if vor is not None:
+
+            bin_num = vor[(vor['xcoords'] == j) & (vor['ycoords'] == i)]['binNum']
+            same_bin_num = vor['binNum'] == bin_num
+            same_bin_x = vor['xcoords'][same_bin_num]
+            same_bin_y = vor['ycoords'][same_bin_num]
+
+            for l, m in np.column_stack([same_bin_y, same_bin_x]):
+                sol[:, l, m] = pp.sol
+                spec[:, l, m] = np.interp(
+                    cube.rest_wavelength[fw], fit.obs_wavelength, pp.galaxy * fit.normalization_factor
+                )
+                model[:, l, m] = np.interp(
+                    cube.rest_wavelength[fw], fit.obs_wavelength, pp.bestfit * fit.normalization_factor
+                )
+                noise[:, l, m] = np.sqrt(cube.variance[fw, l, m])
+                flags[:, l, m] = cube.flags[fw, l, m]
+
+        else:
+            sol[:, i, j] = pp.sol
+            spec[:, i, j] = np.interp(
+                cube.rest_wavelength[fw], fit.obs_wavelength, pp.galaxy * fit.normalization_factor
+            )
+            model[:, i, j] = np.interp(
+                cube.rest_wavelength[fw], fit.obs_wavelength, pp.bestfit * fit.normalization_factor
+            )
+            noise[:, i, j] = np.sqrt(cube.variance[fw, i, j])
+            flags[:, i, j] = cube.flags[fw, i, j]
+
+    output = copy.deepcopy(cube)
+
+    output.data = spec
+    output.stellar = model
+    output.flags = flags
+    output.variance = np.square(noise)
+    output.ppxf_sol = sol
+    output.rest_wavelength = cube.rest_wavelength[fw]
+
+    return output
 
 
 class Fit(object):
