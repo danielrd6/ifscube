@@ -187,27 +187,6 @@ class Cube:
         self._set_spec_indices()
         self.cont = None
 
-    def _flags_to_mask(self, flags):
-
-        mask = []
-        c = 0
-        d = len(self.rest_wavelength)
-        while c < d:
-            region = []
-            if flags[c] == 1:
-                region.append(self.rest_wavelength[c])
-                while c < d:
-                    if flags[c] == 1:
-                        c += 1
-                    else:
-                        break
-                region.append(self.rest_wavelength[c - 1])
-                mask.append(region)
-            else:
-                c += 1
-
-        return mask
-
     def _set_spec_indices(self):
 
         if self.spatial_mask is None:
@@ -1794,9 +1773,9 @@ class Cube:
                 kwargs['noise'] = np.sqrt(self.variance[:, i, j])
 
             if (mask is not None) and (self.flags is not None):
-                m = mask + self._flags_to_mask(self.flags[:, i, j])
+                m = mask + spectools.flags_to_mask(self.rest_wavelength, self.flags[:, i, j])
             elif self.flags is not None:
-                m = self._flags_to_mask(self.flags[:, i, j])
+                m = spectools.flags_to_mask(self.rest_wavelength, self.flags[:, i, j])
             else:
                 m = None
 
