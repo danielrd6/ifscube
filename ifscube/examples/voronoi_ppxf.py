@@ -4,7 +4,7 @@ import glob
 import numpy as np
 from astropy.io import fits
 
-from ifscube import Cube, spectools
+from ifscube import Cube, spectools, ppxf_wrapper
 
 
 def load_models(searchPattern):
@@ -41,4 +41,5 @@ if __name__ == '__main__':
     mycube = Cube('ngc3081_cube.bin.fits', variance='ERR', scidata='SCI', vortab='VORTAB')
 
     # Actual pPXF fitting.
-    mycube.ppxf_kinematics(fitting_window=(5650, 5850), write_fits=True, deg=3, overwrite=True)
+    ppxf_cube = ppxf_wrapper.cube_kinematics(mycube, fitting_window=(5650, 5850), deg=4)
+    ppxf_cube.write('lixo.fits', overwrite=True)
