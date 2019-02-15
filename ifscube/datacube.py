@@ -142,6 +142,8 @@ class Cube:
             self.wcs = wcs.WCS(self.header_data)
 
             self._accessory_data(hdu, variance, flags, stellar, weights, spatial_mask)
+            self.noise_cube = np.sqrt(self.variance)
+            self.noise_cube[self.flags] = 0.0
 
         if nan_spaxels == 'all':
             self.nan_mask = np.all(self.data == 0, 0)
