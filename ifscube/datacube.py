@@ -90,10 +90,8 @@ class Cube:
                 elif isinstance(j, np.ndarray):
                     i[:] = j
 
-    def _load(self, fname, scidata='SCI', primary='PRIMARY',
-              variance=None, flags=None, stellar=None, weights=None,
-              redshift=None, vortab=None, nan_spaxels='all',
-              spatial_mask=None, spectral_dimension=3):
+    def _load(self, fname, scidata='SCI', primary='PRIMARY', variance=None, flags=None, stellar=None, weights=None,
+              redshift=None, vortab=None, nan_spaxels='all', spatial_mask=None, spectral_dimension=3):
         """
         and loads basic information onto the
         object.
@@ -132,9 +130,7 @@ class Cube:
 
         self.fitsfile = fname
 
-        exts = [
-            'scidata', 'primary', 'variance', 'flags', 'stellar', 'weights',
-            'vortab', 'spatial_mask']
+        exts = ['scidata', 'primary', 'variance', 'flags', 'stellar', 'weights', 'vortab', 'spatial_mask']
         self.extension_names = {}
         for key in exts:
             self.extension_names[key] = locals()[key]
@@ -145,8 +141,7 @@ class Cube:
             self.header_data = hdu[scidata].header
             self.wcs = wcs.WCS(self.header_data)
 
-            self._accessory_data(
-                hdu, variance, flags, stellar, weights, spatial_mask)
+            self._accessory_data(hdu, variance, flags, stellar, weights, spatial_mask)
 
         if nan_spaxels == 'all':
             self.nan_mask = np.all(self.data == 0, 0)
@@ -156,9 +151,7 @@ class Cube:
             self.nan_mask = np.zeros(self.data.shape[1:]).astype('bool')
         self.spatial_mask |= self.nan_mask
 
-        self.wl = self.wcs.sub(
-            (spectral_dimension,)).wcs_pix2world(
-            np.arange(len(self.data)), 0)[0]
+        self.wl = self.wcs.sub((spectral_dimension,)).wcs_pix2world(np.arange(len(self.data)), 0)[0]
 
         if self.wcs.wcs.cunit[2] == units.m:
             self.wl *= 1e+10
@@ -189,10 +182,8 @@ class Cube:
             self.spatial_mask = np.zeros_like(self.data[0]).astype('bool')
 
         self.spec_indices = np.column_stack([
-            np.ravel(
-                np.indices(np.shape(self.data)[1:])[0][~self.spatial_mask]),
-            np.ravel(
-                np.indices(np.shape(self.data)[1:])[1][~self.spatial_mask]),
+            np.ravel(np.indices(np.shape(self.data)[1:])[0][~self.spatial_mask]),
+            np.ravel(np.indices(np.shape(self.data)[1:])[1][~self.spatial_mask]),
         ])
 
     def _arg2cube(self, arg, cube):
@@ -222,7 +213,6 @@ class Cube:
 
         return h
 
-
     def _write_linefit(self, args):
 
         suffix = args['suffix']
@@ -237,8 +227,7 @@ class Cube:
         try:
             hdr['REDSHIFT'] = self.redshift
         except KeyError:
-            hdr['REDSHIFT'] = (self.redshift,
-                               'Redshift used in GMOSDC')
+            hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
 
         # Creates MEF output.
         h = fits.HDUList()
@@ -350,39 +339,29 @@ class Cube:
 
         # Creates the model equivalent width extension
         hdr['object'] = ('eqw_model', 'EqW based on emission model.')
-        hdr['sigwidth'] = (
-            args['sigma_factor'], 'Line width in units of sigma.')
+        hdr['sigwidth'] = (args['sigma_factor'], 'Line width in units of sigma.')
         hdr['bunit'] = ('angstrom', 'Unit of pixel values.')
         hdr['l_idx'] = (args['component'], 'Line number in fit output')
 
         if hasattr(self, 'component_names'):
-            hdr['l_name'] = (
-                self.component_names[args['component']],
-                'Line name')
+            hdr['l_name'] = (self.component_names[args['component']], 'Line name')
 
         if args['windows'] is not None:
-            hdr['c_blue0'] = (
-                args['windows'][0], 'lower limit, blue continuum section')
-            hdr['c_blue1'] = (
-                args['windows'][1], 'upper limit, blue continuum section')
-            hdr['c_red0'] = (
-                args['windows'][2], 'lower limit, red continuum section')
-            hdr['c_red1'] = (
-                args['windows'][3], 'upper limit, red continuum section')
+            hdr['c_blue0'] = (args['windows'][0], 'lower limit, blue continuum section')
+            hdr['c_blue1'] = (args['windows'][1], 'upper limit, blue continuum section')
+            hdr['c_red0'] = (args['windows'][2], 'lower limit, red continuum section')
+            hdr['c_red1'] = (args['windows'][3], 'upper limit, red continuum section')
 
         h.append(fits.ImageHDU(data=eqw[0], header=hdr, name='EQW_M'))
 
         # Creates the direct equivalent width extension
-        hdr['object'] = (
-            'eqw_direct', 'EqW measured directly on the spectrum.')
-        hdr['sigwidth'] = (
-            args['sigma_factor'], 'Line width in units of sigma.')
+        hdr['object'] = ('eqw_direct', 'EqW measured directly on the spectrum.')
+        hdr['sigwidth'] = (args['sigma_factor'], 'Line width in units of sigma.')
         h.append(fits.ImageHDU(data=eqw[1], header=hdr, name='EQW_D'))
 
         # Creates the minimize's exit status extension
         hdr['object'] = 'fit_status'
-        h.append(
-            fits.ImageHDU(data=self.fit_status, header=hdr, name='STATUS'))
+        h.append(fits.ImageHDU(data=self.fit_status, header=hdr, name='STATUS'))
 
         h.writeto(outimage)
 
@@ -396,16 +375,14 @@ class Cube:
         if spiral_center is None:
             spiral_center = (x.max() / 2., y.max() / 2.)
 
-        r = np.sqrt(
-            (x - spiral_center[0]) ** 2 + (y - spiral_center[1]) ** 2)
+        r = np.sqrt((x - spiral_center[0]) ** 2 + (y - spiral_center[1]) ** 2)
 
         t = np.arctan2(y - spiral_center[1], x - spiral_center[0])
         t[t < 0] += 2 * np.pi
 
         b = np.array([
-            (np.ravel(r)[i], np.ravel(t)[i]) for i in
-            range(len(np.ravel(r)))], dtype=[
-            ('radius', 'f8'), ('angle', 'f8')])
+            (np.ravel(r)[i], np.ravel(t)[i]) for i in range(len(np.ravel(r)))],
+            dtype=[('radius', 'f8'), ('angle', 'f8')])
 
         s = np.argsort(b, axis=0, order=['radius', 'angle'])
         xy = np.column_stack([np.ravel(y)[s], np.ravel(x)[s]])
@@ -460,8 +437,7 @@ class Cube:
 
             h.writeto(file_name, overwrite=overwrite)
 
-    def continuum(self, writefits=False, outimage=None,
-                  fitting_window=None, copts=None):
+    def continuum(self, writefits=False, outimage=None, fitting_window=None, copts=None):
         """
         Evaluates a polynomial continuum for the whole cube and stores
         it in self.cont.
@@ -498,8 +474,7 @@ class Cube:
         for k, h in enumerate(xy):
             i, j = h
             s = deepcopy(data[:, i, j])
-            if (any(s[:20]) and any(s[-20:])) or \
-                    (any(np.isnan(s[:20])) and any(np.isnan(s[-20:]))):
+            if (any(s[:20]) and any(s[-20:])) or (any(np.isnan(s[:20])) and any(np.isnan(s[-20:]))):
                 try:
                     cont = spectools.continuum(wl, s, **copts)
                     if v is not None:
@@ -529,14 +504,10 @@ class Cube:
                 hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
 
             hdr['CRVAL3'] = wl[0]
-            hdr['CONTDEGR'] = (copts['degr'],
-                               'Degree of continuum polynomial')
-            hdr['CONTNITE'] = (copts['niterate'],
-                               'Continuum rejection iterations')
-            hdr['CONTLTR'] = (copts['lower_threshold'],
-                              'Continuum lower threshold')
-            hdr['CONTHTR'] = (copts['upper_threshold'],
-                              'Continuum upper threshold')
+            hdr['CONTDEGR'] = (copts['degr'], 'Degree of continuum polynomial')
+            hdr['CONTNITE'] = (copts['niterate'], 'Continuum rejection iterations')
+            hdr['CONTLTR'] = (copts['lower_threshold'], 'Continuum lower threshold')
+            hdr['CONTHTR'] = (copts['upper_threshold'], 'Continuum upper threshold')
 
             fits.writeto(outimage, data=c, header=hdr)
 
@@ -572,10 +543,8 @@ class Cube:
         # The correct behaviour should be to check if variance is set.
         # if hasattr(self, 'variance'):
         if not np.all(self.variance == 1.):
-            noise = np.nanmean(
-                np.sqrt(self.variance[snrwindow, :, :]), axis=0)
-            signal = np.nanmean(
-                self.data[snrwindow, :, :], axis=0)
+            noise = np.nanmean(np.sqrt(self.variance[snrwindow, :, :]), axis=0)
+            signal = np.nanmean(self.data[snrwindow, :, :], axis=0)
 
         else:
             noise = np.zeros(np.shape(self.data)[1:])
@@ -585,14 +554,12 @@ class Cube:
             wl = self.restwl[snrwindow]
 
             if copts is None:
-                copts = {'niterate': 0, 'degr': 3, 'upper_threshold': 3,
-                         'lower_threshold': 3, 'returns': 'function'}
+                copts = {'niterate': 0, 'degr': 3, 'upper_threshold': 3, 'lower_threshold': 3, 'returns': 'function'}
             else:
                 copts['returns'] = 'function'
 
             for i, j in self.spec_indices:
-                if any(data[snrwindow, i, j]) and \
-                        all(~np.isnan(data[snrwindow, i, j])):
+                if any(data[snrwindow, i, j]) and all(~np.isnan(data[snrwindow, i, j])):
                     s = data[snrwindow, i, j]
                     cont = spectools.continuum(wl, s, **copts)[1]
                     noise[i, j] = np.nanstd(s - cont)
@@ -636,9 +603,8 @@ class Cube:
         Nothing.
         """
 
-        outim = cubetools.wlprojection(
-            arr=self.data, wl=self.rest_wavelength, wl0=wl0, fwhm=fwhm,
-            filtertype=filtertype)
+        output_image = cubetools.wlprojection(
+            arr=self.data, wl=self.rest_wavelength, wl0=wl0, fwhm=fwhm, filtertype=filtertype)
 
         if writefits:
 
@@ -655,9 +621,9 @@ class Cube:
             hdr['WLPRWL0'] = (wl0, 'Central wavelength of the filter.')
             hdr['WLPRFWHM'] = (fwhm, 'FWHM of the projection filter.')
 
-            fits.writeto(outimage, data=outim, header=hdr)
+            fits.writeto(outimage, data=output_image, header=hdr)
 
-        return outim
+        return output_image
 
     def aperture_spectrum(self, radius=1.0, x0=None, y0=None, flag_threshold=0.5):
         """
@@ -691,11 +657,9 @@ class Cube:
             self.variance, x0=x0, y0=y0, radius=radius, combine='sum')
         if np.all(self.variance == 1.0):
             var = self.variance[:, 0, 0]
-        ste, npix_ste = cubetools.aperture_spectrum(
-            self.stellar, x0=x0, y0=y0, radius=radius, combine='sum')
+        ste, npix_ste = cubetools.aperture_spectrum(self.stellar, x0=x0, y0=y0, radius=radius, combine='sum')
         fla, npix_fla = cubetools.aperture_spectrum(
-            (self.flags.astype('bool')).astype('float64'), x0=x0, y0=y0,
-            radius=radius, combine='mean')
+            (self.flags.astype('bool')).astype('float64'), x0=x0, y0=y0, radius=radius, combine='mean')
 
         # NOTE: This only makes sense when the flags are only ones
         # and zeros, that is why the flag combination has to ensure
@@ -744,8 +708,7 @@ class Cube:
             ax = fig.add_subplot(111)
 
         if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-            s = np.average(
-                np.average(self.data[:, y[0]:y[1], x[0]:x[1]], 1), 1)
+            s = np.average(np.average(self.data[:, y[0]:y[1], x[0]:x[1]], 1), 1)
         elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
             s = np.average(self.data[:, y, x[0]:x[1]], 1)
         elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
@@ -754,8 +717,7 @@ class Cube:
             s = self.data[:, y, x]
 
         if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-            syn = np.average(
-                np.average(self.stellarj[:, y[0]:y[1], x[0]:x[1]], 1), 1)
+            syn = np.average(np.average(self.stellarj[:, y[0]:y[1], x[0]:x[1]], 1), 1)
         elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
             syn = np.average(self.stellar[:, y, x[0]:x[1]], 1)
         elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
@@ -769,11 +731,7 @@ class Cube:
         if show_noise and (self.noise_cube is not None):
 
             if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-                n = np.average(
-                    np.average(
-                        self.noise_cube[:, y[0]:y[1], x[0]:x[1]], 1
-                    ), 1
-                )
+                n = np.average(np.average(self.noise_cube[:, y[0]:y[1], x[0]:x[1]], 1), 1)
             elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
                 n = np.average(self.noise_cube[:, y, x[0]:x[1]], 1)
             elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
@@ -784,12 +742,9 @@ class Cube:
             n = gaussian_filter(n, noise_smooth)
             sg = gaussian_filter(s, noise_smooth)
 
-            ax.fill_between(self.rest_wavelength, sg - n, sg + n, edgecolor='',
-                            alpha=0.2, color='green')
+            ax.fill_between(self.rest_wavelength, sg - n, sg + n, edgecolor='', alpha=0.2, color='green')
 
-        if hasattr(self, 'flags') \
-                and not hasattr(x, '__iter__') \
-                and not hasattr(y, '__iter__'):
+        if hasattr(self, 'flags') and not hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
             sflags = self.flags[:, y, x].astype('bool')
             ax.scatter(self.rest_wavelength[sflags], s[sflags], marker='x', color='red')
 
@@ -875,17 +830,14 @@ class Cube:
 
         fitting_window = kwargs.get('fitting_window', None)
         if fitting_window is not None:
-            fw_mask = (
-                    (self.rest_wavelength > fitting_window[0])
-                    & (self.rest_wavelength < fitting_window[1]))
+            fw_mask = ((self.rest_wavelength > fitting_window[0]) & (self.rest_wavelength < fitting_window[1]))
             fit_npixels = np.sum(fw_mask)
         else:
             fw_mask = np.ones_like(self.rest_wavelength).astype('bool')
             fit_npixels = self.rest_wavelength.size
 
         # A few assertions
-        assert np.any(self.data[fw_mask]), \
-            'No valid data within the fitting window.'
+        assert np.any(self.data[fw_mask]), 'No valid data within the fitting window.'
 
         fit_shape = (fit_npixels,) + self.data.shape[1:]
 
@@ -930,10 +882,8 @@ class Cube:
         if self.binned:
             v = self.voronoi_tab
             xy = np.column_stack([
-                v[np.unique(v['binNum'], return_index=True)[1]][coords]
-                for coords in ['ycoords', 'xcoords']])
-            vor = np.column_stack([
-                v[coords] for coords in ['ycoords', 'xcoords', 'binNum']])
+                v[np.unique(v['binNum'], return_index=True)[1]][coords] for coords in ['ycoords', 'xcoords']])
+            vor = np.column_stack([v[coords] for coords in ['ycoords', 'xcoords', 'binNum']])
         else:
             xy = self.spec_indices
 
@@ -945,21 +895,16 @@ class Cube:
             if individual_spec == 'peak':
                 xy = [cubetools.peak_spaxel(self.data[fw_mask])[::-1]]
             elif individual_spec == 'cofm':
-                xy = [[
-                    int(np.round(i, 0)) for i in
-                    center_of_mass(self.data[fw_mask].sum(axis=0))]]
+                xy = [[int(np.round(i, 0)) for i in center_of_mass(self.data[fw_mask].sum(axis=0))]]
             else:
                 xy = [individual_spec[::-1]]
             if verbose:
-                print(
-                    'Individual spaxel: {:d}, {:d}\n'.format(*xy[0][::-1]))
+                print('Individual spaxel: {:d}, {:d}\n'.format(*xy[0][::-1]))
         elif spiral_loop:
             if spiral_center == 'peak':
                 spiral_center = cubetools.peak_spaxel(self.data[fw_mask])
             elif spiral_center == 'cofm':
-                spiral_center = [
-                    int(np.round(i, 0)) for i in
-                    center_of_mass(self.data[fw_mask].sum(axis=0))]
+                spiral_center = [int(np.round(i, 0)) for i in center_of_mass(self.data[fw_mask].sum(axis=0))]
             if verbose:
                 print(spiral_center)
             xy = self._spiral(xy, spiral_center=spiral_center)
@@ -996,8 +941,7 @@ class Cube:
             if refit and not is_first_spec:
 
                 radsol = np.sqrt((yy - i) ** 2 + (xx - j) ** 2)
-                nearsol = sol[
-                          :-1, (radsol < refit_radius) & (self.fit_status == 0)]
+                nearsol = sol[:-1, (radsol < refit_radius) & (self.fit_status == 0)]
 
                 if np.shape(nearsol) == (5, 1):
                     p0 = deepcopy(nearsol.transpose())
@@ -1005,8 +949,7 @@ class Cube:
                     p0 = deepcopy(np.average(nearsol.transpose(), 0))
 
                     if update_bounds:
-                        kwargs['bounds'] = cubetools.bound_updater(
-                            p0, bound_range, bounds=original_bounds)
+                        kwargs['bounds'] = cubetools.bound_updater(p0, bound_range, bounds=original_bounds)
 
             spec.linefit(p0, **kwargs)
 
@@ -1017,8 +960,7 @@ class Cube:
                 is_first_spec = False
 
             if self.eqw_model is None:
-                self.eqw_model = np.zeros(
-                    (len(spec.component_names),) + self.fit_status.shape)
+                self.eqw_model = np.zeros((len(spec.component_names),) + self.fit_status.shape)
                 self.eqw_direct = np.zeros_like(self.eqw_model)
 
             if self.binned:
@@ -1033,8 +975,7 @@ class Cube:
                     self.eqw_direct[:, l, m] = spec.eqw_direct
                     self.initial_guess[:, l, m] = spec.initial_guess
                     self.fitbounds[:, l, m] = [
-                        k if k is not None else np.nan
-                        for k in np.array(spec.fitbounds).flatten()]
+                        k if k is not None else np.nan for k in np.array(spec.fitbounds).flatten()]
             else:
                 sol[:, i, j] = spec.em_model
                 self.fitcont[:, i, j] = spec.fitcont
@@ -1045,9 +986,7 @@ class Cube:
                 self.eqw_model[:, i, j] = spec.eqw_model
                 self.eqw_direct[:, i, j] = spec.eqw_direct
                 self.initial_guess[:, i, j] = spec.initial_guess
-                self.fitbounds[:, i, j] = [
-                    k if k is not None else np.nan
-                    for k in np.array(spec.fitbounds).flatten()]
+                self.fitbounds[:, i, j] = [k if k is not None else np.nan for k in np.array(spec.fitbounds).flatten()]
 
         self.fit_wavelength = spec.fitwl
         self.fit_func = spec.fit_func
@@ -1065,9 +1004,7 @@ class Cube:
             self._write_linefit(args=locals())
 
         if individual_spec:
-            return (
-                spec.fitwl, spec.fitspec, spec.fitcont, spec.resultspec,
-                spec.r)
+            return (spec.fitwl, spec.fitspec, spec.fitcont, spec.resultspec, spec.r)
         else:
             return sol
 
