@@ -414,7 +414,7 @@ class Cube:
         h.append(hdu)
 
         if hasattr(self, 'flags'):
-            hdu = fits.ImageHDU(data=self.flags, header=hdr)
+            hdu = fits.ImageHDU(data=self.flags.astype(int), header=hdr)
             hdu.name = 'FLAGS'
             h.append(hdu)
 
