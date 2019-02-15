@@ -753,7 +753,18 @@ class Cube:
         else:
             s = self.data[:, y, x]
 
+        if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
+            syn = np.average(
+                np.average(self.stellarj[:, y[0]:y[1], x[0]:x[1]], 1), 1)
+        elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
+            syn = np.average(self.stellar[:, y, x[0]:x[1]], 1)
+        elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
+            syn = np.average(self.stellar[:, y[0]:y[1], x], 1)
+        else:
+            syn = self.stellar[:, y, x]
+
         ax.plot(self.rest_wavelength, s)
+        ax.plot(self.rest_wavelength, syn)
 
         if show_noise and (self.noise_cube is not None):
 
