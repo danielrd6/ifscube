@@ -151,7 +151,6 @@ def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, *
 
     fw = (cube.rest_wavelength >= fitting_window[0]) & (cube.rest_wavelength <= fitting_window[1])
     wavelength = cube.rest_wavelength[fw]
-    spectrum_length = wavelength.size
 
     sol = np.zeros((4, np.shape(cube.data)[1], np.shape(cube.data)[2]), dtype='float64')
     data = cube.data[fw]
@@ -165,11 +164,14 @@ def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, *
     else:
         mask = None
 
-    spatial_mask = (flags.sum(axis=0) / spectrum_length > 0.2).ravel()
+    summed_flags = flags.sum(axis=0)
+    spatial_mask = np.array([summed_flags[i[0], i[1]] > 0.2 for i in xy])
 
     if verbose:
+        # noinspection PyTypeChecker
         iterator = tqdm.tqdm(xy[~spatial_mask], desc='pPXF fitting.', unit='spectrum')
     else:
+        # noinspection PyTypeChecker
         iterator = xy[~spatial_mask]
 
     for h in iterator:
@@ -290,9 +292,36 @@ class Fit(object):
             Wavelength coordinates of the data.
         data : numpy.ndarray
             Input spectrum flux vector.
+        mask : list
+            List of masked regions, as pairs of wavelength coordinates.
+        initial_velocity : float
+            Initial guess for radial velocity.
+        initial_sigma : float
+            Initial guess for the velocity dispersion.
+        fwhm_gal : float
+            Full width at half maximum of a resolution element in the observed spectrum in units of pixels.
+        fwhm_model : float
+            The same as the above for the models.
+        noise : float or numpy.ndarray
+            If float it as assumed as the signal to noise ratio, and will be horizontally applied to the whole
+            spectrum. If it is an array, it will be interpreted as individual noise values for each pixel.
+        plot_fit : bool
+            Plots the resulting fit.
+        quiet : bool
+            Prints information on the fit.
+        deg : int
+            Degree of polynomial function to be fit in addition to the stellar population spectrum.
+        moments : int
+            Number of moments in the Gauss-Hermite polynomial. A simple Gaussian would be 2.
 
         Returns
         -------
+        pp
+            pPXF output object.
+
+        See Also
+        --------
+        ppxf, ppxf_util
         """
 
         self.mask = mask
@@ -372,8 +401,6 @@ class Fit(object):
         fig = plt.figure(1)
         plt.clf()
         ax = fig.add_subplot(111)
-
-        gp = self.good_pixels
 
         if self.mask is not None:
             for region in self.mask:
