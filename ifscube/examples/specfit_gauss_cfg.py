@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # local
 from ifscube import parser
-from ifscube.gmos import cube
+from ifscube.gmos import Cube
 
 if __name__ == '__main__':
-
     z = 0.0081
 
-    mycube = cube('ngc3081_cube.fits', redshift=z, var_ext=None, ncubes_ext=None)
+    mycube = Cube('ngc3081_cube.fits', redshift=z, var_ext=None, ncubes_ext=None)
 
     c = parser.LineFitParser('halpha_cube.cfg')
     linefit_args = c.get_vars()
