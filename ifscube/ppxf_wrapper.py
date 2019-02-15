@@ -164,15 +164,17 @@ def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, *
     else:
         mask = None
 
-    summed_flags = flags.sum(axis=0)
-    spatial_mask = np.array([summed_flags[i[0], i[1]] > 0.2 for i in xy])
+    if individual_spec is None:
+        summed_flags = flags.sum(axis=0)
+        spatial_mask = np.array([summed_flags[i[0], i[1]] / len(wavelength) > 0.2 for i in xy])
+        xy = xy[~spatial_mask]
 
     if verbose:
         # noinspection PyTypeChecker
-        iterator = tqdm.tqdm(xy[~spatial_mask], desc='pPXF fitting.', unit='spectrum')
+        iterator = tqdm.tqdm(xy, desc='pPXF fitting.', unit='spectrum')
     else:
         # noinspection PyTypeChecker
-        iterator = xy[~spatial_mask]
+        iterator = xy
 
     for h in iterator:
         i, j = h
