@@ -149,19 +149,15 @@ def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, *
 
     fit = Fit(fitting_window=fitting_window)
 
-    if verbose:
-        iterator = tqdm.tqdm(xy, desc='pPXF fitting.', unit='spectrum')
-    else:
-        iterator = xy
-
     fw = (cube.rest_wavelength >= fitting_window[0]) & (cube.rest_wavelength <= fitting_window[1])
-    spectrum_length = np.sum(fw)
+    wavelength = cube.rest_wavelength[fw]
+    spectrum_length = wavelength.size
 
     sol = np.zeros((4, np.shape(cube.data)[1], np.shape(cube.data)[2]), dtype='float64')
-    spec = np.zeros((spectrum_length, np.shape(cube.data)[1], np.shape(cube.data)[2]), dtype='float64')
-    model = np.zeros_like(spec)
-    noise = np.zeros_like(spec)
-    flags = np.zeros_like(spec)
+    data = cube.data[fw]
+    model = np.zeros_like(data)
+    noise = np.sqrt(cube.variance[fw])
+    flags = cube.flags[fw]
 
     if 'mask' in kwargs:
         mask = copy.deepcopy(kwargs['mask'])
@@ -169,26 +165,30 @@ def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, *
     else:
         mask = None
 
+    spatial_mask = (flags.sum(axis=0) / spectrum_length > 0.2).ravel()
+
+    if verbose:
+        iterator = tqdm.tqdm(xy[~spatial_mask], desc='pPXF fitting.', unit='spectrum')
+    else:
+        iterator = xy[~spatial_mask]
+
     for h in iterator:
         i, j = h
 
-        if ('noise' not in kwargs) and (cube.variance is not None):
-            kwargs['noise'] = np.sqrt(cube.variance[:, i, j])
+        if ('noise' not in kwargs) and ~np.all(noise[:, i, j] == 1.0):
+            kwargs['noise'] = noise[:, i, j]
 
         if (mask is not None) and (cube.flags is not None):
-            m = mask + spectools.flags_to_mask(cube.rest_wavelength, cube.flags[:, i, j])
+            m = mask + spectools.flags_to_mask(wavelength, flags[:, i, j])
         elif cube.flags is not None:
-            m = spectools.flags_to_mask(cube.rest_wavelength, cube.flags[:, i, j])
+            m = spectools.flags_to_mask(wavelength, flags[:, i, j])
             if not m:
                 m = None
         else:
             m = None
 
-        if np.sum(cube.flags[fw, i, j]) / spectrum_length > 0.5:
-            Warning('Skipping spectrum ({:d}, {:d}).'.format(j, i))
-            continue
-
-        pp = fit.fit(cube.rest_wavelength, cube.data[:, i, j], mask=m, **kwargs)
+        pp = fit.fit(wavelength, data[:, i, j], mask=m, **kwargs)
+        kwargs.pop('noise')
 
         if vor is not None:
 
@@ -199,34 +199,22 @@ def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, *
 
             for l, m in np.column_stack([same_bin_y, same_bin_x]):
                 sol[:, l, m] = pp.sol
-                spec[:, l, m] = np.interp(
-                    cube.rest_wavelength[fw], fit.obs_wavelength, pp.galaxy * fit.normalization_factor
-                )
-                model[:, l, m] = np.interp(
-                    cube.rest_wavelength[fw], fit.obs_wavelength, pp.bestfit * fit.normalization_factor
-                )
-                noise[:, l, m] = np.sqrt(cube.variance[fw, l, m])
-                flags[:, l, m] = cube.flags[fw, l, m]
+                data[:, l, m] = np.interp(wavelength, fit.obs_wavelength, pp.galaxy * fit.normalization_factor)
+                model[:, l, m] = np.interp(wavelength, fit.obs_wavelength, pp.bestfit * fit.normalization_factor)
 
         else:
             sol[:, i, j] = pp.sol
-            spec[:, i, j] = np.interp(
-                cube.rest_wavelength[fw], fit.obs_wavelength, pp.galaxy * fit.normalization_factor
-            )
-            model[:, i, j] = np.interp(
-                cube.rest_wavelength[fw], fit.obs_wavelength, pp.bestfit * fit.normalization_factor
-            )
-            noise[:, i, j] = np.sqrt(cube.variance[fw, i, j])
-            flags[:, i, j] = cube.flags[fw, i, j]
+            data[:, i, j] = np.interp(wavelength, fit.obs_wavelength, pp.galaxy * fit.normalization_factor)
+            model[:, i, j] = np.interp(wavelength, fit.obs_wavelength, pp.bestfit * fit.normalization_factor)
 
     output = copy.deepcopy(cube)
 
-    output.data = spec
+    output.data = data
     output.stellar = model
     output.flags = flags
     output.variance = np.square(noise)
     output.ppxf_sol = sol
-    output.rest_wavelength = cube.rest_wavelength[fw]
+    output.rest_wavelength = wavelength
 
     return output
 
