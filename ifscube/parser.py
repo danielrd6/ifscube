@@ -71,10 +71,10 @@ class ConstraintParser:
 
         for c in self.expr.split(' '):
 
-            if any([i.isalpha() for i in c]):
-                variables += [c]
-            elif self.isnumber(c):
+            if self.isnumber(c):
                 numbers += [c]
+            elif any([i.isalpha() for i in c]):
+                variables += [c]
             elif self._what(c) == 'operator':
                 operators += [c]
             elif self._what(c) == 'container':
