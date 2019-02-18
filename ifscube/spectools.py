@@ -644,7 +644,7 @@ def specphotometry(spec, filt, intlims=(8, 13), coords='wavelength',
         return phot
 
 
-def w80eval(wl, spec, wl0, smooth=0, **min_args):
+def w80eval(wl, spec, wl0, smooth=0, **min_args) -> (float, float, float, np.ndarray, np.ndarray):
     """
     Evaluates the W80 parameter of a given emission fature.
 
@@ -682,19 +682,15 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args):
     # space.
 
     velocity = (wl * units.angstrom).to(
-        units.km / units.s, equivalencies=units.doppler_relativistic(wl0 * units.angstrom),
-    )
+        units.km / units.s, equivalencies=units.doppler_relativistic(wl0 * units.angstrom))
 
-    # Linearly interpolates spectrum in the velocity coordinates
     s = interp1d(velocity, spec)
 
-    # Normalized cumulative integral curve of the emission feature.
     cumulative = cumtrapz(spec, velocity, initial=0)
-    # cumulative /= cumulative.max()
     cumulative /= cumulative[-1]
 
     # This returns a function that will be used by the scipy.optimize.root
-    # routine below. There is a possibilty for smoothing the cumulative curve
+    # routine below. There is a possibility for smoothing the cumulative curve
     # after performing the integration, which might be useful for very noisy
     # data.
     def cumulative_fun(cumulative, d):
@@ -703,7 +699,6 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args):
 
     # In order to have a good initial guess, the code will find the
     # the Half-Width at Half Maximum (hwhm) of the specified feature.
-
     hwhm = None
     for i in np.linspace(0, velocity[-1]):
         if s(i) <= spec.max() / 2:
