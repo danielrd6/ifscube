@@ -1475,7 +1475,8 @@ class Cube:
 
         return gdata, gvar
 
-    def voronoi_binning(self, target_snr=10.0, write_fits=False, outfile=None, overwrite=False, plot=False, **kwargs):
+    def voronoi_binning(self, target_snr=10.0, write_fits=False, outfile=None, overwrite=False, plot=False,
+                        flag_threshold=0.5, **kwargs):
         """
         Applies Voronoi binning to the data cube, using Cappellari's Python implementation.
 
@@ -1493,12 +1494,19 @@ class Cube:
             as a root name, with '.bin' appended to it.
         overwrite : boolean
             Overwrites files with the same name given in 'outfile'.
+        flag_threshold : float
+            Bins with less than this fraction of unflagged pixels will be flagged.
         **kwargs: dict
             Arguments passed to voronoi_2d_binning.
 
         Returns
         -------
         Nothing.
+
+        Notes
+        -----
+        The output file contains two tables which outline the tesselation process. These are
+        stored in the extensions 'VOR' and 'VORPLUS'.
         """
 
         try:
@@ -1511,10 +1519,13 @@ class Cube:
 
         # Initializing the binned arrays as zeros.
         assert hasattr(self, 'data'), 'Could not access the data attribute of the Cube object.'
-        b_data = np.zeros(np.shape(self.data))
+        b_data = np.zeros_like(self.data)
 
         assert hasattr(self, 'variance'), 'Could not access the variance attribute of the Cube object.'
-        b_variance = np.zeros(np.shape(self.data))
+        b_variance = np.zeros_like(self.variance)
+
+        assert hasattr(self, 'flags'), 'Could not access the variance attribute of the Cube object.'
+        b_flags = np.zeros_like(self.flags)
 
         valid_spaxels = np.ravel(~np.isnan(self.signal) & ~np.isnan(self.noise))
 
@@ -1535,62 +1546,49 @@ class Cube:
             voronoi_2d_binning(x, y, signal, noise, target_snr, plot=plot, quiet=0, **kwargs)
         v = np.column_stack([y, x, bin_num])
 
-        # For every nan in the original cube, fill with nan the
-        # binned cubes.
+        # For every nan in the original cube, fill with nan the binned cubes.
         for i in [b_data, b_variance]:
             i[:, y_nan, x_nan] = np.nan
 
         for i in np.arange(bin_num.max() + 1):
-            samebin = v[:, 2] == i
-            samebin_coords = v[samebin, :2]
+            same_bin = v[:, 2] == i
+            same_bin_coordinates = v[same_bin, :2]
 
-            for k in samebin_coords:
-                # Storing the indexes in a variable to avoid typos in
-                # subsequent references to the same indexes.
-                #
-                # binned_idx represents the indexes of the new binned
-                # arrays, which are being created here.
-                #
-                # unbinned_idx represents the original cube indexes.
-
+            for k in same_bin_coordinates:
                 binned_idx = (Ellipsis, k[0], k[1])
-                unbinned_idx = (
-                    Ellipsis, samebin_coords[:, 0], samebin_coords[:, 1]
-                )
+                unbinned_idx = (Ellipsis, same_bin_coordinates[:, 0], same_bin_coordinates[:, 1])
 
-                # The binned spectra should be the sum of the
-                # flux densities.
                 b_data[binned_idx] = np.mean(self.data[unbinned_idx], axis=1)
-
-                # The resulting variance is defined as the sum
-                # of the original variance, such that the noise
-                # is the quadratic sum of the original noise.
                 b_variance[binned_idx] = np.mean(self.variance[unbinned_idx], axis=1)
+                b_flags[binned_idx] = (np.mean(self.variance[unbinned_idx], axis=1) >= flag_threshold).astype(int)
 
         if write_fits:
 
-            # Starting with the original data cube
-            hdulist = fits.open(self.fitsfile)
-            hdr = self.header
+            h = fits.HDUList()
+            hdu = fits.PrimaryHDU(header=self.header)
+            hdu.header['REDSHIFT'] = 0.0
+            hdu.name = 'PRIMARY'
+            hdu.header['REDSHIFT'] = (0.0, 'Redshift.')
+            hdu.header['VORBIN'] = (True, 'Processed by Voronoi binning?')
+            hdu.header['VORTSNR'] = (target_snr, 'Target SNR for Voronoi binning.')
+            h.append(hdu)
 
-            # Add a few new keywords to the header
-            try:
-                hdr['REDSHIFT'] = self.redshift
-            except KeyError:
-                hdr['REDSHIFT'] = (self.redshift,
-                                   'Redshift used in GMOSDC')
-            hdr['VORBIN'] = (True, 'Processed by Voronoi binning?')
-            hdr['VORTSNR'] = (target_snr, 'Target SNR for Voronoi binning.')
+            hdr = self.header_data
+            # noinspection PyTypeChecker
+            hdu = fits.ImageHDU(data=b_data, header=hdr)
+            hdu.name = 'SCI'
+            h.append(hdu)
 
-            hdulist[self.extension_names['primary']].header = hdr
+            # noinspection PyTypeChecker
+            hdu = fits.ImageHDU(data=b_variance, header=hdr)
+            hdu.name = 'VAR'
+            h.append(hdu)
 
-            # Storing the binned data in the HDUList
-            hdulist[self.extension_names['scidata']].data = b_data
-            if self.extension_names['variance'] is not None:
-                hdulist[self.extension_names['variance']].data = b_variance
+            # noinspection PyTypeChecker
+            hdu = fits.ImageHDU(data=b_flags, header=hdr)
+            hdu.name = 'FLAGS'
+            h.append(hdu)
 
-            # Write a FITS table with the description of the
-            # tesselation process.
             tbhdu = fits.BinTableHDU.from_columns(
                 [
                     fits.Column(name='xcoords', format='i8', array=x),
@@ -1600,8 +1598,7 @@ class Cube:
 
             tbhdu_plus = fits.BinTableHDU.from_columns(
                 [
-                    fits.Column(name='ubin', format='i8',
-                                array=np.unique(bin_num)),
+                    fits.Column(name='ubin', format='i8', array=np.unique(bin_num)),
                     fits.Column(name='xNode', format='F16.8', array=x_node),
                     fits.Column(name='yNode', format='F16.8', array=y_node),
                     fits.Column(name='xBar', format='F16.8', array=x_bar),
@@ -1610,13 +1607,13 @@ class Cube:
                     fits.Column(name='nPixels', format='i8', array=n_pixels),
                 ], name='VORPLUS')
 
-            hdulist.append(tbhdu)
-            hdulist.append(tbhdu_plus)
+            h.append(tbhdu)
+            h.append(tbhdu_plus)
 
             if outfile is None:
-                outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])
+                outfile = '{:s}bin.fits'.format(self.fitsfile.replace('.fits', '_vor.fits'))
 
-            hdulist.writeto(outfile, overwrite=overwrite)
+            h.writeto(outfile, overwrite=overwrite)
 
         self.binned_cube = b_data
 
@@ -1644,8 +1641,7 @@ class Cube:
                 specs = np.row_stack([specs, interp_spec(self.rest_wavelength)])
 
         else:
-            specs = np.row_stack(
-                [self.data[:, i, j] for i, j in unique_indices])
+            specs = np.row_stack([self.data[:, i, j] for i, j in unique_indices])
 
         return specs
 
