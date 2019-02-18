@@ -1,17 +1,11 @@
-# stdlib
-import copy
-
-# Third party
 import numpy as np
-from astropy.io import fits
 from astropy import wcs
+from astropy.io import fits
 
-# Local
 from . import datacube
 
 
 class Cube(datacube.Cube):
-
     """
     A class for dealing with data cubes, originally written to work
     with GMOS IFU.
@@ -83,9 +77,7 @@ class Cube(datacube.Cube):
             try:
                 redshift = self.header['REDSHIFT']
             except KeyError:
-                print(
-                    'WARNING! Redshift not given and not found in the image' +
-                    ' header. Using redshift = 0.')
+                print('WARNING! Redshift not given and not found in the image header. Using redshift = 0.')
                 redshift = 0.0
         self.rest_wavelength = self.wl / (1. + redshift)
 
@@ -107,8 +99,7 @@ class Cube(datacube.Cube):
             self.noise[self.nanSpaxels] = np.nan
             self.signal[self.nanSpaxels] = np.nan
 
-            self.noise[np.isinf(self.noise)] =\
-                self.signal[np.isinf(self.noise)]
+            self.noise[np.isinf(self.noise)] = self.signal[np.isinf(self.noise)]
         else:
             self.variance = np.ones_like(self.data)
 
@@ -142,174 +133,3 @@ class Cube(datacube.Cube):
         self.weights = np.zeros_like(self.data)
 
         self._set_spec_indices()
-
-    def voronoi_binning(self, target_snr=10.0, write_fits=False,
-                        outfile=None, clobber=False, writevortab=True,
-                        dataext=1):
-        """
-        Applies Voronoi binning to the data cube, using Cappellari's
-        Python implementation.
-
-        Parameters
-        ----------
-        target_snr : float
-            Desired signal to noise ratio of the binned pixels
-        write_fits : boolean
-            Writes a FITS image with the output of the binning.
-        outfile : string
-            Name of the output FITS file. If 'None' then the name of
-            the original FITS file containing the data cube will be used
-            as a root name, with '.bin' appended to it.
-        clobber : boolean
-            Overwrites files with the same name given in 'outfile'.
-        writevortab : boolean
-            Saves an ASCII table with the binning recipe.
-
-        Returns
-        -------
-        Nothing.
-        """
-
-        try:
-            from voronoi_2d_binning import voronoi_2d_binning
-        except ImportError:
-            raise ImportError(
-                'Could not find the voronoi_2d_binning module. '
-                'Please add it to your PYTHONPATH.')
-
-        if self.noise is None:
-            raise RuntimeError('This function requires prior execution of the snr_eval method.')
-
-        # Initializing the binned arrays as zeros.
-        try:
-            b_data = np.zeros(np.shape(self.data), dtype='float32')
-        except AttributeError as err:
-            err.args += (
-                'Could not access the data attribute of the gmosdc object.',)
-            raise err
-
-        try:
-            b_ncubes = np.zeros(np.shape(self.ncubes), dtype='float32')
-        except AttributeError as err:
-            err.args += (
-                'Could not access the ncubes attribute of the gmosdc object.',)
-            raise err
-
-        if self.noise_cube is None:
-            raise RuntimeError('Could not access the noise_cube attribute of the gmosdc object.')
-
-        b_noise = np.zeros(np.shape(self.noise_cube), dtype='float32')
-
-        valid_spaxels = np.ravel(~np.isnan(self.signal))
-
-        x = np.ravel(np.indices(np.shape(self.signal))[1])[valid_spaxels]
-        y = np.ravel(np.indices(np.shape(self.signal))[0])[valid_spaxels]
-
-        xnan = np.ravel(np.indices(np.shape(self.signal))[1])[~valid_spaxels]
-        ynan = np.ravel(np.indices(np.shape(self.signal))[0])[~valid_spaxels]
-
-        s, n = copy.deepcopy(self.signal), copy.deepcopy(self.noise)
-
-        s[s <= 0] = np.average(self.signal[self.signal > 0])
-        n[n <= 0] = np.average(self.signal[self.signal > 0]) * .5
-
-        signal, noise = np.ravel(s)[valid_spaxels], np.ravel(n)[valid_spaxels]
-
-        bin_num, x_node, y_node, x_bar, y_bar, sn, n_pixels, scale = \
-            voronoi_2d_binning(x, y, signal, noise, target_snr, plot=1, quiet=0)
-        v = np.column_stack([y, x, bin_num])
-
-        # For every nan in the original cube, fill with nan the
-        # binned cubes.
-        for i in [b_data, b_ncubes, b_noise]:
-            i[:, ynan, xnan] = np.nan
-
-        for i in np.arange(bin_num.max() + 1):
-            samebin = v[:, 2] == i
-            samebin_coords = v[samebin, :2]
-
-            for k in samebin_coords:
-
-                # Storing the indexes in a variable to avoid typos in
-                # subsequent references to the same indexes.
-                #
-                # binned_idx represents the indexes of the new binned
-                # arrays, which are being created here.
-                #
-                # unbinned_idx represents the original cube indexes.
-
-                binned_idx = (Ellipsis, k[0], k[1])
-                unbinned_idx = (
-                    Ellipsis, samebin_coords[:, 0], samebin_coords[:, 1]
-                )
-
-                # The binned spectra should be the average of the
-                # flux densities.
-                b_data[binned_idx] = np.average(
-                    self.data[unbinned_idx], axis=1)
-
-                # Ncubes must be the sum, since they represent how many
-                # original pixels have contributed to each pixel in the
-                # binned cube. In the unbinned data this is identical
-                # to the number of individual exposures that contribute
-                # to a given pixel.
-                b_ncubes[binned_idx] = np.sum(
-                    self.ncubes[unbinned_idx], axis=1)
-
-                # The resulting noise is defined as the quadratic sum
-                # of the original noise.
-                b_noise[binned_idx] = np.sqrt(np.sum(np.square(
-                    self.noise_cube[unbinned_idx]), axis=1))
-
-        if write_fits:
-
-            # Starting with the original data cube
-            hdulist = fits.open(self.fitsfile)
-            hdr = self.header
-
-            # Add a few new keywords to the header
-            try:
-                hdr['REDSHIFT'] = self.redshift
-            except KeyError:
-                hdr['REDSHIFT'] = (self.redshift,
-                                   'Redshift used in GMOSDC')
-            hdr['VORBIN'] = (True, 'Processed by Voronoi binning?')
-            hdr['VORTSNR'] = (target_snr, 'Target SNR for Voronoi binning.')
-
-            hdulist[self.hdrext].header = hdr
-
-            # Storing the binned data in the HDUList
-            hdulist[self.dataext].data = b_data
-            hdulist[self.var_ext].data = b_noise
-            hdulist[self.ncubes_ext].data = b_ncubes
-
-            # Write a FITS table with the description of the
-            # tesselation process.
-            tbhdu = fits.BinTableHDU.from_columns(
-                [
-                    fits.Column(name='xcoords', format='i8', array=x),
-                    fits.Column(name='ycoords', format='i8', array=y),
-                    fits.Column(name='binNum', format='i8', array=bin_num),
-                ], name='VOR')
-
-            tbhdu_plus = fits.BinTableHDU.from_columns(
-                [
-                    fits.Column(name='ubin', format='i8',
-                                array=np.unique(bin_num)),
-                    fits.Column(name='xNode', format='F16.8', array=x_node),
-                    fits.Column(name='yNode', format='F16.8', array=y_node),
-                    fits.Column(name='xBar', format='F16.8', array=x_bar),
-                    fits.Column(name='yBar', format='F16.8', array=y_bar),
-                    fits.Column(name='sn', format='F16.8', array=sn),
-                    fits.Column(name='nPixels', format='i8', array=n_pixels),
-                ], name='VORPLUS')
-
-            hdulist.append(tbhdu)
-            hdulist.append(tbhdu_plus)
-
-            if outfile is None:
-                outfile = '{:s}bin.fits'.format(self.fitsfile[:-4])
-
-            hdulist.writeto(outfile, clobber=clobber)
-
-        self.binned_cube = b_data
