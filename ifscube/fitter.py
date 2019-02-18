@@ -98,7 +98,7 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
         elif cubetype == 'manga':
             a = manga.cube(fname, **loading)
         elif cubetype == 'gmos':
-            a = gmos.cube(fname, **loading)
+            a = gmos.Cube(fname, **loading)
 
     elif fit_type == 'spec':
 
