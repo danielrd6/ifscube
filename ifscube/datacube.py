@@ -1561,9 +1561,7 @@ class Cube:
 
             h = fits.HDUList()
             hdu = fits.PrimaryHDU(header=self.header)
-            hdu.header['REDSHIFT'] = 0.0
             hdu.name = 'PRIMARY'
-            hdu.header['REDSHIFT'] = (0.0, 'Redshift.')
             hdu.header['VORBIN'] = (True, 'Processed by Voronoi binning?')
             hdu.header['VORTSNR'] = (target_snr, 'Target SNR for Voronoi binning.')
             h.append(hdu)
