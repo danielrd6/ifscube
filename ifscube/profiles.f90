@@ -69,7 +69,7 @@ subroutine gaussvel(x, rest_wl, p, y, n, np)
     j = 0
     do i=0, (np-1), 3
         lam_ratio = (x / rest_wl(j)) ** 2
-        vel = c * (1.0 - lam_ratio) / (1.0 + lam_ratio)
+        vel = c * (lam_ratio - 1.0) / (lam_ratio + 1.0)
 
         a = p(i)
         v0 = p(i+1)
@@ -106,7 +106,7 @@ subroutine gausshermitevel(x, rest_wl, p, y, n, np)
         ! Always use integer exponents, as it increases performance
         ! and has no impact on precision
         lam_ratio = (x / rest_wl(j))**2
-        vel = c * (1.0 - lam_ratio) / (1.0 + lam_ratio)
+        vel = c * (lam_ratio - 1.0) / (lam_ratio + 1.0)
 
         a = p(i)
         v0 = p(i+1)
