@@ -38,6 +38,7 @@ class Cube:
         self.fit_func = None
         self.fit_info = None
         self.fit_status = None
+        self.fit_wavelength = None
         self.fit_x0 = None
         self.fit_y0 = None
         self.fitbounds = None
@@ -45,7 +46,6 @@ class Cube:
         self.fitspec = None
         self.fitstellar = None
         self.fitweights = None
-        self.fit_wavelength = None
         self.flags = None
         self.header = None
         self.initial_guess = None
@@ -515,7 +515,7 @@ class Cube:
 
         return c
 
-    def snr_eval(self, wl_range=(6050, 6200), copts=None):
+    def snr_eval(self, wl_range=(6050, 6200), continuum_options=None):
         """Measures the signal to noise ratio (SNR) for each spectrum in a data cube, returning an image of the SNR.
 
         This method evaluates the SNR for each spectrum in a data cube by measuring the residuals
@@ -524,12 +524,10 @@ class Cube:
 
         Parameters
         -----------
-        self : gmosdc instance
-            gmosdc object
         wl_range : array like
             An array like object containing two wavelength coordinates
             that define the SNR window at the rest frame.
-        copts : dictionary
+        continuum_options : dictionary
             Options for the continuum fitting function.
 
         Returns
@@ -538,39 +536,39 @@ class Cube:
             Image of the SNR for each spectrum.
         """
 
-        snrwindow = (self.rest_wavelength >= wl_range[0]) & (self.rest_wavelength <= wl_range[1])
+        snr_window = (self.rest_wavelength >= wl_range[0]) & (self.rest_wavelength <= wl_range[1])
 
         # FIXME: This is only here because I am always setting
         # a variance attribute, when it really shouldn't be.
         # The correct behaviour should be to check if variance is set.
         # if hasattr(self, 'variance'):
         if not np.all(self.variance == 1.):
-            noise = np.nanmean(np.sqrt(self.variance[snrwindow, :, :]), axis=0)
-            signal = np.nanmean(self.data[snrwindow, :, :], axis=0)
+            noise = np.nanmean(np.sqrt(self.variance[snr_window, :, :]), axis=0)
+            signal = np.nanmean(self.data[snr_window, :, :], axis=0)
 
         else:
             noise = np.zeros(np.shape(self.data)[1:])
             signal = np.zeros(np.shape(self.data)[1:])
             data = deepcopy(self.data)
 
-            wl = self.restwl[snrwindow]
+            wl = self.rest_wavelength[snr_window]
 
-            if copts is None:
-                copts = {'niterate': 0, 'degr': 3, 'upper_threshold': 3, 'lower_threshold': 3, 'returns': 'function'}
+            if continuum_options is None:
+                continuum_options = {'niterate': 0, 'degr': 1, 'upper_threshold': 3, 'lower_threshold': 3, 'returns': 'function'}
             else:
-                copts['returns'] = 'function'
+                continuum_options['returns'] = 'function'
 
             for i, j in self.spec_indices:
-                if any(data[snrwindow, i, j]) and all(~np.isnan(data[snrwindow, i, j])):
-                    s = data[snrwindow, i, j]
-                    cont = spectools.continuum(wl, s, **copts)[1]
+                if any(data[snr_window, i, j]) and all(~np.isnan(data[snr_window, i, j])):
+                    s = data[snr_window, i, j]
+                    cont = spectools.continuum(wl, s, **continuum_options)[1]
                     noise[i, j] = np.nanstd(s - cont)
                     signal[i, j] = np.nanmean(cont)
                 else:
                     noise[i, j], signal[i, j] = np.nan, np.nan
 
-            signal[signal == 0.0] = np.nan
-            noise[noise == 0.0] = np.nan
+        signal[signal == 0.0] = np.nan
+        noise[(noise == 0.0) | (noise == 1.0)] = np.nan
 
         self.noise = noise
         self.signal = signal
@@ -1140,8 +1138,6 @@ class Cube:
 
             # Wavelength vector of the line fit
             fwl = self.fit_wavelength
-            # Rest wavelength vector of the whole data cube
-            # rwl = self.restwl
             # Center wavelength coordinate of the fit
             cwl = self.em_model[center_index, i, j]
             # Sigma of the fit
@@ -1480,7 +1476,8 @@ class Cube:
         return gdata, gvar
 
     def voronoi_binning(self, target_snr=10.0, write_fits=False, outfile=None, overwrite=False, plot=False, **kwargs):
-        """Applies Voronoi binning to the data cube, using Cappellari's Python implementation.
+        """
+        Applies Voronoi binning to the data cube, using Cappellari's Python implementation.
 
         Parameters
         ----------
@@ -1519,7 +1516,7 @@ class Cube:
         assert hasattr(self, 'variance'), 'Could not access the variance attribute of the Cube object.'
         b_variance = np.zeros(np.shape(self.data))
 
-        valid_spaxels = np.ravel(~np.isnan(self.signal))
+        valid_spaxels = np.ravel(~np.isnan(self.signal) & ~np.isnan(self.noise))
 
         x = np.ravel(np.indices(np.shape(self.signal))[1])[valid_spaxels]
         y = np.ravel(np.indices(np.shape(self.signal))[0])[valid_spaxels]
@@ -1535,8 +1532,7 @@ class Cube:
         signal, noise = np.ravel(s)[valid_spaxels], np.ravel(n)[valid_spaxels]
 
         bin_num, x_node, y_node, x_bar, y_bar, sn, n_pixels, scale = \
-            voronoi_2d_binning(
-                x, y, signal, noise, target_snr, plot=plot, quiet=0, **kwargs)
+            voronoi_2d_binning(x, y, signal, noise, target_snr, plot=plot, quiet=0, **kwargs)
         v = np.column_stack([y, x, bin_num])
 
         # For every nan in the original cube, fill with nan the
