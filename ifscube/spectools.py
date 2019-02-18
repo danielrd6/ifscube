@@ -17,7 +17,7 @@ import numpy as np
 from astropy import units
 from scipy.integrate import trapz, quad, cumtrapz
 from scipy.interpolate import interp1d, UnivariateSpline
-from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import gaussian_filter
 from scipy.optimize import curve_fit, minimize, root
 
 
@@ -680,7 +680,6 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args) -> (float, float, float, np.nda
 
     # First we begin by transforming from wavelength space to velocity
     # space.
-
     velocity = (wl * units.angstrom).to(
         units.km / units.s, equivalencies=units.doppler_relativistic(wl0 * units.angstrom))
 
@@ -694,14 +693,14 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args) -> (float, float, float, np.nda
     # after performing the integration, which might be useful for very noisy
     # data.
     def cumulative_fun(cumulative, d):
-        c = gaussian_filter1d(cumulative, smooth, mode='constant')
+        c = gaussian_filter(cumulative, smooth, mode='constant')
         return interp1d(velocity, c - d, bounds_error=False)
 
     # In order to have a good initial guess, the code will find the
     # the Half-Width at Half Maximum (hwhm) of the specified feature.
     hwhm = None
     for i in np.linspace(0, velocity[-1]):
-        if s(i) <= spec.max() / 2:
+        if s(i) <= (spec.max() / 2):
             hwhm = i
             break
 
@@ -715,7 +714,7 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args) -> (float, float, float, np.nda
     # numpy.nan when such events occur.
 
     velocity_spectrum = s(velocity)
-    if hwhm is None:
+    if hwhm is not None:
         # Finds the velocity of the 10-percentile
         r0 = root(cumulative_fun(cumulative, .1), - hwhm).x
         # Finds the velocity of the 90-percentile
