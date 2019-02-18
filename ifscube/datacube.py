@@ -1168,6 +1168,8 @@ class Cube:
                 # here is to remove the undesired components from the
                 # observed spectrum.
                 if remove_components is not None:
+                    if remove_components == 'all':
+                        remove_components = [i for i in range(len(self.feature_wl)) if i != component]
                     for component in remove_components:
                         ci = component * npars
                         obs_spec -= self.fit_func(
