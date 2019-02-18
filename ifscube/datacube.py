@@ -554,7 +554,8 @@ class Cube:
             wl = self.rest_wavelength[snr_window]
 
             if continuum_options is None:
-                continuum_options = {'niterate': 0, 'degr': 1, 'upper_threshold': 3, 'lower_threshold': 3, 'returns': 'function'}
+                continuum_options = {
+                    'niterate': 0, 'degr': 1, 'upper_threshold': 3, 'lower_threshold': 3, 'returns': 'function'}
             else:
                 continuum_options['returns'] = 'function'
 
@@ -1004,7 +1005,7 @@ class Cube:
             self._write_linefit(args=locals())
 
         if individual_spec:
-            return (spec.fitwl, spec.fitspec, spec.fitcont, spec.resultspec, spec.r)
+            return spec.fitwl, spec.fitspec, spec.fitcont, spec.resultspec, spec.r
         else:
             return sol
 
@@ -1100,8 +1101,7 @@ class Cube:
 
         fit_file.close()
 
-    def w80(self, component, sigma_factor=5, individual_spec=False,
-            verbose=False, smooth=0, remove_components=()):
+    def w80(self, component, sigma_factor=5, individual_spec=False, verbose=False, smooth=0, remove_components=None):
 
         if individual_spec:
             # The reflaction of the *individual_spec* iterable puts the
@@ -1114,9 +1114,9 @@ class Cube:
         w80_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
         w80_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
 
-        if self.fit_func == lprof.gauss:
+        if (self.fit_func == lprof.gauss) or (self.fit_func == lprof.gaussvel):
             npars = 3
-        elif self.fit_func == lprof.gausshermite:
+        elif (self.fit_func == lprof.gausshermite) or (self.fit_func == lprof.gausshermitevel):
             npars = 5
         else:
             raise Exception("Line profile function not understood.")
@@ -1127,9 +1127,7 @@ class Cube:
         sigma_index = 2 + npars * component
 
         if center_index > self.em_model.shape[0]:
-            raise RuntimeError(
-                'Specified component number is higher than the total number '
-                'of components.')
+            raise RuntimeError('Specified component number is higher than the total number of components.')
 
         for i, j in xy:
 
@@ -1139,9 +1137,9 @@ class Cube:
             # Wavelength vector of the line fit
             fwl = self.fit_wavelength
             # Center wavelength coordinate of the fit
-            cwl = self.em_model[center_index, i, j]
+            cwl = (self.em_model[center_index, i, j] / 2.998e+5 + 1.0) * self.feature_wl[component]
             # Sigma of the fit
-            sig = self.em_model[sigma_index, i, j]
+            sig = (self.em_model[sigma_index, i, j] / 2.998e+5) * self.feature_wl[component]
             # Just a short alias for the sigma_factor parameter
             sf = sigma_factor
 
@@ -1156,9 +1154,7 @@ class Cube:
             else:
 
                 cond = (fwl > cwl - sf * sig) & (fwl < cwl + sf * sig)
-
-                fit = self.fit_func(
-                    fwl[cond], self.em_model[par_indexes, i, j])
+                fit = self.fit_func(fwl[cond], self.feature_wl[component], self.em_model[par_indexes, i, j])
                 obs_spec = deepcopy(self.fitspec[cond, i, j])
 
                 cont = self.fitcont[cond, i, j]
@@ -1171,12 +1167,11 @@ class Cube:
                 # between neighbouring spectral features. The solution
                 # here is to remove the undesired components from the
                 # observed spectrum.
-                if len(remove_components) > 0:
+                if remove_components is not None:
                     for component in remove_components:
                         ci = component * npars
                         obs_spec -= self.fit_func(
-                            fwl[cond], self.em_model[ci:ci + npars, i, j],
-                        )
+                            fwl[cond], self.feature_wl[component], self.em_model[ci:ci + npars, i, j])
                 # And now for the actual W80 evaluation.
                 w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(fwl[cond], obs_spec - cont, cwl, smooth=smooth)
 
@@ -1185,10 +1180,7 @@ class Cube:
                     print('W80 model: {:.2f} km/s'.format(w80_model[i, j]))
                     print('W80 direct: {:.2f} km/s'.format(w80_direct[i, j]))
 
-                    p = [
-                        [m0, m1, mv, ms],
-                        [d0, d1, dv, ds],
-                    ]
+                    p = [[m0, m1, mv, ms], [d0, d1, dv, ds]]
 
                     ifsplots.w80(p)
 
@@ -1525,7 +1517,7 @@ class Cube:
         b_variance = np.zeros_like(self.variance)
 
         assert hasattr(self, 'flags'), 'Could not access the variance attribute of the Cube object.'
-        b_flags = np.zeros_like(self.flags)
+        b_flags = np.zeros_like(self.flags, dtype=int)
 
         valid_spaxels = np.ravel(~np.isnan(self.signal) & ~np.isnan(self.noise))
 
@@ -1547,8 +1539,9 @@ class Cube:
         v = np.column_stack([y, x, bin_num])
 
         # For every nan in the original cube, fill with nan the binned cubes.
-        for i in [b_data, b_variance]:
-            i[:, y_nan, x_nan] = np.nan
+        b_data[:, y_nan, x_nan] = np.nan
+        b_variance[:, y_nan, x_nan] = np.nan
+        b_flags[:, y_nan, x_nan] = 1
 
         for i in np.arange(bin_num.max() + 1):
             same_bin = v[:, 2] == i
@@ -1560,7 +1553,7 @@ class Cube:
 
                 b_data[binned_idx] = np.mean(self.data[unbinned_idx], axis=1)
                 b_variance[binned_idx] = np.mean(self.variance[unbinned_idx], axis=1)
-                b_flags[binned_idx] = (np.mean(self.variance[unbinned_idx], axis=1) >= flag_threshold).astype(int)
+                b_flags[binned_idx] = (np.mean(self.flags[unbinned_idx], axis=1) >= flag_threshold).astype(int)
 
         if write_fits:
 
