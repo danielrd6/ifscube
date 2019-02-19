@@ -1513,10 +1513,12 @@ class Cube:
 
         # Initializing the binned arrays as zeros.
         assert hasattr(self, 'data'), 'Could not access the data attribute of the Cube object.'
-        b_data = np.zeros_like(self.data)
+        b_data = ma.zeros(self.data.shape)
+        b_data.mask = self.flags.astype(bool)
 
         assert hasattr(self, 'variance'), 'Could not access the variance attribute of the Cube object.'
-        b_variance = np.zeros_like(self.variance)
+        b_variance = ma.zeros(self.variance.shape)
+        b_variance.mask = self.flags.astype(bool)
 
         assert hasattr(self, 'flags'), 'Could not access the variance attribute of the Cube object.'
         b_flags = np.zeros_like(self.flags, dtype=int)
@@ -1525,9 +1527,6 @@ class Cube:
 
         x = np.ravel(np.indices(np.shape(self.signal))[1])[valid_spaxels]
         y = np.ravel(np.indices(np.shape(self.signal))[0])[valid_spaxels]
-
-        x_nan = np.ravel(np.indices(np.shape(self.signal))[1])[~valid_spaxels]
-        y_nan = np.ravel(np.indices(np.shape(self.signal))[0])[~valid_spaxels]
 
         s, n = deepcopy(self.signal), deepcopy(self.noise)
 
@@ -1541,9 +1540,12 @@ class Cube:
         v = np.column_stack([y, x, bin_num])
 
         # For every nan in the original cube, fill with nan the binned cubes.
-        b_data[:, y_nan, x_nan] = np.nan
-        b_variance[:, y_nan, x_nan] = np.nan
-        b_flags[:, y_nan, x_nan] = 1
+        nan_idx = (Ellipsis,
+                   np.ravel(np.indices(np.shape(self.signal))[0])[~valid_spaxels],
+                   np.ravel(np.indices(np.shape(self.signal))[1])[~valid_spaxels])
+        b_data[nan_idx] = np.nan
+        b_variance[nan_idx] = np.nan
+        b_flags[nan_idx] = 1
 
         for i in np.arange(bin_num.max() + 1):
             same_bin = v[:, 2] == i
@@ -1553,9 +1555,12 @@ class Cube:
                 binned_idx = (Ellipsis, k[0], k[1])
                 unbinned_idx = (Ellipsis, same_bin_coordinates[:, 0], same_bin_coordinates[:, 1])
 
-                b_data[binned_idx] = np.mean(self.data[unbinned_idx], axis=1)
-                b_variance[binned_idx] = np.mean(self.variance[unbinned_idx], axis=1)
+                b_data[binned_idx] = ma.mean(self.data[unbinned_idx], axis=1)
+                b_variance[binned_idx] = ma.mean(self.variance[unbinned_idx], axis=1)
                 b_flags[binned_idx] = (np.mean(self.flags[unbinned_idx], axis=1) >= flag_threshold).astype(int)
+
+        b_data = b_data.data
+        b_variance = b_variance.data
 
         if write_fits:
 
