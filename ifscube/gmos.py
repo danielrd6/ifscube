@@ -114,7 +114,7 @@ class Cube(datacube.Cube):
         else:
             self.ncubes = np.ones_like(self.data)
 
-        self.flags = np.zeros_like(self.data)
+        self.flags = np.zeros_like(self.data, dtype=int)
         self.ncubes[np.isnan(self.ncubes)] = 0
         self.flags[self.ncubes <= 0] = 1
 
