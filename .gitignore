@@ -36,6 +36,7 @@ ifscube/examples/ngc3081_fit.fits
 ifscube/examples/ngc3081_cube.bin.ppxf.fits
 ifscube/examples/ngc3081_cube.bin.fits
 ifscube/examples/ngc3081_cube.bin_ppxf.fits
+ifscube/examples/ngc3081_cube_vor.fitsbin.fits
 ifscube/examples/ngc6300_nuc_linefit.fits
 ifscube/examples/plot_profile.py
 

@@ -1188,8 +1188,7 @@ class Cube:
 
         return np.array([w80_model, w80_direct])
 
-    def plotfit(self, x=None, y=None, show=True, axis=None,
-                output='stdout'):
+    def plotfit(self, x=None, y=None, show=True, axis=None, output='stdout'):
         """
         Plots the spectrum and features just fitted.
 
@@ -1235,6 +1234,7 @@ class Cube:
         f = self.fit_func
         s = self.fitspec[:, y, x]
         star = self.fitstellar[:, y, x]
+        flags = self.flags[:, y, x]
 
         assert np.any(s), 'Spectrum is null.'
         median_spec = np.median(s)
@@ -1244,6 +1244,10 @@ class Cube:
             norm_factor = 10.0 ** norm_factor_d
         else:
             return ax
+
+        mask = spectools.flags_to_mask(wl, flags)
+        for i in mask:
+            ax.axvspan(i[0], i[1], color='grey', alpha=0.1)
 
         ax.plot(wl, s / norm_factor)
         ax.plot(wl, star / norm_factor)
@@ -1259,10 +1263,7 @@ class Cube:
 
         if len(p) > npars:
             for i in np.arange(0, len(p), npars):
-                modeled_spec = (
-                                       c + star
-                                       + f(wl, rest_wl[int(i / npars)], pp[i: i + npars])) \
-                               / norm_factor
+                modeled_spec = (c + star + f(wl, rest_wl[int(i / npars)], pp[i: i + npars])) / norm_factor
                 ax.plot(wl, modeled_spec, 'k--')
 
         # NOTE: This is only here for backwards compatibility with
