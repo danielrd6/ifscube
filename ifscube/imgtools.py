@@ -1,19 +1,13 @@
-# STDLIB
 import copy
 
-# THIRD PARTY
 import numpy as np
 from numpy import ma
 from scipy.optimize import minimize
-
-# LOCAL
 
 
 def gauss2d(x, y, p):
     """
     Returns a 2-dimensional gaussian function, following the equation
-
-
 
     Parameters
     ----------
@@ -22,7 +16,7 @@ def gauss2d(x, y, p):
         of interest.
     p: list
         Parameters of the gaussian function in the following order:
-        [a,b,x0,y0,sx,sy]
+        [a, b, x0, y0, sx, sy]
 
     Returns
     -------
@@ -34,25 +28,25 @@ def gauss2d(x, y, p):
     g(x, y) = a * exp(-(x-x0)**2/(2 * sx**2) - (y-y0)**2/(2 * sy**2))
     """
 
-    A, B, x0, y0, sx, sy, t = p
+    amplitude, background, x0, y0, sx, sy, t = p
 
-    a = np.cos(t)**2 / 2 / sx**2 + np.sin(t)**2 / 2 / sy**2
-    b = -np.sin(2 * t) / 4 / sx**2 + np.sin(2 * t) / 4 / sy**2
-    c = np.sin(t)**2 / 2 / sx**2 + np.cos(t)**2 / 2 / sy**2
+    a = np.cos(t) ** 2 / 2 / sx ** 2 + np.sin(t) ** 2 / 2 / sy ** 2
+    b = -np.sin(2 * t) / 4 / sx ** 2 + np.sin(2 * t) / 4 / sy ** 2
+    c = np.sin(t) ** 2 / 2 / sx ** 2 + np.cos(t) ** 2 / 2 / sy ** 2
 
-    g = A * \
+    g = amplitude * \
         np.exp(
             - (
-                a * (x - x0)**2 + 2. * b * (x - x0) * (y - y0)
-                + c * (y - y0)**2)
-        ) + B
+                    a * (x - x0) ** 2 + 2. * b * (x - x0) * (y - y0)
+                    + c * (y - y0) ** 2)
+        ) + background
 
     return g
 
 
 def match_mosaic(img, method="2dgaussian"):
     """
-    Attempts to match diferent parts of an image mosaic based on
+    Attempts to match different parts of an image mosaic based on
     the assumption of a smooth distribution of surface brightness.
 
     Parameters
@@ -72,55 +66,78 @@ def match_mosaic(img, method="2dgaussian"):
     sol : numpy.ndarray
         Array containing the ratio image that best corrects for
         discrepancies in the flux of the mosaic.
+    r : minimize.optimize.OptimizeResult
+        Optimization result.
+
+    See Also
+    --------
+    scipy.optimize.minimize
 
     """
 
     im = copy.deepcopy(img)
-    sol = im * 0.0
 
     if method == "2dgaussian":
         scale_factor = np.nanmean(im)
         im /= scale_factor
 
         p0 = np.zeros(7)
-        p0[0] = im[~np.isnan(im)].max()     # gaussian amplitude
-        p0[1] = 0                           # background level
+        p0[0] = im[~np.isnan(im)].max()  # gaussian amplitude
+        p0[1] = 0  # background level
         p0[2:4] = np.array(np.shape(im)) / 2  # center
-        p0[4:6] = p0[2:4] / 2                 # sigma
-        p0[6] = 0                           # position angle
+        p0[4:6] = p0[2:4] / 2  # sigma
+        p0[6] = 0  # position angle
 
         x, y = np.indices(np.shape(im))
 
         def res(p):
-            r = np.sum(
-                (im[~np.isnan(im)] - gauss2d(x, y, p)[~np.isnan(im)]) ** 2
-            )
-            return r
+            residual = np.sum((im[~np.isnan(im)] - gauss2d(x, y, p)[~np.isnan(im)]) ** 2)
+            return residual
 
         r = minimize(res, x0=p0, method='slsqp', options={'disp': True})
 
         sol = im / gauss2d(x, y, r['x'])
 
+    else:
+        raise NotImplementedError('Other methods are not yet implemented.')
+
     return sol, r
 
 
 def pixel_distance(x, y, x0=0, y0=0):
-
     r = np.sqrt(np.square(x - x0) + np.square(y - y0))
 
     return r
 
 
 def rebin(arr, xbin, ybin, combine='sum', mask=None):
+    """
+    Re-samples images or data cubes spatially.
 
-    assert combine in ['sum', 'mean'],\
-        'The combine parameter must be "sum" or "mean".'
+    Parameters
+    ----------
+    arr : numpy.ndarray
+        Input data to be re-sampled.
+    xbin, ybin : int
+        Re-sampling factor in the horizontal and vertical directions.
+    combine : str
+        Type of combination. Can be one of
+            - sum : add the data in each bin
+            - mean : averages the data in each bin
+    mask : numpy.ndarray
+        Array of the same shape of *arr* in which masked elements are
+        evaluated as True.
+
+    Returns
+    -------
+    new : numpy.ndarray
+        Resulting re-sampled image or data cube.
+    """
+
+    assert combine in ['sum', 'mean'], 'The combine parameter must be "sum" or "mean".'
 
     old_shape = copy.copy(arr.shape)
-    new_shape = (
-        int(np.ceil(old_shape[0] / ybin)),
-        int(np.ceil(old_shape[1] / xbin)),
-    )
+    new_shape = (int(np.ceil(old_shape[0] / ybin)), int(np.ceil(old_shape[1] / xbin)))
 
     new = np.zeros(new_shape)
 
@@ -129,13 +146,13 @@ def rebin(arr, xbin, ybin, combine='sum', mask=None):
     else:
         data = ma.array(data=arr)
 
-    def combSum(x, i, j):
-        return x[i * ybin:(i + 1) * ybin, j * xbin:(j + 1) * xbin].sum()
+    def comb_sum(x, m, n):
+        return x[m * ybin:(m + 1) * ybin, n * xbin:(n + 1) * xbin].sum()
 
-    def combAvg(x, i, j):
-        return x[i * ybin:(i + 1) * ybin, j * xbin:(j + 1) * xbin].mean()
+    def comb_avg(x, m, n):
+        return x[m * ybin:(m + 1) * ybin, n * xbin:(n + 1) * xbin].mean()
 
-    comb_fun = dict(sum=combSum, mean=combAvg)
+    comb_fun = dict(sum=comb_sum, mean=comb_avg)
 
     for i in range(new_shape[0]):
         for j in range(new_shape[1]):
@@ -145,7 +162,32 @@ def rebin(arr, xbin, ybin, combine='sum', mask=None):
 
 
 def image2slit(data, x0=None, y0=None, pa=0, slit_width=1):
+    """
+    Produces a virtual slit image out of a 2D image.
 
+    Parameters
+    ----------
+    data : numpy.ndarray
+        Input image.
+    x0, y0 : float
+        Center coordinates of the virtual slit.
+    pa : float
+        Position angle in degrees, with North being zero, and increasing
+        towards the east.
+    slit_width : float
+        Slit width in pixels.
+
+    Returns
+    -------
+    mask : numpy.ndarray
+        Masked used to generate the virtual slit.
+    slit_x, slit_y : numpy.ndarray
+        Horizontal and vertical coordinates of the slit.
+    slit_r : numpy.ndarray
+        Distance from the slit center.
+    slit_z : numpy.ndarray
+        Data values at the virtual slit positions.
+    """
     if not isinstance(data, ma.MaskedArray):
         data = ma.masked_invalid(data)
 
