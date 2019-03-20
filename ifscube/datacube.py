@@ -1234,7 +1234,10 @@ class Cube:
         f = self.fit_func
         s = self.fitspec[:, y, x]
         star = self.fitstellar[:, y, x]
-        flags = self.flags[:, y, x]
+        if self.flags is not None:
+            flags = self.flags[:, y, x]
+        else:
+            flags = np.zeros_like(self.fit_wavelength)
 
         assert np.any(s), 'Spectrum is null.'
         median_spec = np.median(s)
