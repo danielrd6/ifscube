@@ -718,7 +718,7 @@ class Cube:
             s = self.data[:, y, x]
 
         if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-            syn = np.average(np.average(self.stellarj[:, y[0]:y[1], x[0]:x[1]], 1), 1)
+            syn = np.average(np.average(self.stellar[:, y[0]:y[1], x[0]:x[1]], 1), 1)
         elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
             syn = np.average(self.stellar[:, y, x[0]:x[1]], 1)
         elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
