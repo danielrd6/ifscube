@@ -944,13 +944,10 @@ class Cube:
                 radsol = np.sqrt((yy - i) ** 2 + (xx - j) ** 2)
                 nearsol = sol[:-1, (radsol < refit_radius) & (self.fit_status == 0)]
 
-                if np.shape(nearsol) == (5, 1):
-                    p0 = deepcopy(nearsol.transpose())
-                elif np.any(nearsol):
-                    p0 = deepcopy(np.average(nearsol.transpose(), 0))
+                p0 = deepcopy(np.average(nearsol.transpose(), 0))
 
-                    if update_bounds:
-                        kwargs['bounds'] = cubetools.bound_updater(p0, bound_range, bounds=original_bounds)
+                if update_bounds:
+                    kwargs['bounds'] = cubetools.bound_updater(p0, bound_range, bounds=original_bounds)
 
             spec.linefit(p0, **kwargs)
 
