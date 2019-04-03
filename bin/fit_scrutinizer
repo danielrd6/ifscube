@@ -65,8 +65,12 @@ class mclass:
             for i in range(n_components):
                 l_component.insert('end', i)
 
-        self.fig = Figure(figsize=(6, 6))
-        self.fitplot = Figure(figsize=(12, 6))
+        if args.small_screen:
+            self.fig = Figure(figsize=(3, 3))
+            self.fitplot = Figure(figsize=(6, 3))
+        else:
+            self.fig = Figure(figsize=(6, 6))
+            self.fitplot = Figure(figsize=(12, 6))
         self.ax1 = self.fig.add_subplot(111)
         self.ax2 = self.fitplot.add_subplot(111)
 
@@ -246,6 +250,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--fitstatus_mask', help='Apply fit status mask.', action='store_true')
     parser.add_argument(
         '-s', '--single-spectrum', action='store_true', help='Use this option for one-dimensional spectra.')
+    parser.add_argument('--small-screen', action='store_true', help='Makes a small window for small screens.')
 
     args = parser.parse_args()
 
