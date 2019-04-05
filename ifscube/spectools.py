@@ -367,7 +367,7 @@ def continuum(x, y, output='ratio', degr=6, niterate=5,
         c[0]: numpy.ndarray
             Input x coordinates
         c[1]: numpy.ndarray
-            See parameter "returns".
+            See parameter "output".
 
     """
 
@@ -384,11 +384,9 @@ def continuum(x, y, output='ratio', degr=6, niterate=5,
 
         res = s(x) - f(x)
         sig = np.std(res)
-        rej_cond = (
-                (res < upper_threshold * sig) & (res > -lower_threshold * sig)
-        )
+        rej_cond = ((res < upper_threshold * sig) & (res > -lower_threshold * sig))
 
-        if (np.sum(rej_cond) <= degr):
+        if np.sum(rej_cond) <= degr:
             if verbose:
                 warnings.warn(
                     'Number of points lower than the polynomial degree. '
@@ -396,7 +394,7 @@ def continuum(x, y, output='ratio', degr=6, niterate=5,
                     'sig={:.2e}'.format(i, sig))
             break
 
-        if (np.sum(weights == 0.0) >= degr):
+        if np.sum(weights == 0.0) >= degr:
             if verbose:
                 warnings.warn(
                     'Number of non-zero values in weights vector is lower'

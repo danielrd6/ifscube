@@ -555,9 +555,9 @@ class Cube:
 
             if continuum_options is None:
                 continuum_options = {
-                    'niterate': 0, 'degr': 1, 'upper_threshold': 3, 'lower_threshold': 3, 'returns': 'function'}
+                    'niterate': 0, 'degr': 1, 'upper_threshold': 3, 'lower_threshold': 3, 'output': 'function'}
             else:
-                continuum_options['returns'] = 'function'
+                continuum_options['output'] = 'function'
 
             for i, j in self.spec_indices:
                 if any(data[snr_window, i, j]) and all(~np.isnan(data[snr_window, i, j])):
