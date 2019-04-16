@@ -227,7 +227,7 @@ class LineFitParser:
         self.cfg.read(fname)
 
         par_names = dict(
-            gaussian=('amplitude',  'velocity', 'sigma',),
+            gaussian=('amplitude', 'velocity', 'sigma',),
             gauss_hermite=(
                 'amplitude', 'velocity', 'sigma', 'h3', 'h4'),
         )
@@ -313,8 +313,8 @@ class LineFitParser:
             else:
                 try:
                     fit_opts[key] = self.cfg.getboolean('fit', key)
-                    assert fit_opts[key] is not True,\
-                        '*individual_spec* must be "peak", "cofm", "no" or a'\
+                    assert fit_opts[key] is not True, \
+                        '*individual_spec* must be "peak", "cofm", "no" or a' \
                         'pair of spaxel coordinates "x, y".'
                 except ValueError:
                     fit_opts[key] = tuple(
@@ -353,15 +353,19 @@ class LineFitParser:
     def _loading(self):
 
         if 'loading' in self.cfg.sections():
-            self.loading_opts = self._parse_dict(
-                section='loading',
-                float_args=('redshift',))
+            self.loading_opts = self._parse_dict(section='loading', float_args=('redshift',))
         else:
             self.loading_opts = {}
 
         for key in self.loading_opts.keys():
             if self.loading_opts[key] == 'None':
                 self.loading_opts[key] = None
+            else:
+                # NOTE: MEF extension specifications might be integers.
+                try:
+                    self.loading_opts[key] = int(self.loading_opts[key])
+                except ValueError:
+                    pass
 
         return
 
