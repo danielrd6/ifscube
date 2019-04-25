@@ -357,7 +357,10 @@ class LineFitParser:
         else:
             self.loading_opts = {}
 
-        for key in self.loading_opts.keys():
+        fits_extension_keys = list(self.loading_opts.keys())
+        fits_extension_keys.remove('redshift')
+
+        for key in fits_extension_keys:
             if self.loading_opts[key] == 'None':
                 self.loading_opts[key] = None
             else:
