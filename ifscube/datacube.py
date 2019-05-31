@@ -1160,6 +1160,7 @@ class Cube:
                 cont = self.fitcont[cond, i, j]
 
                 # Evaluates the W80 over the modeled emission line.
+                # noinspection PyTupleAssignmentBalance
                 w80_model[i, j], m0, m1, mv, ms = spectools.w80eval(fwl[cond], fit, cwl)
 
                 # Evaluating the W80 over the observed spectrum
@@ -1175,6 +1176,7 @@ class Cube:
                         obs_spec -= self.fit_func(
                             fwl[cond], self.feature_wl[component], self.em_model[ci:ci + npars, i, j])
                 # And now for the actual W80 evaluation.
+                # noinspection PyTupleAssignmentBalance
                 w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(fwl[cond], obs_spec - cont, cwl, smooth=smooth)
 
                 # Plots the fit when evaluating only one spectrum.
@@ -1452,6 +1454,7 @@ class Cube:
 
         while i < len(self.wl):
             tmp_data = cubetools.nan_to_nearest(self.data[i])
+            # noinspection PyTypeChecker
             tmp_var = cubetools.nan_to_nearest(self.noise_cube[i]) ** 2
 
             gdata[i] = gaussian_filter(tmp_data, sigma)
@@ -1613,7 +1616,7 @@ class Cube:
             h.append(tbhdu_plus)
 
             if outfile is None:
-                outfile = '{:s}bin.fits'.format(self.fitsfile.replace('.fits', '_vor.fits'))
+                outfile = self.fitsfile.replace('.fits', '_vor.fits')
 
             h.writeto(outfile, overwrite=overwrite)
 
