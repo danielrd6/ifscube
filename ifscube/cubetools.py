@@ -28,7 +28,7 @@ def peak_spaxel(cube):
 
 def nan_to_nearest(d):
     """
-    Replaces nan values with the valeu of the nearest pixel.
+    Replaces nan values with the value of the nearest pixel.
 
     Parameters
     ----------
