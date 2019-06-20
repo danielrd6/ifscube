@@ -458,9 +458,8 @@ class Cube:
 
         if self.binned:
             v = self.voronoi_tab
-            xy = np.column_stack([
-                v[np.unique(v['binNum'], return_index=True)[1]][coords]
-                for coords in ['xcoords', 'ycoords']])
+            xy = np.column_stack(
+                [v[np.unique(v['binNum'], return_index=True)[1]][coords] for coords in ['xcoords', 'ycoords']])
         else:
             v = None
             xy = self.spec_indices
@@ -473,16 +472,13 @@ class Cube:
 
         c = np.zeros_like(data)
 
-        # nspec = len(xy)
-
         if continuum_options is None:
-            continuum_options = {'degr': 3, 'upper_threshold': 2,
-                     'lower_threshold': 2, 'niterate': 5}
+            continuum_options = {'degr': 3, 'upper_threshold': 2, 'lower_threshold': 2, 'niterate': 5}
 
         try:
-            continuum_options['returns']
+            continuum_options['output']
         except KeyError:
-            continuum_options['returns'] = 'function'
+            continuum_options['output'] = 'function'
 
         for k, h in enumerate(xy):
             i, j = h
