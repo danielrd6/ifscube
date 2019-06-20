@@ -439,10 +439,21 @@ class Cube:
 
             h.writeto(file_name, overwrite=overwrite)
 
-    def continuum(self, writefits=False, outimage=None, fitting_window=None, copts=None):
+    def continuum(self, write_fits=False, output_image=None, fitting_window=None, continuum_options=None):
         """
         Evaluates a polynomial continuum for the whole cube and stores
         it in self.cont.
+
+        Parameters
+        ----------
+        write_fits : bool
+            Write the output in a FITS file
+        output_image : str
+            Name of the output FITS file.
+        fitting_window : list
+            A list containing the starting and ending wavelengths.
+        continuum_options : dict
+            Dictionary of continuum fitting options.
         """
 
         if self.binned:
@@ -464,21 +475,21 @@ class Cube:
 
         # nspec = len(xy)
 
-        if copts is None:
-            copts = {'degr': 3, 'upper_threshold': 2,
+        if continuum_options is None:
+            continuum_options = {'degr': 3, 'upper_threshold': 2,
                      'lower_threshold': 2, 'niterate': 5}
 
         try:
-            copts['returns']
+            continuum_options['returns']
         except KeyError:
-            copts['returns'] = 'function'
+            continuum_options['returns'] = 'function'
 
         for k, h in enumerate(xy):
             i, j = h
             s = deepcopy(data[:, i, j])
             if (any(s[:20]) and any(s[-20:])) or (any(np.isnan(s[:20])) and any(np.isnan(s[-20:]))):
                 try:
-                    cont = spectools.continuum(wl, s, **copts)
+                    cont = spectools.continuum(wl, s, **continuum_options)
                     if v is not None:
                         for l, m in v[v[:, 2] == k, :2]:
                             c[:, l, m] = cont[1]
@@ -494,9 +505,9 @@ class Cube:
 
         self.cont = c
 
-        if writefits:
-            if outimage is None:
-                outimage = self.fitsfile.replace('.fits', '_continuum.fits')
+        if write_fits:
+            if output_image is None:
+                output_image = self.fitsfile.replace('.fits', '_continuum.fits')
 
             hdr = deepcopy(self.header_data)
 
@@ -506,12 +517,12 @@ class Cube:
                 hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
 
             hdr['CRVAL3'] = wl[0]
-            hdr['CONTDEGR'] = (copts['degr'], 'Degree of continuum polynomial')
-            hdr['CONTNITE'] = (copts['niterate'], 'Continuum rejection iterations')
-            hdr['CONTLTR'] = (copts['lower_threshold'], 'Continuum lower threshold')
-            hdr['CONTHTR'] = (copts['upper_threshold'], 'Continuum upper threshold')
+            hdr['CONTDEGR'] = (continuum_options['degr'], 'Degree of continuum polynomial')
+            hdr['CONTNITE'] = (continuum_options['niterate'], 'Continuum rejection iterations')
+            hdr['CONTLTR'] = (continuum_options['lower_threshold'], 'Continuum lower threshold')
+            hdr['CONTHTR'] = (continuum_options['upper_threshold'], 'Continuum upper threshold')
 
-            fits.writeto(outimage, data=c, header=hdr)
+            fits.writeto(output_image, data=c, header=hdr)
 
         return c
 
