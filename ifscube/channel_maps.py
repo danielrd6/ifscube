@@ -1,20 +1,17 @@
-from astropy import constants, units
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib import patheffects
 import numpy as np
+from astropy import constants, units
+from matplotlib import patheffects
 from numpy import ma
 
 from . import cubetools
 
 
-def channelmaps(
-        cube, lambda0, velmin, velmax, channels=6,
-        continuum_width=300, continuum_opts=None, logFlux=False,
-        angScale=None, scaleBar=None, northArrow=None, lowerThreshold=1e-16,
-        plot_opts={}, fig_opts={}, wspace=None, hspace=None,
-        text_color='black', stroke_color='white', colorBar=True,
-        center_mark=True, screen=True):
+def channelmaps(cube, lambda0, vel_min, vel_max, channels=6, continuum_width=300, continuum_options=None,
+                log_flux=False, angular_scale=None, scale_bar=None, north_arrow=None, lower_threshold=1e-16,
+                plot_opts={}, fig_opts={}, width_space=None, height_space=None, text_color='black',
+                stroke_color='white', color_bar=True, center_mark=True, screen=True):
     """
     Creates velocity channel maps from a data cube.
 
@@ -22,37 +19,37 @@ def channelmaps(
     ----------
     lambda0: number
         Central wavelength of the desired spectral feature.
-    velmin: number
+    vel_min: number
         Mininum velocity in kilometers per second.
-    velmax: number
+    vel_max: number
         Maximum velocity in kilometers per second.
     channels: int
         Number of channel maps to build.
     continuum_width: number
         Width in wavelength units for the continuum evaluation
         window.
-    continuum_opts: dict
+    continuum_options: dict
         Dicitionary of options to be passed to the
         spectools.continuum function.
-    logFlux: bool
+    log_flux: bool
         If True, takes the base 10 logarithm of the fluxes.
-    lowerThreshold: number
+    lower_threshold: number
         Minimum emission flux for plotting, after subtraction
         of the continuum level. Spaxels with flux values below
         lowerThreshold will be masked in the channel maps.
-    angScale: number
+    angular_scale: number
         The angular pixel scale, in arcsec/pix. By default it is readen
         from the header keyword CD1_1.
-    scaleBar: dict
+    scale_bar: dict
         Places a scale bar with the size 'scale_size' in the y,x
         position 'scale_pos', in the first panel, labeled with text
         'scale_tex'.
-    northArrow: dict
+    north_arrow: dict
         Places reference arrows where north PA is 'north_pa' and east
         is rotated 90 degrees counterclockwise (when 'east_side' is 1)
         or clockwise (when 'east_side' is -1). The arrows have origin
         at position 'arrow_pos'.
-    colorBar: bool
+    color_bar: bool
         If True draws a colorbar.
     center_mark: bool
         If True, evaluates the continuum centroid and marks it with
@@ -61,9 +58,9 @@ def channelmaps(
         Dictionary of options to be passed to **pcolormesh**.
     fig_opts: dict
         Options passed to **pyplot.figure**.
-    wspace: float
+    width_space: float
         Horizontal gap between channel maps.
-    hspace: float
+    height_space: float
         Vertical gap between channel maps.
     text_color: matplotlib.color
         The color of the annotated texts specifying the velocity
@@ -80,10 +77,10 @@ def channelmaps(
     -------
     """
 
-    sigma = lowerThreshold
+    sigma = lower_threshold
 
     # Converting from velocities to wavelength
-    wlmin, wlmax = lambda0 * (np.array([velmin, velmax]) / constants.c.to(units.km / units.s).value + 1.)
+    wlmin, wlmax = lambda0 * (np.array([vel_min, vel_max]) / constants.c.to(units.km / units.s).value + 1.)
 
     wlstep = (wlmax - wlmin) / channels
     wl_limits = np.arange(wlmin, wlmax + wlstep, wlstep)
@@ -93,17 +90,17 @@ def channelmaps(
     fig = plt.figure(**fig_opts)
     plt.clf()
 
-    if continuum_opts is None:
-        continuum_opts = dict(
+    if continuum_options is None:
+        continuum_options = dict(
             niterate=3, degr=5, upper_threshold=3, lower_threshold=3,
             returns='function')
 
-    cp = continuum_opts
+    cp = continuum_options
     cw = continuum_width
     fw = lambda0 + np.array([-cw / 2., cw / 2.])
 
     cube.cont = cube.continuum(
-        writefits=False, outimage=None, fitting_window=fw, copts=cp)
+        write_fits=False, output_image=None, fitting_window=fw, continuum_options=cp)
 
     contwl = cube.wl[(cube.wl > fw[0]) & (cube.wl < fw[1])]
     maps = []
@@ -117,7 +114,7 @@ def channelmaps(
     mpl.rcParams['ytick.labelsize'] = (12 - int(np.sqrt(channels)))
     mpl.rcParams['figure.subplot.left'] = 0.05
     mpl.rcParams['figure.subplot.right'] = 0.80
-    if angScale is None:
+    if angular_scale is None:
         try:
             pScale = abs(cube.header['CD1_1'])
         except KeyError:
@@ -126,12 +123,12 @@ def channelmaps(
                 'header. Adopting angular scale = 1.')
             pScale = 1.
     else:
-        pScale = angScale
+        pScale = angular_scale
 
     for i in np.arange(channels):
         ax = fig.add_subplot(otherside, side, i + 1)
         axes += [ax]
-        wl = cube.restwl
+        wl = cube.rest_wavelength
         wl0, wl1 = wl_limits[i], wl_limits[i + 1]
         print(wl[(wl > wl0) & (wl < wl1)])
         wlc, wlwidth = np.average([wl0, wl1]), (wl1 - wl0)
@@ -146,7 +143,7 @@ def channelmaps(
         mask = (f < sigma) | np.isnan(f)
         channel = ma.array(f, mask=mask)
 
-        if logFlux:
+        if log_flux:
             channel = np.log10(channel)
         if i == 0:
             coords = cube.peak_coords(
@@ -162,11 +159,11 @@ def channelmaps(
         pmap = ax.pcolormesh(x, y, channel, **plot_opts)
         ax.set_aspect('equal', 'datalim')
 
-        if scaleBar is not None:
-            scale_text = scaleBar['scale_text']
-            scale_size = scaleBar['scale_size']
-            scale_pos = scaleBar['scale_pos']
-            scale_panel = scaleBar['scale_panel']
+        if scale_bar is not None:
+            scale_text = scale_bar['scale_text']
+            scale_size = scale_bar['scale_size']
+            scale_pos = scale_bar['scale_pos']
+            scale_panel = scale_bar['scale_panel']
             if i == scale_panel:
                 pos_y, pos_x = (
                     (y.max() - y.min()) * scale_pos[0] + y.min(),
@@ -194,17 +191,17 @@ def channelmaps(
                             alpha=0.3),
                         patheffects.Normal()])
 
-        if northArrow is not None:
-            north_pa = 90. + northArrow['north_pa']
-            east_side = northArrow['east_side']
-            arrow_pos = np.array(northArrow['arrow_pos']) *\
-                np.array([(y.max() - y.min()), (x.max() - x.min())]) +\
-                np.array([y.min(), x.min()])
-            n_panel = northArrow['n_panel']
+        if north_arrow is not None:
+            north_pa = 90. + north_arrow['north_pa']
+            east_side = north_arrow['east_side']
+            arrow_pos = np.array(north_arrow['arrow_pos']) * \
+                        np.array([(y.max() - y.min()), (x.max() - x.min())]) + \
+                        np.array([y.min(), x.min()])
+            n_panel = north_arrow['n_panel']
             if (i == n_panel):
                 arrSize = 0.2 * \
-                    np.sqrt(
-                        (y.max() - y.min())**2 + (x.max() - x.min())**2)
+                          np.sqrt(
+                              (y.max() - y.min()) ** 2 + (x.max() - x.min()) ** 2)
                 y_north = arrow_pos[0] + arrSize * np.sin(
                     np.deg2rad(north_pa))
                 x_north = arrow_pos[1] + arrSize * np.cos(
@@ -275,9 +272,9 @@ def channelmaps(
         y_axes_0 = np.append(y_axes_0, ax.get_position().y0)
         y_axes_1 = np.append(y_axes_1, ax.get_position().y1)
 
-    fig.subplots_adjust(wspace=wspace, hspace=hspace)
+    fig.subplots_adjust(wspace=width_space, hspace=height_space)
 
-    if colorBar:
+    if color_bar:
         # x_min_axes_0 = np.min(x_axes_0)
         x_max_axes_1 = np.max(x_axes_1)
         y_min_axes_0 = np.min(y_axes_0)
@@ -366,12 +363,12 @@ def rgb_line_compose(
 
     # Converting from velocities to wavelength
     wlmin_r, wlmax_r = lambdas[0] * (
-        np.array([velmin, velmax]) /
-        constants.c.to(units.km / units.s).value + 1.
+            np.array([velmin, velmax]) /
+            constants.c.to(units.km / units.s).value + 1.
     )
     wlmin_g, wlmax_g = lambdas[1] * (
-        np.array([velmin, velmax]) /
-        constants.c.to(units.km / units.s).value + 1.
+            np.array([velmin, velmax]) /
+            constants.c.to(units.km / units.s).value + 1.
     )
 
     wl_limits_r = np.linspace(wlmin_r, wlmax_r, channels + 1)
@@ -393,9 +390,9 @@ def rgb_line_compose(
     fw_g = lambdas[1] + np.array([-cw / 2., cw / 2.])
 
     cube.cont_r = cube.continuum(
-        writefits=False, outimage=None, fitting_window=fw_r, copts=cp)
+        write_fits=False, output_image=None, fitting_window=fw_r, continuum_options=cp)
     cube.cont_g = cube.continuum(
-        writefits=False, outimage=None, fitting_window=fw_g, copts=cp)
+        write_fits=False, output_image=None, fitting_window=fw_g, continuum_options=cp)
 
     contwl_r = cube.wl[(cube.wl > fw_r[0]) & (cube.wl < fw_r[1])]
     contwl_g = cube.wl[(cube.wl > fw_g[0]) & (cube.wl < fw_g[1])]
@@ -423,19 +420,19 @@ def rgb_line_compose(
 
     if (len(lambdas) == 3):
         wlmin_b, wlmax_b = lambdas[2] * (
-            np.array([velmin, velmax]) /
-            constants.c.to(units.km / units.s).value + 1.
+                np.array([velmin, velmax]) /
+                constants.c.to(units.km / units.s).value + 1.
         )
         wl_limits_b = np.linspace(wlmin_b, wlmax_b, channels + 1)
         fw_b = lambdas[2] + np.array([-cw / 2., cw / 2.])
         cube.cont_b = cube.continuum(
-            writefits=False, outimage=None, fitting_window=fw_b, copts=cp)
+            write_fits=False, output_image=None, fitting_window=fw_b, continuum_options=cp)
         contwl_b = cube.wl[(cube.wl > fw_b[0]) & (cube.wl < fw_b[1])]
 
     for i in np.arange(channels):
         ax = fig.add_subplot(otherside, side, i + 1)
         axes += [ax]
-        wl = cube.restwl
+        wl = cube.rest_wavelength
         wl0_r, wl1_r = wl_limits_r[i], wl_limits_r[i + 1]
         wl0_g, wl1_g = wl_limits_g[i], wl_limits_g[i + 1]
         print(wl[(wl > wl0_r) & (wl < wl1_r)])
@@ -501,7 +498,7 @@ def rgb_line_compose(
             chan_min_b = ma.min(channel_b)
             chan_max_b = ma.max(channel_b)
             channel_b = (channel_b - chan_min_b) / (
-                chan_max_b - chan_min_b)
+                    chan_max_b - chan_min_b)
         elif (len(lambdas) == 2):
             channel_b = np.zeros(np.shape(channel_r))
 
@@ -560,14 +557,14 @@ def rgb_line_compose(
         if (northArrow != {}):
             north_pa = 90. + northArrow['north_pa']
             east_side = northArrow['east_side']
-            arrow_pos = np.array(northArrow['arrow_pos']) *\
-                np.array([(y.max() - y.min()), (x.max() - x.min())]) +\
-                np.array([y.min(), x.min()])
+            arrow_pos = np.array(northArrow['arrow_pos']) * \
+                        np.array([(y.max() - y.min()), (x.max() - x.min())]) + \
+                        np.array([y.min(), x.min()])
             n_panel = northArrow['n_panel']
             if (i == n_panel):
                 arrSize = 0.2 * \
-                    np.sqrt(
-                        (y.max() - y.min())**2 + (x.max() - x.min())**2)
+                          np.sqrt(
+                              (y.max() - y.min()) ** 2 + (x.max() - x.min()) ** 2)
                 y_north = arrow_pos[0] + arrSize * np.sin(
                     np.deg2rad(north_pa))
                 x_north = arrow_pos[1] + arrSize * np.cos(
@@ -641,4 +638,3 @@ def rgb_line_compose(
     plt.show()
 
     return channelMaps, axes, pmaps
-
