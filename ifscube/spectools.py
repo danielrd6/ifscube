@@ -21,7 +21,7 @@ from scipy.ndimage import gaussian_filter
 from scipy.optimize import curve_fit, minimize, root
 
 
-def rmbg(x, y, samp, order=1):
+def remove_bg(x: np.ndarray, y: np.ndarray, sampling_limits: list, order: int = 1) -> tuple:
     """
     Removes a background function from one dimensional data.
 
@@ -29,28 +29,28 @@ def rmbg(x, y, samp, order=1):
     ----------
     x : numpy.array
     y : numpy.array
-    samp : iterable
+    sampling_limits : iterable
       A list of the background sampling limits
     order : integer
       Polyfit order
 
     Returns
     -------
-    xnew : numpy.array
-    ynew : numpy.array
+    x : numpy.ndarray
+    y_new : numpy.array
     """
     xs = np.array([])
     ys = np.array([])
 
-    for i in range(0, len(samp), 2):
-        xs = np.append(xs, x[(x >= samp[i]) & (x < samp[i + 1])])
-        ys = np.append(ys, y[(x >= samp[i]) & (x < samp[i + 1])])
+    for i in range(0, len(sampling_limits), 2):
+        xs = np.append(xs, x[(x >= sampling_limits[i]) & (x < sampling_limits[i + 1])])
+        ys = np.append(ys, y[(x >= sampling_limits[i]) & (x < sampling_limits[i + 1])])
 
     p = np.polyfit(xs, ys, deg=order)
 
-    ynew = y - np.polyval(p, x)
+    y_new = y - np.polyval(p, x)
 
-    return x, ynew
+    return x, y_new
 
 
 def fit_gauss(x, y, p0=None, fit_center=True, fit_background=True):
@@ -97,19 +97,16 @@ def fit_gauss(x, y, p0=None, fit_center=True, fit_background=True):
     def gauss(t, m, mu, sigma, bg):
         return m * np.exp(-(t - mu) ** 2 / (2 * sigma ** 2)) + bg
 
-    fitpars = np.array([True, fit_center, True, fit_background])
+    fit_pars = np.array([True, fit_center, True, fit_background])
 
     if not fit_center and fit_background:
-        p[fitpars] = curve_fit(lambda a, b, c, d:
-                               gauss(a, b, p0[1], c, d), x, y, p0[fitpars])[0]
+        p[fit_pars] = curve_fit(lambda a, b, c, d: gauss(a, b, p0[1], c, d), x, y, p0[fit_pars])[0]
     elif fit_center and not fit_background:
-        p[fitpars] = curve_fit(lambda a, b, c, d:
-                               gauss(a, b, c, d, p0[3]), x, y, p0[fitpars])[0]
+        p[fit_pars] = curve_fit(lambda a, b, c, d: gauss(a, b, c, d, p0[3]), x, y, p0[fit_pars])[0]
     elif not fit_center and not fit_background:
-        p[fitpars] = curve_fit(lambda a, b, c:
-                               gauss(a, b, p0[1], c, p0[3]), x, y,
-                               p0[fitpars])[0]
+        p[fit_pars] = curve_fit(lambda a, b, c: gauss(a, b, p0[1], c, p0[3]), x, y, p0[fit_pars])[0]
     else:
+        # noinspection PyTypeChecker
         p = curve_fit(gauss, x, y, p0)[0]
 
     def fit(t):
@@ -119,7 +116,7 @@ def fit_gauss(x, y, p0=None, fit_center=True, fit_background=True):
     return fit, p
 
 
-def fwhm(x, y, bg=(0, 100, 150, 240)):
+def full_width_half_maximum(x: np.ndarray, y: np.ndarray, bg: list) -> float:
     """
     Evaluates the full width half maximum of y in units of x.
 
@@ -132,16 +129,16 @@ def fwhm(x, y, bg=(0, 100, 150, 240)):
 
     Returns
     -------
-    fwhm : number
+    full_width : number
       Full width half maximum
     """
 
-    x_new, y_new = rmbg(x, y, bg)
+    x_new, y_new = remove_bg(x, y, bg)
 
     f = UnivariateSpline(x_new, y_new / max(y_new) - .5, s=0)
-    fwhm = f.roots()[1] - f.roots()[0]
+    full_width = f.roots()[1] - f.roots()[0]
 
-    return fwhm
+    return full_width
 
 
 def blackbody(x, t, coordinate='wavelength'):
@@ -151,9 +148,9 @@ def blackbody(x, t, coordinate='wavelength'):
     Parameters
     -----------
     x : numpy.array
-      Wavelength or frequency coordinatei (CGS).
+      Wavelength or frequency coordinates (CGS).
     t : number
-      Blacbody temperature in Kelvin
+      Blackbody temperature in Kelvin
     coordinate : string
       Specify the coordinates of x as 'wavelength' or 'frequency'.
 
@@ -169,12 +166,10 @@ def blackbody(x, t, coordinate='wavelength'):
 
     if coordinate == 'wavelength':
         def b(x, t):
-            return 2. * h * c ** 2. / x ** 5 * \
-                   (1. / (np.exp(h * c / (x * kb * t)) - 1.))
+            return 2. * h * c ** 2. / x ** 5 * (1. / (np.exp(h * c / (x * kb * t)) - 1.))
     elif coordinate == 'frequency':
         def b(x, t):
-            return 2 * h * c ** 2 / \
-                   x ** 5 * (np.exp((h * c) / (x * kb * t)) - 1) ** (-1)
+            return 2 * h * c ** 2 / x ** 5 * (np.exp((h * c) / (x * kb * t)) - 1) ** (-1)
 
     return b(x, t)
 
