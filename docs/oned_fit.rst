@@ -160,10 +160,10 @@ the continuum fit are eliminated via an iterative rejection algorithm.
 For this reason, the fitting\_window set in the *fit* section should
 provide enough room for an adequate sampling of valid continuum points.
 
-* degr: integer
+* degree: integer
    Degree of the polynomial.
 
-* niterate: integer number
+* n_iterate: integer number
    Number of rejection iterations.
 
 * lower / upper\_threshold: number
