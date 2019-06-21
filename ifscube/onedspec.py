@@ -546,8 +546,7 @@ class Spectrum:
         #
 
         if copts is None:
-            copts = dict(
-                niterate=5, degr=4, upper_threshold=2, lower_threshold=2)
+            copts = dict(n_iterate=5, degree=4, upper_threshold=2, lower_threshold=2)
 
         copts.update(dict(output='polynomial'))
 

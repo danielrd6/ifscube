@@ -390,7 +390,7 @@ class LineFitParser:
             self.copts = self._parse_dict(
                 section='continuum',
                 float_args=['lower_threshold', 'upper_threshold'],
-                int_args=['degr', 'niterate'],
+                int_args=['degree', 'n_iterate'],
                 bool_args=[],
             )
         else:

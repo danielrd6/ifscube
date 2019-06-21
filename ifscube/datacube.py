@@ -562,7 +562,7 @@ class Cube:
 
             if continuum_options is None:
                 continuum_options = {
-                    'niterate': 0, 'degr': 1, 'upper_threshold': 3, 'lower_threshold': 3, 'output': 'function'}
+                    'n_iterate': 0, 'degree': 1, 'upper_threshold': 3, 'lower_threshold': 3, 'output': 'function'}
             else:
                 continuum_options['output'] = 'function'
 
