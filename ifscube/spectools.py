@@ -11,6 +11,7 @@ points.
 import copy
 import re
 import warnings
+from typing import Callable, Iterable
 
 import astropy.io.fits as pf
 import numpy as np
@@ -417,36 +418,34 @@ def continuum(x, y, output='ratio', degree=6, n_iterate=5, lower_threshold=2, up
     return out[output]
 
 
-def eqw(wl, flux, lims, cniterate=5):
+def eqw(wl, flux, limits, continuum_iterate=5):
     """
     Measure the equivalent width of a feature in `arr`, defined by `lims`:
 
 
     """
 
-    fspec = interp1d(wl, flux)
+    f_spectrum = interp1d(wl, flux)
 
-    fctn, ctnwl = continuum(wl, flux, lims[2:], n_iterate=cniterate)
+    f_continuum, continuum_wavelength = continuum(wl, flux, limits[2:], n_iterate=continuum_iterate)
 
-    act = trapz(
-        np.polyval(fctn, np.linspace(lims[0], lims[1])),
-        x=np.linspace(lims[0], lims[1]))  # area under continuum
+    # area under continuum
+    continuum_integral = trapz(np.polyval(f_continuum, np.linspace(limits[0], limits[1])),
+                               x=np.linspace(limits[0], limits[1]))
 
     # area under spectrum
-    aspec = trapz(
-        fspec(np.linspace(lims[0], lims[1])), np.linspace(lims[0], lims[1]))
+    spectrum_integral = trapz(f_spectrum(np.linspace(limits[0], limits[1])), np.linspace(limits[0], limits[1]))
 
-    eqw = ((act - aspec) / act) * (lims[1] - lims[0])
+    w = ((continuum_integral - spectrum_integral) / continuum_integral) * (limits[1] - limits[0])
 
     # Calculation of the error in the equivalent width, following the
     # definition of Vollmann & Eversberg 2006 (doi: 10.1002/asna.200610645)
 
-    sn = np.average(fspec(ctnwl)) / np.std(fspec(ctnwl))
-    sigma_eqw = np.sqrt(
-        1 + np.average(np.polyval(fctn, ctnwl)) / np.average(flux)) * \
-                (lims[1] - lims[0] - eqw) / sn
+    sn = np.average(f_spectrum(continuum_wavelength)) / np.std(f_spectrum(continuum_wavelength))
+    sigma_eqw = np.sqrt(1 + np.average(np.polyval(f_continuum, continuum_wavelength)) / np.average(flux)) * (
+            limits[1] - limits[0] - w) / sn
 
-    return eqw, sigma_eqw
+    return w, sigma_eqw
 
 
 def joinspec(x1, y1, x2, y2):
@@ -574,8 +573,8 @@ def mask(arr, maskfile):
     return b
 
 
-def specphotometry(spec, filt, intlims=(8, 13), coords='wavelength',
-                   verbose=False, get_filter_center=False):
+def spectrophotometry(spec: Callable, transmission: Callable, limits: Iterable, verbose: bool = False,
+                      get_filter_center: bool = False):
     """
     Evaluates the integrated flux for a given filter
     over a spectrum.
@@ -585,18 +584,18 @@ def specphotometry(spec, filt, intlims=(8, 13), coords='wavelength',
     spec : function
         A function that describes the spectrum with only
         the wavelength or frequency as parameter.
-    filt : function
+    transmission : function
         The same as the above but for the filter.
-    intlims: iterable
+    limits: iterable
         Lower and upper limits for the integration.
-    coords : string
-        'wavelength' or 'frequency'
-        This argument is passed directly to the function
-        blackbody in the absence of a standard star spectrum.
+    verbose : bool
+        Verbosity.
+    get_filter_center : bool
+        Returns the pivot wavelength.
 
     Returns
     --------
-    phot : float
+    photometry : float
         Photometric data point that results from the
         integration and scaling of the filter over the
         spectrum (CGS).
@@ -609,33 +608,33 @@ def specphotometry(spec, filt, intlims=(8, 13), coords='wavelength',
     """
 
     l, er = 100, 1.e-2
-    x0, x1 = intlims
+    x0, x1 = limits
 
     def y2(x):
-        return filt(x) * spec(x)
+        return transmission(x) * spec(x)
 
     if get_filter_center:
-        def medianfunction(x):
-            return np.abs(quad(filt, -np.inf, x, epsrel=er, limit=l)[0] -
-                          quad(filt, x, +np.inf, epsrel=er, limit=l)[0])
+        def median_function(x):
+            return np.abs(quad(transmission, -np.inf, x, epsrel=er, limit=l)[0] -
+                          quad(transmission, x, +np.inf, epsrel=er, limit=l)[0])
 
-        fcenter = minimize(medianfunction, 11.5, bounds=[[11.1, 11.9]],
-                           method='SLSQP')
+        f_center = minimize(median_function, np.array([11.5]), bounds=[[11.1, 11.9]], method='slsqp')
+    else:
+        f_center = np.nan
 
-    cal = quad(filt, x0, x1, limit=l, epsrel=er)[0]
-    phot = quad(y2, x0, x1, limit=l, epsrel=er)[0] / cal
+    cal = quad(transmission, x0, x1, limit=l, epsrel=er)[0]
+    photometry = quad(y2, x0, x1, limit=l, epsrel=er)[0] / cal
 
     if verbose:
-        print('Central wavelength: {:.2f}; Flux: {:.2f}'
-              .format(float(fcenter), phot))
+        print('Central wavelength: {:.2f}; Flux: {:.2f}'.format(float(f_center), photometry))
 
     if get_filter_center:
-        return phot, float(fcenter['x'])
+        return photometry, float(f_center['x'])
     else:
-        return phot
+        return photometry
 
 
-def w80eval(wl, spec, wl0, smooth=0, **min_args) -> (float, float, float, np.ndarray, np.ndarray):
+def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = 0) -> tuple:
     """
     Evaluates the W80 parameter of a given emission fature.
 
@@ -647,8 +646,8 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args) -> (float, float, float, np.nda
       Flux vector.
     wl0 : number
       Central wavelength of the emission feature.
-    **min_args : dictionary
-      Options passed directly to the scipy.optimize.minimize.
+    smooth : float
+        Smoothing sigma to apply after the cumulative sum.
 
     Returns
     -------
@@ -683,8 +682,8 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args) -> (float, float, float, np.nda
     # routine below. There is a possibility for smoothing the cumulative curve
     # after performing the integration, which might be useful for very noisy
     # data.
-    def cumulative_fun(cumulative, d):
-        c = gaussian_filter(cumulative, smooth, mode='constant')
+    def cumulative_fun(cumulative_sum, d):
+        c = gaussian_filter(cumulative_sum, smooth, mode='constant')
         return interp1d(velocity, c - d, bounds_error=False)
 
     # In order to have a good initial guess, the code will find the
@@ -720,7 +719,7 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args) -> (float, float, float, np.nda
 
 class Constraints:
 
-    def __init__(self, function='gaussian'):
+    def __init__(self):
         pass
 
     @staticmethod
