@@ -91,9 +91,8 @@ def channelmaps(cube, lambda0, vel_min, vel_max, channels=6, continuum_width=300
     plt.clf()
 
     if continuum_options is None:
-        continuum_options = dict(
-            niterate=3, degr=5, upper_threshold=3, lower_threshold=3,
-            returns='function')
+        continuum_options = {'n_iterate': 3, 'degree': 5, 'upper_threshold': 3, 'lower_threshold': 3,
+                             'output': 'function'}
 
     cp = continuum_options
     cw = continuum_width
