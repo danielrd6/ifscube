@@ -771,7 +771,7 @@ class Spectrum:
 
                 cont = spectools.continuum(
                     fwl, syn + fitcont, weights=weights,
-                    degr=1, niterate=nite, lower_threshold=3,
+                    degree=1, n_iterate=nite, lower_threshold=3,
                     upper_threshold=3, output='function')[1][cond]
 
                 # Remember that 1 - (g + c)/c = -g/c, where g is the

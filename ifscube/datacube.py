@@ -473,7 +473,7 @@ class Cube:
         c = np.zeros_like(data)
 
         if continuum_options is None:
-            continuum_options = {'degr': 3, 'upper_threshold': 2, 'lower_threshold': 2, 'niterate': 5}
+            continuum_options = {'degree': 3, 'upper_threshold': 2, 'lower_threshold': 2, 'n_iterate': 5}
 
         try:
             continuum_options['output']
@@ -513,8 +513,8 @@ class Cube:
                 hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
 
             hdr['CRVAL3'] = wl[0]
-            hdr['CONTDEGR'] = (continuum_options['degr'], 'Degree of continuum polynomial')
-            hdr['CONTNITE'] = (continuum_options['niterate'], 'Continuum rejection iterations')
+            hdr['CONTDEGR'] = (continuum_options['degree'], 'Degree of continuum polynomial')
+            hdr['CONTNITE'] = (continuum_options['n_iterate'], 'Continuum rejection iterations')
             hdr['CONTLTR'] = (continuum_options['lower_threshold'], 'Continuum lower threshold')
             hdr['CONTHTR'] = (continuum_options['upper_threshold'], 'Continuum upper threshold')
 

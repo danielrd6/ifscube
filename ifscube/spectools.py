@@ -156,7 +156,7 @@ def blackbody(x, t, coordinate='wavelength'):
 
     Returns
     --------
-    b(x,T) : numpy.array
+    b(x, T) : numpy.array
       Flux density in cgs units.
     """
 
@@ -165,11 +165,13 @@ def blackbody(x, t, coordinate='wavelength'):
     kb = 1.3806488e-16  # erg/K
 
     if coordinate == 'wavelength':
-        def b(x, t):
-            return 2. * h * c ** 2. / x ** 5 * (1. / (np.exp(h * c / (x * kb * t)) - 1.))
+        def b(z, u):
+            return 2. * h * c ** 2. / z ** 5 * (1. / (np.exp(h * c / (z * kb * u)) - 1.))
     elif coordinate == 'frequency':
-        def b(x, t):
-            return 2 * h * c ** 2 / x ** 5 * (np.exp((h * c) / (x * kb * t)) - 1) ** (-1)
+        def b(z, u):
+            return 2 * h * c ** 2 / z ** 5 * (np.exp((h * c) / (z * kb * u)) - 1) ** (-1)
+    else:
+        raise RuntimeError('Coordinate type "{:s}" not recognized.'.format(coordinate))
 
     return b(x, t)
 
@@ -322,8 +324,7 @@ def flags_to_mask(wavelength: np.ndarray, flags: np.ndarray) -> list:
     return new_mask
 
 
-def continuum(x, y, output='ratio', degr=6, niterate=5,
-              lower_threshold=2, upper_threshold=3, verbose=False,
+def continuum(x, y, output='ratio', degree=6, n_iterate=5, lower_threshold=2, upper_threshold=3, verbose=False,
               weights=None):
     """
     Builds a polynomial continuum from segments of a spectrum,
@@ -342,9 +343,9 @@ def continuum(x, y, output='ratio', degr=6, niterate=5,
         'difference' = difference between fitted continuum and the spectrum
         'function'   = continuum function evaluated at x
 
-    degr : integer
+    degree : integer
         Degree of polynomial for the fit
-    niterate : integer
+    n_iterate : integer
         Number of rejection iterations
     lower_threshold : float
         Lower threshold for point rejection in units of standard
@@ -354,6 +355,8 @@ def continuum(x, y, output='ratio', degr=6, niterate=5,
         deviation of the residuals
     verbose : boolean
         Prints information about the fitting
+    weights : array-like
+        Weights for continuum fitting. Must be the shape of x and y.
 
     Returns
     -------
@@ -366,36 +369,31 @@ def continuum(x, y, output='ratio', degr=6, niterate=5,
 
     """
 
-    xfull = copy.deepcopy(x)
+    x_full = copy.deepcopy(x)
     s = interp1d(x, y)
 
     if weights is None:
         weights = np.ones_like(x)
 
-    def f(x):
-        return np.polyval(np.polyfit(x, s(x), deg=degr, w=weights), x)
+    def f(z):
+        return np.polyval(np.polyfit(z, s(z), deg=degree, w=weights), z)
 
-    for i in range(niterate):
+    for i in range(n_iterate):
 
         res = s(x) - f(x)
         sig = np.std(res)
         rej_cond = ((res < upper_threshold * sig) & (res > -lower_threshold * sig))
 
-        if np.sum(rej_cond) <= degr:
+        if np.sum(rej_cond) <= degree:
             if verbose:
-                warnings.warn(
-                    'Number of points lower than the polynomial degree. '
-                    'Stopped at iteration {:d}. '
-                    'sig={:.2e}'.format(i, sig))
+                warnings.warn('Not enough fitting points. Stopped at iteration {:d}. sig={:.2e}'.format(i, sig))
             break
 
-        if np.sum(weights == 0.0) >= degr:
+        if np.sum(weights == 0.0) >= degree:
             if verbose:
                 warnings.warn(
-                    'Number of non-zero values in weights vector is lower'
-                    ' than the polynomial degree. '
-                    'Stopped at iteration {:d}. '
-                    'sig={:.2e}'.format(i, sig))
+                    'Number of non-zero values in weights vector is lower than the polynomial degree. '
+                    'Stopped at iteration {:d}. sig={:.2e}'.format(i, sig))
             break
 
         x = x[rej_cond]
@@ -405,14 +403,14 @@ def continuum(x, y, output='ratio', degr=6, niterate=5,
         print('Final number of points used in the fit: {:d}'
               .format(len(x)))
         print('Rejection ratio: {:.2f}'
-              .format(1. - float(len(x)) / float(len(xfull))))
+              .format(1. - float(len(x)) / float(len(x_full))))
 
-    p = np.polyfit(x, s(x), deg=degr, w=weights)
+    p = np.polyfit(x, s(x), deg=degree, w=weights)
 
     out = dict(
-        ratio=(xfull, s(xfull) / np.polyval(p, xfull)),
-        difference=(xfull, s(xfull) - np.polyval(p, xfull)),
-        function=(xfull, np.polyval(p, xfull)),
+        ratio=(x_full, s(x_full) / np.polyval(p, x_full)),
+        difference=(x_full, s(x_full) - np.polyval(p, x_full)),
+        function=(x_full, np.polyval(p, x_full)),
         polynomial=p,
     )
 
@@ -428,7 +426,7 @@ def eqw(wl, flux, lims, cniterate=5):
 
     fspec = interp1d(wl, flux)
 
-    fctn, ctnwl = continuum(wl, flux, lims[2:], niterate=cniterate)
+    fctn, ctnwl = continuum(wl, flux, lims[2:], n_iterate=cniterate)
 
     act = trapz(
         np.polyval(fctn, np.linspace(lims[0], lims[1])),
