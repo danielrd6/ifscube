@@ -412,7 +412,7 @@ class Fit(object):
         ax.plot(self.obs_wavelength, self.solution.bestfit)
 
         ax.set_xlabel(r'Wavelength')
-        ax.set_ylabel(r'Normalized density')
+        ax.set_ylabel(r'Normalized flux')
 
         ax.set_ylim(self.solution.bestfit.min() * 0.8, self.solution.bestfit.max() * 1.2)
 
