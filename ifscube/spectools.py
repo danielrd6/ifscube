@@ -660,8 +660,8 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = 0) -> 
     velocity_spectrum : numpy.ndarray
         Spectrum in velocity coordinates.
 
-    Description
-    -----------
+    Notes
+    -----
     W80 is the width in velocity space which encompasses 80% of the
     light emitted in a given spectral feature. It is widely used as
     a proxy for identifying outflows of ionized gas in active galaxies.
