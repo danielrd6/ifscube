@@ -439,17 +439,27 @@ class Cube:
 
             h.writeto(file_name, overwrite=overwrite)
 
-    def continuum(self, writefits=False, outimage=None, fitting_window=None, copts=None):
+    def continuum(self, write_fits=False, output_image=None, fitting_window=None, continuum_options=None):
         """
         Evaluates a polynomial continuum for the whole cube and stores
         it in self.cont.
+
+        Parameters
+        ----------
+        write_fits : bool
+            Write the output in a FITS file
+        output_image : str
+            Name of the output FITS file.
+        fitting_window : list
+            A list containing the starting and ending wavelengths.
+        continuum_options : dict
+            Dictionary of continuum fitting options.
         """
 
         if self.binned:
             v = self.voronoi_tab
-            xy = np.column_stack([
-                v[np.unique(v['binNum'], return_index=True)[1]][coords]
-                for coords in ['xcoords', 'ycoords']])
+            xy = np.column_stack(
+                [v[np.unique(v['binNum'], return_index=True)[1]][coords] for coords in ['xcoords', 'ycoords']])
         else:
             v = None
             xy = self.spec_indices
@@ -462,23 +472,20 @@ class Cube:
 
         c = np.zeros_like(data)
 
-        # nspec = len(xy)
-
-        if copts is None:
-            copts = {'degr': 3, 'upper_threshold': 2,
-                     'lower_threshold': 2, 'niterate': 5}
+        if continuum_options is None:
+            continuum_options = {'degree': 3, 'upper_threshold': 2, 'lower_threshold': 2, 'n_iterate': 5}
 
         try:
-            copts['returns']
+            continuum_options['output']
         except KeyError:
-            copts['returns'] = 'function'
+            continuum_options['output'] = 'function'
 
         for k, h in enumerate(xy):
             i, j = h
             s = deepcopy(data[:, i, j])
             if (any(s[:20]) and any(s[-20:])) or (any(np.isnan(s[:20])) and any(np.isnan(s[-20:]))):
                 try:
-                    cont = spectools.continuum(wl, s, **copts)
+                    cont = spectools.continuum(wl, s, **continuum_options)
                     if v is not None:
                         for l, m in v[v[:, 2] == k, :2]:
                             c[:, l, m] = cont[1]
@@ -494,9 +501,9 @@ class Cube:
 
         self.cont = c
 
-        if writefits:
-            if outimage is None:
-                outimage = self.fitsfile.replace('.fits', '_continuum.fits')
+        if write_fits:
+            if output_image is None:
+                output_image = self.fitsfile.replace('.fits', '_continuum.fits')
 
             hdr = deepcopy(self.header_data)
 
@@ -506,12 +513,12 @@ class Cube:
                 hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
 
             hdr['CRVAL3'] = wl[0]
-            hdr['CONTDEGR'] = (copts['degr'], 'Degree of continuum polynomial')
-            hdr['CONTNITE'] = (copts['niterate'], 'Continuum rejection iterations')
-            hdr['CONTLTR'] = (copts['lower_threshold'], 'Continuum lower threshold')
-            hdr['CONTHTR'] = (copts['upper_threshold'], 'Continuum upper threshold')
+            hdr['CONTDEGR'] = (continuum_options['degree'], 'Degree of continuum polynomial')
+            hdr['CONTNITE'] = (continuum_options['n_iterate'], 'Continuum rejection iterations')
+            hdr['CONTLTR'] = (continuum_options['lower_threshold'], 'Continuum lower threshold')
+            hdr['CONTHTR'] = (continuum_options['upper_threshold'], 'Continuum upper threshold')
 
-            fits.writeto(outimage, data=c, header=hdr)
+            fits.writeto(output_image, data=c, header=hdr)
 
         return c
 
@@ -555,7 +562,7 @@ class Cube:
 
             if continuum_options is None:
                 continuum_options = {
-                    'niterate': 0, 'degr': 1, 'upper_threshold': 3, 'lower_threshold': 3, 'output': 'function'}
+                    'n_iterate': 0, 'degree': 1, 'upper_threshold': 3, 'lower_threshold': 3, 'output': 'function'}
             else:
                 continuum_options['output'] = 'function'
 

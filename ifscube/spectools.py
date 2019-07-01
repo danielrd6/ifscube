@@ -11,6 +11,7 @@ points.
 import copy
 import re
 import warnings
+from typing import Callable, Iterable
 
 import astropy.io.fits as pf
 import numpy as np
@@ -21,7 +22,7 @@ from scipy.ndimage import gaussian_filter
 from scipy.optimize import curve_fit, minimize, root
 
 
-def rmbg(x, y, samp, order=1):
+def remove_bg(x: np.ndarray, y: np.ndarray, sampling_limits: list, order: int = 1) -> tuple:
     """
     Removes a background function from one dimensional data.
 
@@ -29,28 +30,28 @@ def rmbg(x, y, samp, order=1):
     ----------
     x : numpy.array
     y : numpy.array
-    samp : iterable
+    sampling_limits : iterable
       A list of the background sampling limits
     order : integer
       Polyfit order
 
     Returns
     -------
-    xnew : numpy.array
-    ynew : numpy.array
+    x : numpy.ndarray
+    y_new : numpy.array
     """
     xs = np.array([])
     ys = np.array([])
 
-    for i in range(0, len(samp), 2):
-        xs = np.append(xs, x[(x >= samp[i]) & (x < samp[i + 1])])
-        ys = np.append(ys, y[(x >= samp[i]) & (x < samp[i + 1])])
+    for i in range(0, len(sampling_limits), 2):
+        xs = np.append(xs, x[(x >= sampling_limits[i]) & (x < sampling_limits[i + 1])])
+        ys = np.append(ys, y[(x >= sampling_limits[i]) & (x < sampling_limits[i + 1])])
 
     p = np.polyfit(xs, ys, deg=order)
 
-    ynew = y - np.polyval(p, x)
+    y_new = y - np.polyval(p, x)
 
-    return x, ynew
+    return x, y_new
 
 
 def fit_gauss(x, y, p0=None, fit_center=True, fit_background=True):
@@ -97,19 +98,16 @@ def fit_gauss(x, y, p0=None, fit_center=True, fit_background=True):
     def gauss(t, m, mu, sigma, bg):
         return m * np.exp(-(t - mu) ** 2 / (2 * sigma ** 2)) + bg
 
-    fitpars = np.array([True, fit_center, True, fit_background])
+    fit_pars = np.array([True, fit_center, True, fit_background])
 
     if not fit_center and fit_background:
-        p[fitpars] = curve_fit(lambda a, b, c, d:
-                               gauss(a, b, p0[1], c, d), x, y, p0[fitpars])[0]
+        p[fit_pars] = curve_fit(lambda a, b, c, d: gauss(a, b, p0[1], c, d), x, y, p0[fit_pars])[0]
     elif fit_center and not fit_background:
-        p[fitpars] = curve_fit(lambda a, b, c, d:
-                               gauss(a, b, c, d, p0[3]), x, y, p0[fitpars])[0]
+        p[fit_pars] = curve_fit(lambda a, b, c, d: gauss(a, b, c, d, p0[3]), x, y, p0[fit_pars])[0]
     elif not fit_center and not fit_background:
-        p[fitpars] = curve_fit(lambda a, b, c:
-                               gauss(a, b, p0[1], c, p0[3]), x, y,
-                               p0[fitpars])[0]
+        p[fit_pars] = curve_fit(lambda a, b, c: gauss(a, b, p0[1], c, p0[3]), x, y, p0[fit_pars])[0]
     else:
+        # noinspection PyTypeChecker
         p = curve_fit(gauss, x, y, p0)[0]
 
     def fit(t):
@@ -119,7 +117,7 @@ def fit_gauss(x, y, p0=None, fit_center=True, fit_background=True):
     return fit, p
 
 
-def fwhm(x, y, bg=(0, 100, 150, 240)):
+def full_width_half_maximum(x: np.ndarray, y: np.ndarray, bg: list) -> float:
     """
     Evaluates the full width half maximum of y in units of x.
 
@@ -132,16 +130,16 @@ def fwhm(x, y, bg=(0, 100, 150, 240)):
 
     Returns
     -------
-    fwhm : number
+    full_width : number
       Full width half maximum
     """
 
-    x_new, y_new = rmbg(x, y, bg)
+    x_new, y_new = remove_bg(x, y, bg)
 
     f = UnivariateSpline(x_new, y_new / max(y_new) - .5, s=0)
-    fwhm = f.roots()[1] - f.roots()[0]
+    full_width = f.roots()[1] - f.roots()[0]
 
-    return fwhm
+    return full_width
 
 
 def blackbody(x, t, coordinate='wavelength'):
@@ -151,15 +149,15 @@ def blackbody(x, t, coordinate='wavelength'):
     Parameters
     -----------
     x : numpy.array
-      Wavelength or frequency coordinatei (CGS).
+      Wavelength or frequency coordinates (CGS).
     t : number
-      Blacbody temperature in Kelvin
+      Blackbody temperature in Kelvin
     coordinate : string
       Specify the coordinates of x as 'wavelength' or 'frequency'.
 
     Returns
     --------
-    b(x,T) : numpy.array
+    b(x, T) : numpy.array
       Flux density in cgs units.
     """
 
@@ -168,13 +166,13 @@ def blackbody(x, t, coordinate='wavelength'):
     kb = 1.3806488e-16  # erg/K
 
     if coordinate == 'wavelength':
-        def b(x, t):
-            return 2. * h * c ** 2. / x ** 5 * \
-                   (1. / (np.exp(h * c / (x * kb * t)) - 1.))
+        def b(z, u):
+            return 2. * h * c ** 2. / z ** 5 * (1. / (np.exp(h * c / (z * kb * u)) - 1.))
     elif coordinate == 'frequency':
-        def b(x, t):
-            return 2 * h * c ** 2 / \
-                   x ** 5 * (np.exp((h * c) / (x * kb * t)) - 1) ** (-1)
+        def b(z, u):
+            return 2 * h * c ** 2 / z ** 5 * (np.exp((h * c) / (z * kb * u)) - 1) ** (-1)
+    else:
+        raise RuntimeError('Coordinate type "{:s}" not recognized.'.format(coordinate))
 
     return b(x, t)
 
@@ -327,8 +325,7 @@ def flags_to_mask(wavelength: np.ndarray, flags: np.ndarray) -> list:
     return new_mask
 
 
-def continuum(x, y, output='ratio', degr=6, niterate=5,
-              lower_threshold=2, upper_threshold=3, verbose=False,
+def continuum(x, y, output='ratio', degree=6, n_iterate=5, lower_threshold=2, upper_threshold=3, verbose=False,
               weights=None):
     """
     Builds a polynomial continuum from segments of a spectrum,
@@ -347,9 +344,9 @@ def continuum(x, y, output='ratio', degr=6, niterate=5,
         'difference' = difference between fitted continuum and the spectrum
         'function'   = continuum function evaluated at x
 
-    degr : integer
+    degree : integer
         Degree of polynomial for the fit
-    niterate : integer
+    n_iterate : integer
         Number of rejection iterations
     lower_threshold : float
         Lower threshold for point rejection in units of standard
@@ -359,6 +356,8 @@ def continuum(x, y, output='ratio', degr=6, niterate=5,
         deviation of the residuals
     verbose : boolean
         Prints information about the fitting
+    weights : array-like
+        Weights for continuum fitting. Must be the shape of x and y.
 
     Returns
     -------
@@ -371,36 +370,31 @@ def continuum(x, y, output='ratio', degr=6, niterate=5,
 
     """
 
-    xfull = copy.deepcopy(x)
+    x_full = copy.deepcopy(x)
     s = interp1d(x, y)
 
     if weights is None:
         weights = np.ones_like(x)
 
-    def f(x):
-        return np.polyval(np.polyfit(x, s(x), deg=degr, w=weights), x)
+    def f(z):
+        return np.polyval(np.polyfit(z, s(z), deg=degree, w=weights), z)
 
-    for i in range(niterate):
+    for i in range(n_iterate):
 
         res = s(x) - f(x)
         sig = np.std(res)
         rej_cond = ((res < upper_threshold * sig) & (res > -lower_threshold * sig))
 
-        if np.sum(rej_cond) <= degr:
+        if np.sum(rej_cond) <= degree:
             if verbose:
-                warnings.warn(
-                    'Number of points lower than the polynomial degree. '
-                    'Stopped at iteration {:d}. '
-                    'sig={:.2e}'.format(i, sig))
+                warnings.warn('Not enough fitting points. Stopped at iteration {:d}. sig={:.2e}'.format(i, sig))
             break
 
-        if np.sum(weights == 0.0) >= degr:
+        if np.sum(weights == 0.0) >= degree:
             if verbose:
                 warnings.warn(
-                    'Number of non-zero values in weights vector is lower'
-                    ' than the polynomial degree. '
-                    'Stopped at iteration {:d}. '
-                    'sig={:.2e}'.format(i, sig))
+                    'Number of non-zero values in weights vector is lower than the polynomial degree. '
+                    'Stopped at iteration {:d}. sig={:.2e}'.format(i, sig))
             break
 
         x = x[rej_cond]
@@ -410,50 +404,48 @@ def continuum(x, y, output='ratio', degr=6, niterate=5,
         print('Final number of points used in the fit: {:d}'
               .format(len(x)))
         print('Rejection ratio: {:.2f}'
-              .format(1. - float(len(x)) / float(len(xfull))))
+              .format(1. - float(len(x)) / float(len(x_full))))
 
-    p = np.polyfit(x, s(x), deg=degr, w=weights)
+    p = np.polyfit(x, s(x), deg=degree, w=weights)
 
     out = dict(
-        ratio=(xfull, s(xfull) / np.polyval(p, xfull)),
-        difference=(xfull, s(xfull) - np.polyval(p, xfull)),
-        function=(xfull, np.polyval(p, xfull)),
+        ratio=(x_full, s(x_full) / np.polyval(p, x_full)),
+        difference=(x_full, s(x_full) - np.polyval(p, x_full)),
+        function=(x_full, np.polyval(p, x_full)),
         polynomial=p,
     )
 
     return out[output]
 
 
-def eqw(wl, flux, lims, cniterate=5):
+def eqw(wl, flux, limits, continuum_iterate=5):
     """
     Measure the equivalent width of a feature in `arr`, defined by `lims`:
 
 
     """
 
-    fspec = interp1d(wl, flux)
+    f_spectrum = interp1d(wl, flux)
 
-    fctn, ctnwl = continuum(wl, flux, lims[2:], niterate=cniterate)
+    f_continuum, continuum_wavelength = continuum(wl, flux, limits[2:], n_iterate=continuum_iterate)
 
-    act = trapz(
-        np.polyval(fctn, np.linspace(lims[0], lims[1])),
-        x=np.linspace(lims[0], lims[1]))  # area under continuum
+    # area under continuum
+    continuum_integral = trapz(np.polyval(f_continuum, np.linspace(limits[0], limits[1])),
+                               x=np.linspace(limits[0], limits[1]))
 
     # area under spectrum
-    aspec = trapz(
-        fspec(np.linspace(lims[0], lims[1])), np.linspace(lims[0], lims[1]))
+    spectrum_integral = trapz(f_spectrum(np.linspace(limits[0], limits[1])), np.linspace(limits[0], limits[1]))
 
-    eqw = ((act - aspec) / act) * (lims[1] - lims[0])
+    w = ((continuum_integral - spectrum_integral) / continuum_integral) * (limits[1] - limits[0])
 
     # Calculation of the error in the equivalent width, following the
     # definition of Vollmann & Eversberg 2006 (doi: 10.1002/asna.200610645)
 
-    sn = np.average(fspec(ctnwl)) / np.std(fspec(ctnwl))
-    sigma_eqw = np.sqrt(
-        1 + np.average(np.polyval(fctn, ctnwl)) / np.average(flux)) * \
-                (lims[1] - lims[0] - eqw) / sn
+    sn = np.average(f_spectrum(continuum_wavelength)) / np.std(f_spectrum(continuum_wavelength))
+    sigma_eqw = np.sqrt(1 + np.average(np.polyval(f_continuum, continuum_wavelength)) / np.average(flux)) * (
+            limits[1] - limits[0] - w) / sn
 
-    return eqw, sigma_eqw
+    return w, sigma_eqw
 
 
 def joinspec(x1, y1, x2, y2):
@@ -581,8 +573,8 @@ def mask(arr, maskfile):
     return b
 
 
-def specphotometry(spec, filt, intlims=(8, 13), coords='wavelength',
-                   verbose=False, get_filter_center=False):
+def spectrophotometry(spec: Callable, transmission: Callable, limits: Iterable, verbose: bool = False,
+                      get_filter_center: bool = False):
     """
     Evaluates the integrated flux for a given filter
     over a spectrum.
@@ -592,18 +584,18 @@ def specphotometry(spec, filt, intlims=(8, 13), coords='wavelength',
     spec : function
         A function that describes the spectrum with only
         the wavelength or frequency as parameter.
-    filt : function
+    transmission : function
         The same as the above but for the filter.
-    intlims: iterable
+    limits: iterable
         Lower and upper limits for the integration.
-    coords : string
-        'wavelength' or 'frequency'
-        This argument is passed directly to the function
-        blackbody in the absence of a standard star spectrum.
+    verbose : bool
+        Verbosity.
+    get_filter_center : bool
+        Returns the pivot wavelength.
 
     Returns
     --------
-    phot : float
+    photometry : float
         Photometric data point that results from the
         integration and scaling of the filter over the
         spectrum (CGS).
@@ -616,33 +608,33 @@ def specphotometry(spec, filt, intlims=(8, 13), coords='wavelength',
     """
 
     l, er = 100, 1.e-2
-    x0, x1 = intlims
+    x0, x1 = limits
 
     def y2(x):
-        return filt(x) * spec(x)
+        return transmission(x) * spec(x)
 
     if get_filter_center:
-        def medianfunction(x):
-            return np.abs(quad(filt, -np.inf, x, epsrel=er, limit=l)[0] -
-                          quad(filt, x, +np.inf, epsrel=er, limit=l)[0])
+        def median_function(x):
+            return np.abs(quad(transmission, -np.inf, x, epsrel=er, limit=l)[0] -
+                          quad(transmission, x, +np.inf, epsrel=er, limit=l)[0])
 
-        fcenter = minimize(medianfunction, 11.5, bounds=[[11.1, 11.9]],
-                           method='SLSQP')
+        f_center = minimize(median_function, np.array([11.5]), bounds=[[11.1, 11.9]], method='slsqp')
+    else:
+        f_center = np.nan
 
-    cal = quad(filt, x0, x1, limit=l, epsrel=er)[0]
-    phot = quad(y2, x0, x1, limit=l, epsrel=er)[0] / cal
+    cal = quad(transmission, x0, x1, limit=l, epsrel=er)[0]
+    photometry = quad(y2, x0, x1, limit=l, epsrel=er)[0] / cal
 
     if verbose:
-        print('Central wavelength: {:.2f}; Flux: {:.2f}'
-              .format(float(fcenter), phot))
+        print('Central wavelength: {:.2f}; Flux: {:.2f}'.format(float(f_center), photometry))
 
     if get_filter_center:
-        return phot, float(fcenter['x'])
+        return photometry, float(f_center['x'])
     else:
-        return phot
+        return photometry
 
 
-def w80eval(wl, spec, wl0, smooth=0, **min_args) -> (float, float, float, np.ndarray, np.ndarray):
+def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = 0) -> tuple:
     """
     Evaluates the W80 parameter of a given emission fature.
 
@@ -654,8 +646,8 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args) -> (float, float, float, np.nda
       Flux vector.
     wl0 : number
       Central wavelength of the emission feature.
-    **min_args : dictionary
-      Options passed directly to the scipy.optimize.minimize.
+    smooth : float
+        Smoothing sigma to apply after the cumulative sum.
 
     Returns
     -------
@@ -690,8 +682,8 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args) -> (float, float, float, np.nda
     # routine below. There is a possibility for smoothing the cumulative curve
     # after performing the integration, which might be useful for very noisy
     # data.
-    def cumulative_fun(cumulative, d):
-        c = gaussian_filter(cumulative, smooth, mode='constant')
+    def cumulative_fun(cumulative_sum, d):
+        c = gaussian_filter(cumulative_sum, smooth, mode='constant')
         return interp1d(velocity, c - d, bounds_error=False)
 
     # In order to have a good initial guess, the code will find the
@@ -727,7 +719,7 @@ def w80eval(wl, spec, wl0, smooth=0, **min_args) -> (float, float, float, np.nda
 
 class Constraints:
 
-    def __init__(self, function='gaussian'):
+    def __init__(self):
         pass
 
     @staticmethod
