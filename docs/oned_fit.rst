@@ -51,9 +51,9 @@ process.
 * fit_continuum: 'yes', 'no'
     Fits a polynomial pseudo continuum before fitting the spectral features.
 
-* function: 'gaussian', 'gausshermite'
+* function: 'gaussian', 'gauss_hermite'
     Sets the function to be used as the spectral feature profile. It can be
-    either 'gaussian' or 'gausshermite'. 
+    either 'gaussian' or 'gauss_hermite'.
 * fitting_window: lambda_0:lambda_1
     Spectral window in which to perform the fit.
 * out_image: string
