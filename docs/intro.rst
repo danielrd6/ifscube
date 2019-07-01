@@ -40,6 +40,17 @@ you wish to use IFSCube in conjunction with these programs you will have
 to install them first, by downloading and following the instructions at the
 following address: http://www-astro.physics.ox.ac.uk/~mxc/software/
 
+Requirements
+--------------------------------------------------
+
+Apart from the Python modules listed in the requirements.txt file,
+IFSCube also requires that some Fortran compiler be present in the system.
+If you are using Ubuntu you can install one using the following command:
+
+.. code-block:: bash
+
+    sudo apt-get update && sudo apt-get install gfortran
+
 Upgrade
 --------------------------------------------------
 
@@ -72,6 +83,14 @@ repository and install the package as an editable package.
     git clone https://danielrd6@bitbucket.org/danielrd6/ifscube.git
     cd ifscube
     pip install -e .
+
+If you are using Conda you can substitute the last line by
+
+.. code-block:: bash
+
+    conda develop .
+
+Remember to switch to the desired Conda environment prior to running this command.
 
 .. rubric:: Footnotes
 
