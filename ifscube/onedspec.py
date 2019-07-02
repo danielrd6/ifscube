@@ -41,6 +41,8 @@ class Spectrum:
         self.fitstellar = None
         self.fitwl = None
         self.flux_err = None
+        self.flux_direct = None
+        self.flux_model = None
         self.header = None
         self.initial_guess = None
         self.npars = None
@@ -205,6 +207,17 @@ class Spectrum:
         hdr['nfunc'] = (int(total_pars / self.npars), 'Number of functions')
         hdu = fits.ImageHDU(data=self.em_model, header=hdr)
         hdu.name = 'SOLUTION'
+        h.append(hdu)
+
+        # Integrated flux extensions
+        hdr['object'] = 'flux_model'
+        hdu = fits.ImageHDU(data=self.flux_model, header=hdr)
+        hdu.name = 'FLUX_M'
+        h.append(hdu)
+
+        hdr['object'] = 'flux_direct'
+        hdu = fits.ImageHDU(data=self.flux_direct, header=hdr)
+        hdu.name = 'FLUX_D'
         h.append(hdu)
 
         # Equivalent width extensions
@@ -676,6 +689,8 @@ class Spectrum:
             eqw_opts = {}
         self.eqw(**eqw_opts)
 
+        self._integrate_flux()
+
         if write_fits:
             self._write_linefit(args=locals())
         return
@@ -777,6 +792,73 @@ class Spectrum:
 
             self.eqw_model = eqw_model
             self.eqw_direct = eqw_direct
+
+    def _integrate_flux(self, sigma_factor: float = 5.0):
+        """
+        Integrates the flux of spectral features.
+
+        Parameters
+        ----------
+        sigma_factor: float
+            Radius of integration as a number of line sigmas.
+
+        Returns
+        -------
+        None.
+        """
+
+        flux_model = np.zeros((len(self.component_names),))
+        flux_direct = np.zeros_like(flux_model)
+
+        npars = self.npars
+
+        for component in self.component_names:
+
+            component_index = self.component_names.index(component)
+            par_indexes = np.arange(npars) + npars * component_index
+
+            sigma_index = 2 + npars * component_index
+
+            # Wavelength vector of the line fit
+            fwl = self.fitwl
+            # Center wavelength coordinate of the fit
+            cwl = self.center_wavelength(component_index)
+            # Sigma of the fit
+            sig = self.sigma_lambda(self.em_model[sigma_index], self.feature_wl[component_index])
+            # Just a short alias for the sigma_factor parameter
+            sf = sigma_factor
+
+            nan_data = np.any(np.isnan(self.em_model[par_indexes]))
+            null_center_wavelength = (cwl == 0) or (cwl == np.nan)
+
+            if nan_data or null_center_wavelength:
+
+                flux_model[component_index] = np.nan
+                flux_direct[component_index] = np.nan
+
+            else:
+
+                low_wl = cwl - sf * sig
+                up_wl = cwl + sf * sig
+
+                cond = (fwl > low_wl) & (fwl < up_wl)
+
+                fit = self.fit_func(fwl[cond], np.array([self.feature_wl[component_index]]), self.em_model[par_indexes])
+                syn = self.fitstellar
+                fit_continuum = self.fitcont
+                data = self.fitspec
+
+                remove_components = [i for i in range(len(self.feature_wl)) if i != component_index]
+                obs_spec = deepcopy(data[cond])
+                for i in remove_components:
+                    ci = i * npars
+                    obs_spec -= self.fit_func(fwl[cond], self.feature_wl[i], self.em_model[ci:ci + npars])
+
+                flux_model[component_index] = trapz(fit, x=fwl[cond])
+                flux_direct[component_index] = trapz(obs_spec - (fit_continuum[cond] + syn[cond]), x=fwl[cond])
+
+            self.flux_model = flux_model
+            self.flux_direct = flux_direct
 
     def dn4000(self):
         """

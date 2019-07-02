@@ -47,6 +47,8 @@ class Cube:
         self.fitspec = None
         self.fitstellar = None
         self.fitweights = None
+        self.flux_direct = None
+        self.flux_model = None
         self.flags = None
         self.header = None
         self.initial_guess = None
@@ -282,6 +284,18 @@ class Cube:
         # Creates the initial guess extension.
         hdu = fits.ImageHDU(data=self.initial_guess, header=hdr)
         hdu.name = 'INIGUESS'
+        h.append(hdu)
+
+        # Integrated flux extensions
+        hdr['object'] = 'flux_direct'
+        hdu = fits.ImageHDU(data=self.flux_direct, header=hdr)
+        hdu.name = 'FLUX_D'
+        h.append(hdu)
+
+        # Integrated flux extensions
+        hdr['object'] = 'flux_model'
+        hdu = fits.ImageHDU(data=self.flux_model, header=hdr)
+        hdu.name = 'FLUX_M'
         h.append(hdu)
 
         # Equivalent width extensions
@@ -972,6 +986,10 @@ class Cube:
                 self.eqw_model = np.zeros((len(spec.component_names),) + self.fit_status.shape)
                 self.eqw_direct = np.zeros_like(self.eqw_model)
 
+            if self.flux_model is None:
+                self.flux_model = np.zeros((len(spec.component_names),) + self.fit_status.shape)
+                self.flux_direct = np.zeros_like(self.eqw_model)
+
             if self.binned:
                 for l, m in vor[vor[:, 2] == bin_num, :2]:
                     sol[:, l, m] = spec.em_model
@@ -982,6 +1000,8 @@ class Cube:
                     self.fit_status[l, m] = spec.fit_status
                     self.eqw_model[:, l, m] = spec.eqw_model
                     self.eqw_direct[:, l, m] = spec.eqw_direct
+                    self.flux_model[:, l, m] = spec.flux_model
+                    self.flux_direct[:, l, m] = spec.flux_direct
                     self.initial_guess[:, l, m] = spec.initial_guess
                     self.fitbounds[:, l, m] = [
                         k if k is not None else np.nan for k in np.array(spec.fitbounds).flatten()]
@@ -994,6 +1014,8 @@ class Cube:
                 self.fit_status[i, j] = spec.fit_status
                 self.eqw_model[:, i, j] = spec.eqw_model
                 self.eqw_direct[:, i, j] = spec.eqw_direct
+                self.flux_model[:, i, j] = spec.flux_model
+                self.flux_direct[:, i, j] = spec.flux_direct
                 self.initial_guess[:, i, j] = spec.initial_guess
                 self.fitbounds[:, i, j] = [k if k is not None else np.nan for k in np.array(spec.fitbounds).flatten()]
 
@@ -1059,6 +1081,16 @@ class Cube:
             self.fit_x0 = fit_file['SOLUTION'].header['fit_x0']
         if 'fit_y0' in fit_file['SOLUTION'].header:
             self.fit_y0 = fit_file['SOLUTION'].header['fit_y0']
+
+        try:
+            self.flux_model = fit_file['FLUX_M'].data
+        except KeyError:
+            pass
+
+        try:
+            self.flux_direct = fit_file['FLUX_D'].data
+        except KeyError:
+            pass
 
         try:
             self.eqw_model = fit_file['EQW_M'].data
