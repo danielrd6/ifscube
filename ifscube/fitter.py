@@ -1,57 +1,31 @@
 #!/usr/bin/env python
-# STDLIB
-import os
 import argparse
 import ctypes
-import configparser
+import os
 
-# third party
-from astropy.io import fits
-from astropy import table
-
-# LOCAL
-from . import manga
-from . import gmos
-from . import parser
-from . import onedspec
 from . import Cube
+from . import gmos
+from . import manga
+from . import onedspec
+from . import parser
+from . import cubetools
 
 
-def mklock(fname):
+def make_lock(fname):
     with open(fname + '.lock', 'w') as f:
         f.write('This one is taken, go to the next.\n')
     return
 
 
 def clear_lock(lockname):
-
     if os.path.isfile(lockname):
         os.remove(lockname)
 
     return
 
 
-def append_config(config_file, outname):
-
-    c = configparser.ConfigParser()
-    c.read(config_file)
-    t = table.Table(names=['parameters', 'values'], dtype=('S64', 'S64'))
-
-    for i in c.sections():
-        for j in c[i]:
-            t.add_row(('{:s}.{:s}'.format(i, j), c[i][j]))
-
-    with fits.open(outname) as outfits:
-        outfits.append(fits.BinTableHDU(data=t))
-        outfits[-1].name = 'FITCONFIG'
-        outfits.writeto(outname, overwrite=True)
-
-    return
-
-
 def dofit(fname, linefit_args, overwrite, cubetype, loading,
           fit_type, config_file_name, plot=False, lock=False):
-
     galname = fname.split('/')[-1]
 
     try:
@@ -80,7 +54,7 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
             print('ERROR! Lock file {:s} is present.'.format(lockname))
             return
         else:
-            mklock(outname)
+            make_lock(outname)
 
     if overwrite:
         if os.path.isfile(outname):
@@ -111,7 +85,7 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
     a.linefit(**linefit_args)
 
     try:
-        append_config(config_file_name, outname)
+        cubetools.append_config(config_file_name, outname)
     except IOError:
         if lock:
             clear_lock(lockname)
@@ -126,7 +100,6 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
 
 
 def main(fit_type):
-
     ap = argparse.ArgumentParser()
     ap.add_argument(
         '-o', '--overwrite', action='store_true',
@@ -137,7 +110,7 @@ def main(fit_type):
     ap.add_argument(
         '-l', '--lock', action='store_true', default=False,
         help='Creates a lock file to prevent multiple instances from'
-        ' attempting to fit the same file at the same time.')
+             ' attempting to fit the same file at the same time.')
     ap.add_argument(
         '-b', '--cubetype', type=str, default=None,
         help='"gmos" or "manga".')
@@ -161,9 +134,7 @@ def main(fit_type):
 
     for i in args.datafile:
         c = parser.LineFitParser(args.config)
-        linefit_args = c.get_vars()
-        dofit(
-            i, linefit_args, overwrite=args.overwrite, cubetype=args.cubetype,
-            plot=args.plot, loading=c.loading_opts, lock=args.lock,
-            fit_type=fit_type, config_file_name=args.config)
+        line_fit_args = c.get_vars()
+        dofit(i, line_fit_args, overwrite=args.overwrite, cubetype=args.cubetype, plot=args.plot,
+              loading=c.loading_opts, lock=args.lock, fit_type=fit_type, config_file_name=args.config)
         del c
