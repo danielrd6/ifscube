@@ -716,15 +716,14 @@ class Spectrum:
             # Center wavelength coordinate of the fit
             cwl = self.center_wavelength(component_index)
             # Sigma of the fit
-            sig = self.sigma_lambda(
-                self.em_model[sigma_index], self.feature_wl[component_index])
+            sig = self.sigma_lambda(self.em_model[sigma_index], self.feature_wl[component_index])
             # Just a short alias for the sigma_factor parameter
             sf = sigma_factor
 
-            nandata_flag = np.any(np.isnan(self.em_model[par_indexes]))
-            nullcwl_flag = (cwl == 0) or (cwl == np.nan)
+            nan_data = np.any(np.isnan(self.em_model[par_indexes]))
+            null_center_wavelength = (cwl == 0) or (cwl == np.nan)
 
-            if nandata_flag or nullcwl_flag:
+            if nan_data or null_center_wavelength:
 
                 eqw_model[component_index] = np.nan
                 eqw_direct[component_index] = np.nan
@@ -755,23 +754,17 @@ class Spectrum:
                     cwin = None
 
                 if cwin is not None:
-                    assert len(cwin) == 4, 'Windows must be an ' \
-                                           'iterable of the form (blue0, blue1, red0, red1)'
+                    assert len(cwin) == 4, 'Windows must be an iterable of the form (blue0, blue1, red0, red1)'
                     weights = np.zeros_like(self.fitwl)
-                    cwin_cond = (
-                            ((fwl > cwin[0]) & (fwl < cwin[1])) |
-                            ((fwl > cwin[2]) & (fwl < cwin[3]))
-                    )
+                    cwin_cond = (((fwl > cwin[0]) & (fwl < cwin[1])) | ((fwl > cwin[2]) & (fwl < cwin[3])))
                     weights[cwin_cond] = 1
                     nite = 1
                 else:
                     weights = np.ones_like(self.fitwl)
                     nite = 3
 
-                cont = spectools.continuum(
-                    fwl, syn + fitcont, weights=weights,
-                    degree=1, n_iterate=nite, lower_threshold=3,
-                    upper_threshold=3, output='function')[1][cond]
+                cont = spectools.continuum(fwl, syn + fitcont, weights=weights, degree=1, n_iterate=nite,
+                                           lower_threshold=3, upper_threshold=3, output='function')[1][cond]
 
                 # Remember that 1 - (g + c)/c = -g/c, where g is the
                 # line profile and c is the local continuum level.
@@ -787,6 +780,8 @@ class Spectrum:
 
     def dn4000(self):
         """
+        Notes
+        -----
         Dn4000 index based on Balogh et al. 1999 (ApJ, 527, 54).
 
         The index is defined as the ratio between continuum fluxes
@@ -796,8 +791,8 @@ class Spectrum:
 
         """
 
-        warn_message = 'Dn4000 could not be evaluated because the ' \
-                       'spectrum does not include wavelengths bluer than 3850.'
+        warn_message = 'Dn4000 could not be evaluated because the spectrum does not include wavelengths bluer than '\
+                       '3850.'
 
         if self.rest_wavelength[0] > 3850:
             warnings.warn(RuntimeWarning(warn_message))
