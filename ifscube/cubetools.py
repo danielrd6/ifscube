@@ -4,10 +4,12 @@ Functions for the analysis of integral field spectroscopy.
 Author: Daniel Ruschel Dutra
 Website: https://github.com/danielrd6/ifscube
 """
-# STDLIB
 import copy
+import configparser
 
-# THIRD PARTY
+from astropy.io import fits
+from astropy import table
+
 import numpy as np
 from numpy import ma
 from scipy.integrate import trapz
@@ -315,3 +317,36 @@ class gmosdc:
             'The gmosdc class has been moved to the ifscube.gmos '
             'module. Please change the instance initialization line from '
             'cubetools.gmosdc() to gmos.cube()')
+
+
+def append_config(config_file: str, fit_file: str) -> None:
+    """
+    Appends the configuration parameters as FITS table to the fit output file.
+    
+    Parameters
+    ----------
+    config_file : str
+        Name of the configuration file.
+    fit_file : str
+        Name of the file onto which the configuration table will be
+        appended.
+
+    Returns
+    -------
+    None
+
+    """
+    c = configparser.ConfigParser()
+    c.read(config_file)
+    t = table.Table(names=['parameters', 'values'], dtype=('S64', 'S64'))
+
+    for i in c.sections():
+        for j in c[i]:
+            t.add_row(('{:s}.{:s}'.format(i, j), c[i][j]))
+
+    with fits.open(fit_file) as outfits:
+        outfits.append(fits.BinTableHDU(data=t))
+        outfits[-1].name = 'FITCONFIG'
+        outfits.writeto(fit_file, overwrite=True)
+
+    return
