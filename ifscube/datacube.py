@@ -1,4 +1,5 @@
 from copy import deepcopy
+from typing import Union, Iterable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -1108,7 +1109,48 @@ class Cube:
 
         fit_file.close()
 
-    def w80(self, component, sigma_factor=5, individual_spec=False, verbose=False, smooth=0, remove_components=None):
+    def w80(self, component: int, sigma_factor: float = 5.0, individual_spec: Union[bool, tuple] = False,
+            verbose: bool = False, smooth: float = 0, remove_components: Union[None, Iterable, str] = None) -> \
+            np.ndarray:
+        """
+
+        Parameters
+        ----------
+        component : int
+            Number of the spectral feature to be measured. This number
+            begins at zero and increases following the order given in
+            the configuration file, or the parameters of Cube.linefit.
+        sigma_factor : float
+            Width of the integration window in units of sigma.
+        individual_spec : bool or tuple
+            If not *False* performs the evaluation for a single
+            spaxel specfied by a tuple (x, y).
+        verbose : bool
+            Prints messages about the processing.
+        smooth : float
+            Gaussian smoothing sigma to be applied prior to
+            integration. This can be useful for noisy spectra.
+        remove_components : None, iterable or 'all'
+            Removes spectral features before performing the
+            integration. This can be a list of feature numbers
+            (see *component* above) or 'all'. If set to 'all', all
+            spectral features besides the one specified in *component*
+            will be subtracted from the spectrum.
+
+        Returns
+        -------
+        w80 : np.ndarray
+            W80 index for the specified spectral feature evaluated
+            over the modeled profile (w80[0]) and directly over the
+            observed spectrum (w80[1]).
+
+        Notes
+        -----
+        W80 is the width in velocity space which encompasses 80% of
+        the light emitted in a given spectral feature. It is widely
+        used as a proxy for identifying outflows of ionized gas in
+        active galaxies. For instance, see Zakamska+2014 MNRAS.
+        """
 
         if individual_spec:
             # The reflaction of the *individual_spec* iterable puts the
