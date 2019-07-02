@@ -215,7 +215,7 @@ class Cube:
 
         return h
 
-    def _write_linefit(self, args):
+    def _write_line_fit(self, args):
 
         suffix = args['suffix']
         outimage = args['out_image']
@@ -1009,7 +1009,7 @@ class Cube:
         self.em_model = sol
 
         if write_fits:
-            self._write_linefit(args=locals())
+            self._write_line_fit(args=locals())
 
         if individual_spec:
             return spec.fitwl, spec.fitspec, spec.fitcont, spec.resultspec, spec.r
