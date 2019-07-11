@@ -25,7 +25,30 @@ def scale_bounds(bounds, scale_factor, npars_pc):
 
 class Spectrum:
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, fname: str = None, scidata: str = 'SCI', variance: np.str = None, flags: str = None,
+                 stellar: str = None, primary: str = 'PRIMARY', redshift: float = None, wcs_axis: int = None) -> None:
+        """
+        Base class for 1D spectra.
+
+        Parameters
+        ----------
+        fname : str
+            Name of the input FITS file.
+        scidata : st
+            Science data extension name.
+        variance : str
+            Variance extension name.
+        flags : str
+            Flag extension name.
+        stellar : str
+            Stellar (or synthetic) spectra extension name.
+        primary : str
+            Primary extension name, normally cotaining only a header.
+        redshift : float
+            Redshift of the source given as z.
+        wcs_axis : list
+            Number of the WCS axis which represents the wavelength.
+        """
 
         self.component_names = None
         self.em_model = None
@@ -53,8 +76,11 @@ class Spectrum:
 
         self.ppxf_sol = np.ndarray([])
 
-        if len(args) > 0:
-            self._load(*args, **kwargs)
+        if fname is not None:
+            arg_names = ['fname', 'scidata', 'variance', 'flags', 'stellar', 'primary', 'redshift', 'wcs_axis']
+            locale = locals()
+            load_args = {i: locale[i] for i in arg_names}
+            self._load(**load_args)
 
     def _accessory_data(self, hdu, variance, flags, stellar):
 
@@ -81,16 +107,17 @@ class Spectrum:
                 elif isinstance(j, np.ndarray):
                     i[:] = j
 
-    def _load(self, fname, scidata='SCI', variance=None,
-              flags=None, stellar=None, primary='PRIMARY',
-              redshift=None):
+    def _load(self, fname: str, scidata: str = 'SCI', variance: str = None, flags: str = None, stellar: str = None,
+              primary: str = 'PRIMARY', redshift: float = None, wcs_axis: int = None) -> None:
         self.fitsfile = fname
 
         with fits.open(fname) as hdu:
             self.data = hdu[scidata].data
             self.header = hdu[primary].header
             self.header_data = hdu[scidata].header
-            self.wcs = wcs.WCS(self.header_data)
+            if wcs_axis is not None:
+                wcs_axis = [wcs_axis]
+            self.wcs = wcs.WCS(self.header_data, naxis=wcs_axis)
 
             self._accessory_data(hdu, variance, flags, stellar)
 
@@ -873,7 +900,7 @@ class Spectrum:
 
         """
 
-        warn_message = 'Dn4000 could not be evaluated because the spectrum does not include wavelengths bluer than '\
+        warn_message = 'Dn4000 could not be evaluated because the spectrum does not include wavelengths bluer than ' \
                        '3850.'
 
         if self.rest_wavelength[0] > 3850:
