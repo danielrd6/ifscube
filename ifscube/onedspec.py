@@ -53,7 +53,7 @@ class Spectrum:
 
         self.ppxf_sol = np.ndarray([])
 
-        if len(args) > 0:
+        if (len(args) > 0) or (len(kwargs) > 0):
             self._load(*args, **kwargs)
 
     def _accessory_data(self, hdu, variance, flags, stellar):
