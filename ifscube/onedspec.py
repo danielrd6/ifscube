@@ -53,8 +53,11 @@ class Spectrum:
 
         self.ppxf_sol = np.ndarray([])
 
-        if (len(args) > 0) or (len(kwargs) > 0):
-            self._load(*args, **kwargs)
+        if fname is not None:
+            arg_names = ['fname', 'scidata', 'variance', 'flags', 'stellar', 'primary', 'redshift', 'wcs_axis']
+            locale = locals()
+            load_args = {i: locale[i] for i in arg_names}
+            self._load(**load_args)
 
     def _accessory_data(self, hdu, variance, flags, stellar):
 
