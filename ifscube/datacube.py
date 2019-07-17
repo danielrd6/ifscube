@@ -1,3 +1,4 @@
+import inspect
 from copy import deepcopy
 from typing import Union, Iterable
 
@@ -21,7 +22,10 @@ class Cube:
     A class for dealing with IFS data cubes.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, fname: str = None, scidata: str = 'SCI', primary: str = 'PRIMARY', variance: str = None,
+                 flags: str = None, stellar: str = None, weights: str = None, redshift: float = None,
+                 vortab: str = None, nan_spaxels: str = 'all', spatial_mask: str = None,
+                 spectral_dimension: int = 3) -> None:
         """
         Instantiates the class. If any arguments are given they will be
         passed to the _load method.
@@ -64,12 +68,15 @@ class Cube:
         self.spec_indices = None
         self.variance = None
 
-        if len(args) > 0:
-            self._load(*args, **kwargs)
+        if fname is not None:
+            arg_names = inspect.getargspec(self._load).args
+            locale = locals()
+            load_args = {i: locale[i] for i in arg_names}
+            self._load(**load_args)
 
     def _accessory_data(self, hdu, variance, flags, stellar, weights, spatial_mask):
 
-        def shmess(name):
+        def shape_mess(name):
             s = '{:s} spectrum must have the same shape of the spectrum itself'
             return s.format(name)
 
@@ -94,7 +101,7 @@ class Cube:
             if j is not None:
                 if isinstance(j, str):
                     if j in hdu:
-                        assert hdu[j].data.shape == self.data.shape, shmess(lab)
+                        assert hdu[j].data.shape == self.data.shape, shape_mess(lab)
                         i[:] = hdu[j].data
                 elif isinstance(j, np.ndarray):
                     i[:] = j
