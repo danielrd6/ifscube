@@ -15,10 +15,10 @@ class Cube(datacube.Cube):
 
         datacube.Cube.__init__(self, *args, **kwargs)
         if len(args) > 0:
-            self._load(*args, **kwargs)
+            self.load(*args, **kwargs)
 
-    def _load(self, fitsfile, redshift=None, vortab=None, dataext='SCI', hdrext='PRIMARY', var_ext='ERR',
-              ncubes_ext='NCUBE', nan_spaxels='all', spatial_mask=None):
+    def load(self, fitsfile, redshift=None, vortab=None, dataext='SCI', hdrext='PRIMARY', var_ext='ERR',
+             ncubes_ext='NCUBE', nan_spaxels='all', spatial_mask=None):
         """
         Initializes the class and loads basic information onto the
         object.
