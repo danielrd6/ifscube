@@ -1,23 +1,71 @@
-# STDLIB
-
-# THIRD PARTY
 import numpy as np
-from astropy import wcs
 from astropy import units
+from astropy import wcs
 from astropy.io import fits
 
-# LOCAL
 from . import datacube, onedspec
 
 
-class cube(datacube.Cube):
+class LogCube(datacube.Cube):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, fname: str = None, *args, **kwargs):
+        super().__init__(fname=fname, *args, **kwargs)
 
-        if len(args) > 0:
-            self._load(*args, **kwargs)
+    def load(self, fname: str, scidata: str = 'FLUX', primary: str = 'PRIMARY', variance: str = 'IVAR',
+             flags: str = None, stellar: str = None, weights: str = None, redshift: float = None, vortab: str = None,
+             nan_spaxels: str = 'all', spatial_mask: str = None, spectral_dimension: int = 3):
 
-    def _load(self, fitsfile, redshift=0):
+        self.fitsfile = fname
+
+        extensions = ['scidata', 'primary', 'variance', 'flags', 'stellar', 'weights', 'vortab', 'spatial_mask']
+        self.extension_names = {}
+        for key in extensions:
+            self.extension_names[key] = locals()[key]
+
+        with fits.open(fname) as hdu:
+            self.data = hdu[scidata].data
+            self.header = hdu[primary].header
+            self.header_data = hdu[scidata].header
+            self.wcs = wcs.WCS(self.header_data)
+
+            self._accessory_data(hdu, variance, flags, stellar, weights, spatial_mask)
+            self.noise_cube = np.sqrt(1./self.variance)
+            self.noise_cube[self.flags] = 0.0
+
+            self.wl = hdu['wave'].data
+
+        if nan_spaxels == 'all':
+            self.nan_mask = np.all(self.data == 0, 0)
+        elif nan_spaxels == 'any':
+            self.nan_mask = np.any(self.data == 0, 0)
+        else:
+            self.nan_mask = np.zeros(self.data.shape[1:]).astype('bool')
+        self.spatial_mask |= self.nan_mask
+
+        if redshift is not None:
+            self.redshift = redshift
+        elif 'redshift' in self.header:
+            self.redshift = self.header['REDSHIFT']
+        else:
+            self.redshift = 0
+
+        self.rest_wavelength = onedspec.Spectrum.dopcor(self.redshift, self.wl)
+
+        try:
+            if self.header['VORBIN']:
+                vortab = fits.getdata(fname, 'VOR')
+                self.voronoi_tab = vortab
+                self.binned = True
+        except KeyError:
+            self.binned = False
+
+        self._set_spec_indices()
+        self.cont = None
+
+
+class PycassoCube(datacube.Cube):
+
+    def load(self, fitsfile, redshift=0):
 
         self.fitsfile = fitsfile
         self.redshift = redshift
@@ -67,8 +115,8 @@ class cube(datacube.Cube):
         seg_has_badpixels = 0x0020
         low_sn = 0x0040
 
-        no_obs = no_data | bad_pix | ccd_gap | _unused | telluric\
-            | seg_has_badpixels | low_sn
+        no_obs = no_data | bad_pix | ccd_gap | _unused | telluric \
+                 | seg_has_badpixels | low_sn
 
         self.flags = self.flag_cube & no_obs
 
@@ -96,7 +144,7 @@ class cube(datacube.Cube):
         flags = before_starlight | no_starlight
         bad_lyx = (self.flag_cube & flags) > 0
         spatial_mask = (
-            np.sum(bad_lyx, 0) > len(self.restwl) * 0.8
+                np.sum(bad_lyx, 0) > len(self.restwl) * 0.8
         )
 
         self.spatial_mask = spatial_mask
@@ -139,12 +187,10 @@ class cube(datacube.Cube):
 class IntegratedSpectrum(onedspec.Spectrum):
 
     def __init__(self, *args, **kwargs):
-
         if len(args) > 0:
             self._load(*args, **kwargs)
 
     def _flags(self, flags):
-
         _unused = 0x0001
         no_data = 0x0002
         bad_pix = 0x0004
@@ -157,7 +203,6 @@ class IntegratedSpectrum(onedspec.Spectrum):
         self.flags = flags & no_obs
 
     def _load(self, fname):
-
         self.fitsfile = fname
 
         with fits.open(self.fitsfile) as hdu:
@@ -180,7 +225,6 @@ class IntegratedSpectrum(onedspec.Spectrum):
         self._wcs_from_table()
 
     def _wcs_from_table(self):
-
         w = wcs.WCS(naxis=1)
 
         w.wcs.crval = np.array([self.wl[0]])
