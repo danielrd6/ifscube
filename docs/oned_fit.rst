@@ -244,7 +244,9 @@ or
 
 ::
 
-    velocity: 300.0, +-200
+    velocity: 300.0, +- 200
+
+**do not forget** the space between **+-** and the following number.
 
 Bounds can also be one-sided, as in
 
