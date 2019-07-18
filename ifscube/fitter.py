@@ -69,8 +69,10 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
 
         if cubetype is None:
             a = Cube(fname, **loading)
-        elif cubetype == 'manga':
-            a = manga.cube(fname, **loading)
+        elif cubetype == 'manga_pycasso':
+            a = manga.PycassoCube(fname, **loading)
+        elif cubetype == 'manga_logcube':
+            a = manga.LogCube(fname, **loading)
         elif cubetype == 'gmos':
             a = gmos.Cube(fname, **loading)
 
@@ -113,7 +115,7 @@ def main(fit_type):
              ' attempting to fit the same file at the same time.')
     ap.add_argument(
         '-b', '--cubetype', type=str, default=None,
-        help='"gmos" or "manga".')
+        help='"gmos", "manga_logcube" or "manga_pycasso".')
     ap.add_argument(
         '-t', '--mklthreads', type=int, default=1,
         help='Number of threads for numpy routines.')
