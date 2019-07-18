@@ -22,13 +22,20 @@ class Cube:
     A class for dealing with IFS data cubes.
     """
 
-    def __init__(self, fname: str = None, scidata: str = 'SCI', primary: str = 'PRIMARY', variance: str = None,
-                 flags: str = None, stellar: str = None, weights: str = None, redshift: float = None,
-                 vortab: str = None, nan_spaxels: str = 'all', spatial_mask: str = None,
-                 spectral_dimension: int = 3) -> None:
+    def __init__(self, fname: str = None, *args, **kwargs) -> None:
         """
-        Instantiates the class. If any arguments are given they will be
-        passed to the _load method.
+        Instantiates the class.
+
+        Parameters
+        ----------
+        fname : str
+            Name of the FITS file containing the data cube.
+        *args, **kwargs
+            Arguments passed directly to Cube.load.
+
+        See Also
+        --------
+        Cube.load
         """
 
         self.binned = False
@@ -69,10 +76,7 @@ class Cube:
         self.variance = None
 
         if fname is not None:
-            arg_names = inspect.getargspec(self._load).args
-            locale = locals()
-            load_args = {i: locale[i] for i in arg_names}
-            self._load(**load_args)
+            self.load(fname=fname, *args, **kwargs)
 
     def _accessory_data(self, hdu, variance, flags, stellar, weights, spatial_mask):
 
@@ -100,8 +104,9 @@ class Cube:
                 elif isinstance(j, np.ndarray):
                     i[:] = j
 
-    def _load(self, fname, scidata='SCI', primary='PRIMARY', variance=None, flags=None, stellar=None, weights=None,
-              redshift=None, vortab=None, nan_spaxels='all', spatial_mask=None, spectral_dimension=3):
+    def load(self, fname: str, scidata: str = 'SCI', primary: str = 'PRIMARY', variance: str = None, flags: str = None,
+             stellar: str = None, weights: str = None, redshift: float = None, vortab: str = None,
+             nan_spaxels: str = 'all', spatial_mask: str = None, spectral_dimension: int = 3) -> None:
         """
         and loads basic information onto the
         object.
