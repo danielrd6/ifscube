@@ -773,11 +773,9 @@ class Cube:
 
         plt.show()
 
-    def linefit(self, p0, write_fits=False, out_image=None, overwrite=False,
-                individual_spec=None, refit=False, suffix=None,
-                update_bounds=False, bound_range=0.1, spiral_loop=False,
-                spiral_center=None, refit_radius=3.0, sig_threshold=0.0,
-                par_threshold=0, verbose=False, **kwargs):
+    def linefit(self, p0, write_fits=False, out_image=None, overwrite=False, individual_spec=None, refit=False,
+                suffix=None, update_bounds=False, bound_range=0.1, spiral_loop=False, spiral_center=None,
+                refit_radius=3.0, sig_threshold=0.0, par_threshold=0, verbose=False, debug: bool = False, **kwargs):
         """
         Fits a spectral feature with a gaussian function and returns a
         map of measured properties. This is a wrapper for the scipy
@@ -835,6 +833,9 @@ class Cube:
             considered a valid fit.
         verbose: integer
             Verbosity level.
+        debug: bool
+            If there is an exception when performing the fit, prints
+            the spaxel coordinates.
         **kwargs:
             Additional arguments passed to ifscube.onedspec.Spectrum.linefit.
 
@@ -934,7 +935,7 @@ class Cube:
 
         self.fit_y0, self.fit_x0 = xy[0]
 
-        if verbose:
+        if verbose == 1:
             iterator = tqdm(xy, desc='Fitting spectra', unit='spaxel')
         else:
             iterator = xy
@@ -974,7 +975,14 @@ class Cube:
                     if update_bounds:
                         kwargs['bounds'] = cubetools.bound_updater(p0, bound_range, bounds=original_bounds)
 
-            spec.linefit(p0, **kwargs)
+            if debug:
+                try:
+                    spec.linefit(p0, **kwargs)
+                except Exception as err:
+                    print(err)
+                    raise RuntimeError('Failed execution on spaxel ({:d}, {:d}).'.format(i, j))
+            else:
+                spec.linefit(p0, **kwargs)
 
             self.feature_wl = kwargs['feature_wl']
 
