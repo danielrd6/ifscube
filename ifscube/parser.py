@@ -328,10 +328,8 @@ class LineFitParser:
                 fit_opts[key] = tuple(
                     [int(i) for i in fit_opts[key].split(',')])
 
-        boolean_args = [
-            'write_fits', 'refit', 'update_bounds', 'spiral_loop', 'verbose',
-            'fit_continuum', 'optimize_fit', 'guess_parameters', 'trivial',
-            'test_jacobian']
+        boolean_args = ['write_fits', 'refit', 'update_bounds', 'spiral_loop', 'verbose', 'fit_continuum',
+                        'optimize_fit', 'guess_parameters', 'trivial', 'test_jacobian', 'debug']
         for i in boolean_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getboolean('fit', i)
