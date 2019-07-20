@@ -9,10 +9,8 @@ trigger:
 pool:
   vmImage: 'ubuntu-16.04'
 
-steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '3.6'
+- bash: echo "##vso[task.prependpath]$CONDA/bin"
+  displayName: Add conda to PATH
 
 # - script: |
 #     sudo apt-get -y update
@@ -23,8 +21,6 @@ steps:
 
 - script: |
     conda create --yes -n myenv python=3.6
-    conda init bash
-    source .bashrc
     conda activate myenv
   displayName: 'Create conda env'
 
