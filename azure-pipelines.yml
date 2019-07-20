@@ -13,18 +13,12 @@ steps:
 - task: UsePythonVersion@0
   inputs:
     versionSpec: '3.6'
-- bash: echo "##vso[task.prependpath]$CONDA/bin"
-  displayName: Add conda to PATH
-# - script: |
-#     sudo apt-get -y update
-#     sudo apt-get install -y --no-install-recommends gfortran
-#     sudo apt-get install python3-setuptools
-#     sudo ldconfig
-#   displayName: 'Install fortran compiler'
-# - bash: |
-#     conda create --yes -n myenv python=3.6
-#   displayName: 'Create conda env'
-
+- script: |
+    sudo apt-get -y update
+    sudo apt-get install -y --no-install-recommends gfortran
+    sudo apt-get install python3-setuptools
+    sudo ldconfig
+  displayName: 'Install fortran compiler'
 - script: |
     pip install --upgrade pip
     pip3 install -r requirements.txt
