@@ -18,4 +18,7 @@ steps:
     apt-get -y update
     apt-get install -y --no-install-recomends gfortran
     pip install -r requirements.txt
+    pip install .
+    cd ifscube/examples/
+    python cube_fit_gaussian_cfg.py
   displayName: 'Run a multi-line script'
