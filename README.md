@@ -5,7 +5,7 @@ field spectroscopy data cubes.
 
 Author: Daniel Ruschel Dutra
 
-Website: https://bitbucket.org/danielrd6/ifscube/
+Website: https://github.com/danielrd6/ifscube/
 
 ## Installation instructions
 
@@ -16,3 +16,8 @@ To install IFSCUBE using pip, you must first intall git (https://git-scm.com/),
 and then just enter the following in a terminal:
 
         pip install git+https://danielrd6@bitbucket.org/danielrd6/ifscube.git
+
+## Documentation
+
+The full documentation to IFSCube can be found in the docs directory, or
+online at https://ifscube.readthedocs.io/en/latest/.
