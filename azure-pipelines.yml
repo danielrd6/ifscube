@@ -18,6 +18,7 @@ steps:
     sudo apt-get -y update
     sudo apt-get install -y --no-install-recommends gfortran
     sudo apt-get install python3-setuptools
+    sudo ldconfig
   displayName: 'Install fortran compiler'
 - script: |
     pip3 install -r requirements.txt
