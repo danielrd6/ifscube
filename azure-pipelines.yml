@@ -20,14 +20,16 @@ steps:
   displayName: 'Install fortran compiler'
 - bash: |
     conda create --yes -n myenv python=3.6
-    source activate myenv
   displayName: 'Create conda env'
 
 - script: |
+    source activate myenv
+    which python
     pip3 install -r requirements.txt
     pip3 install .
   displayName: 'Install ifscube'
 - script: |
+    source activate myenv
     cd ifscube/examples/
     python3 cube_fit_gaussian_cfg.py
     specfit --overwrite -c halpha_gauss.cfg manga_onedspec.fits
