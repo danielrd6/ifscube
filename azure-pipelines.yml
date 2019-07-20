@@ -24,7 +24,7 @@ steps:
 - script: |
     conda create --yes -n myenv python=3.6
     conda init bash
-    souce .bashrc
+    source .bashrc
     conda activate myenv
   displayName: 'Create conda env'
 
