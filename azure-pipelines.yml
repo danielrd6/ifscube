@@ -17,9 +17,9 @@ steps:
 - script: |
     sudo apt-get -y update
     sudo apt-get install -y --no-install-recommends gfortran
+    sudo apt-get install python3-setuptools
   displayName: 'Install fortran compiler'
 - script: |
-    pip3 install numpy
     pip3 install -r requirements.txt
     pip3 install .
   displayName: 'Install ifscube'
