@@ -13,18 +13,17 @@ steps:
 - task: UsePythonVersion@0
   inputs:
     versionSpec: '3.6'
-# - script: |
-#     sudo apt-get -y update
-#     sudo apt-get install -y --no-install-recommends gfortran
-#     sudo apt-get install python3-setuptools
-#     sudo ldconfig
-#   displayName: 'Install fortran compiler'
 - script: |
-    locate lpython3.6m
-#     pip install --upgrade pip
-#     pip3 install -r requirements.txt
-#     pip3 install .
-#   displayName: 'Install ifscube'
+    sudo apt-get install python3-dev
+    sudo apt-get -y update
+    sudo apt-get install -y --no-install-recommends gfortran
+    sudo apt-get install python3-setuptools
+  displayName: 'Install fortran compiler'
+- script: |
+    pip install --upgrade pip
+    pip3 install -r requirements.txt
+    pip3 install .
+  displayName: 'Install ifscube'
 # - script: |
 #     cd ifscube/examples/
 #     python3 cube_fit_gaussian_cfg.py
