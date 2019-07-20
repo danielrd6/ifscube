@@ -14,12 +14,12 @@ steps:
   inputs:
     versionSpec: '3.6'
 
-- script: |
-    sudo apt-get -y update
-    sudo apt-get install -y --no-install-recommends gfortran
-    sudo apt-get install python3-setuptools
-    sudo ldconfig
-  displayName: 'Install fortran compiler'
+# - script: |
+#     sudo apt-get -y update
+#     sudo apt-get install -y --no-install-recommends gfortran
+#     sudo apt-get install python3-setuptools
+#     sudo ldconfig
+#   displayName: 'Install fortran compiler'
 
 - script: |
     conda create --yes -n myenv python=3.6
@@ -28,13 +28,13 @@ steps:
     conda activate myenv
   displayName: 'Create conda env'
 
-- script: |
-    pip3 install -r requirements.txt
-    pip3 install .
-  displayName: 'Install ifscube'
-- script: |
-    cd ifscube/examples/
-    python3 cube_fit_gaussian_cfg.py
-    specfit --overwrite -c halpha_gauss.cfg manga_onedspec.fits
-    cubefit --overwrite -c halpha_cube.cfg ngc3081_cube.fits
-  displayName: 'Perform IFSCube tests'
+# - script: |
+#     pip3 install -r requirements.txt
+#     pip3 install .
+#   displayName: 'Install ifscube'
+# - script: |
+#     cd ifscube/examples/
+#     python3 cube_fit_gaussian_cfg.py
+#     specfit --overwrite -c halpha_gauss.cfg manga_onedspec.fits
+#     cubefit --overwrite -c halpha_cube.cfg ngc3081_cube.fits
+#   displayName: 'Perform IFSCube tests'
