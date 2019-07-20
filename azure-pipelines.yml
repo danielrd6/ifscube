@@ -20,7 +20,7 @@ steps:
 #   displayName: 'Install fortran compiler'
 - bash: |
     conda create --yes -n myenv python=3.6
-    conda activate myenv
+    source activate myenv
   displayName: 'Create conda env'
 
 # - script: |
