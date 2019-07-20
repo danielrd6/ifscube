@@ -9,8 +9,9 @@ trigger:
 pool:
   vmImage: 'ubuntu-16.04'
 
-- bash: echo "##vso[task.prependpath]$CONDA/bin"
-  displayName: Add conda to PATH
+steps:
+  - bash: echo "##vso[task.prependpath]$CONDA/bin"
+    displayName: Add conda to PATH
 
 # - script: |
 #     sudo apt-get -y update
