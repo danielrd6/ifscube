@@ -7,7 +7,7 @@ trigger:
 - master
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: 'ubuntu-16.04'
 
 steps:
 - task: UsePythonVersion@0
@@ -17,10 +17,14 @@ steps:
 - script: |
     sudo apt-get -y update
     sudo apt-get install -y --no-install-recommends gfortran
+  displayName: 'Install fortran compiler'
+- script: |
     pip install -r requirements.txt
     pip install .
+  displayName: 'Install ifscube'
+- script: |
     cd ifscube/examples/
     python cube_fit_gaussian_cfg.py
     specfit --overwrite -c halpha_gauss.cfg manga_onedspec.fits
     cubefit --overwrite -c halpha_cube.cfg ngc3081_cube.fits
-  displayName: 'Run a multi-line script'
+  displayName: 'Perform IFSCube tests'
