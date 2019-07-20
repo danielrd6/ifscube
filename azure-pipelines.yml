@@ -19,12 +19,12 @@ steps:
     sudo apt-get install -y --no-install-recommends gfortran
   displayName: 'Install fortran compiler'
 - script: |
-    pip install -r requirements.txt
-    pip install .
+    pip3 install -r requirements.txt
+    pip3 install .
   displayName: 'Install ifscube'
 - script: |
     cd ifscube/examples/
-    python cube_fit_gaussian_cfg.py
+    python3 cube_fit_gaussian_cfg.py
     specfit --overwrite -c halpha_gauss.cfg manga_onedspec.fits
     cubefit --overwrite -c halpha_cube.cfg ngc3081_cube.fits
   displayName: 'Perform IFSCube tests'
