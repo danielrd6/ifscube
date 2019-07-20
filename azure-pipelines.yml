@@ -20,6 +20,12 @@ steps:
     sudo apt-get install python3-setuptools
     sudo ldconfig
   displayName: 'Install fortran compiler'
+
+- script: |
+    conda create -n myenv python=3.6
+    conda activate myenv
+  displayName: 'Create conda env'
+
 - script: |
     pip3 install -r requirements.txt
     pip3 install .
