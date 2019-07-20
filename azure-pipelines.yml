@@ -12,19 +12,19 @@ pool:
 steps:
 - bash: echo "##vso[task.prependpath]$CONDA/bin"
   displayName: Add conda to PATH
-- script: |
-    sudo apt-get -y update
-    sudo apt-get install -y --no-install-recommends gfortran
-    sudo apt-get install python3-setuptools
-    sudo ldconfig
-  displayName: 'Install fortran compiler'
+# - script: |
+#     sudo apt-get -y update
+#     sudo apt-get install -y --no-install-recommends gfortran
+#     sudo apt-get install python3-setuptools
+#     sudo ldconfig
+#   displayName: 'Install fortran compiler'
 - bash: |
     conda create --yes -n myenv python=3.6
   displayName: 'Create conda env'
 
 - script: |
     source activate myenv
-    which python
+    pip3 install --upgrade pip
     pip3 install -r requirements.txt
     pip3 install .
   displayName: 'Install ifscube'
