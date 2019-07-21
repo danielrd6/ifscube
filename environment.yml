@@ -5,7 +5,7 @@ dependencies:
   - python=3.6
   - conda-build
   - numpy
-#   - scipy
-#   - matplotlib
-#   - astropy
-#   - tqdm
+  - scipy
+  - matplotlib
+  - astropy
+  - tqdm

@@ -14,24 +14,23 @@ steps:
     sudo apt-get -y update
     sudo apt-get install -y --no-install-recommends gfortran
   displayName: Install fortran compiler
+
 - bash: echo "##vso[task.prependpath]$CONDA/bin"
   displayName: Add conda to PATH
-# - bash: conda env create --file environment.yml
-#   displayName: Create Anaconda environment
+
 - bash: conda env create --file environment.yml
   displayName: Create conda environment
-#     conda install --yes --name myenv numpy
-#     conda info --envs
-#     conda develop --name myenv --build_ext .
+
 - bash: |
     source activate myenv
-    conda info --envs
-    python -c "import numpy as np; print(np.__file__)"
+    pip install vorbin
     pip install -e .
   displayName: Install ifscube
-# - script: |
-#     cd ifscube/examples/
-#     python3 cube_fit_gaussian_cfg.py
-#     specfit --overwrite -c halpha_gauss.cfg manga_onedspec.fits
-#     cubefit --overwrite -c halpha_cube.cfg ngc3081_cube.fits
-#   displayName: 'Perform IFSCube tests'
+
+- bash: |
+    source activate myenv
+    cd ifscube/examples/
+    python cube_fit_gaussian_cfg.py
+    specfit --overwrite -c halpha_gauss.cfg manga_onedspec.fits
+    cubefit --overwrite -c halpha_cube.cfg ngc3081_cube.fits
+  displayName: 'Perform IFSCube tests'
