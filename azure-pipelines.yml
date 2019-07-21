@@ -22,8 +22,6 @@ steps:
     conda create --yes --name myenv
     conda install --yes --name myenv conda-build numpy
     conda info --envs
-    source activate myenv
-    python -c "import numpy; print(numpy.__file__)"
     conda develop --name myenv --build_ext .
   displayName: Install ifscube
 # - script: |
