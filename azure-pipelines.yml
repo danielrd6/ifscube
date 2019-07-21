@@ -24,6 +24,7 @@ steps:
 - bash: |
     conda info --envs
     source activate myenv
+    conda info --envs
     conda develop --build_ext .
   displayName: Install ifscube
 # - script: |
