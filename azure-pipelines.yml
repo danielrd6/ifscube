@@ -10,10 +10,10 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
-# - bash: |
-#     sudo apt-get -y update
-#     sudo apt-get install -y --no-install-recommends gfortran
-#   displayName: Install fortran compiler
+- bash: |
+    sudo apt-get -y update
+    sudo apt-get install -y --no-install-recommends gfortran
+  displayName: Install fortran compiler
 - bash: echo "##vso[task.prependpath]$CONDA/bin"
   displayName: Add conda to PATH
 # - bash: conda env create --file environment.yml
