@@ -19,7 +19,7 @@ steps:
   displayName: Install fortran compiler
 - bash: echo "##vso[task.prependpath]$CONDA/bin"
   displayName: Add conda to PATH
-- bash: conda create --yes --quiet --name myenv
+- bash: conda create --quiet --file environment.yml
   displayName: Create Anaconda environment
 - bash: |
     source activate myenv

@@ -1,0 +1,8 @@
+name: myenv
+channels:
+  - conda-forge
+dependencies:
+  - python=3.6
+  - numpy
+  - scipy
+  - conda-build
