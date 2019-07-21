@@ -23,7 +23,6 @@ steps:
   displayName: Create Anaconda environment
 - bash: |
     source activate myenv
-    conda install --yes --name myenv numpy
     conda develop --build_ext .
   displayName: Install ifscube
 # - script: |
