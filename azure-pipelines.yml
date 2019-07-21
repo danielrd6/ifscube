@@ -21,7 +21,7 @@ steps:
   displayName: Add conda to PATH
 - bash: conda create --yes --quiet --name myenv
   displayName: Create Anaconda environment
-- bash:
+- bash: |
     source activate myenv
     conda install --yes --name myenv numpy
     conda develop --build_ext .
