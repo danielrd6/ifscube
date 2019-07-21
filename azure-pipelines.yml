@@ -19,8 +19,8 @@ steps:
 # - bash: conda env create --file environment.yml
 #   displayName: Create Anaconda environment
 - bash: |
-    conda env create --yes --name myenv
-    conda install --name myenv numpy
+    conda create --yes --name myenv
+    conda install --yes --name myenv numpy
     conda info --envs
     source activate myenv
     python -c "import numpy; print(numpy.__file__)"
