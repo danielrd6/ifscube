@@ -19,7 +19,7 @@ steps:
 # - bash: conda env create --file environment.yml
 #   displayName: Create Anaconda environment
 - bash: |
-    conda installi --yes conda-build
+    conda install --yes conda-build
     conda create --yes --name myenv
     conda install --yes --name myenv numpy
     conda info --envs
