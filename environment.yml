@@ -1,0 +1,11 @@
+name: myenv
+channels:
+  - conda-forge
+dependencies:
+  - python=3.6
+  - conda-build
+  - numpy
+  - scipy
+  - matplotlib
+  - astropy
+  - tqdm

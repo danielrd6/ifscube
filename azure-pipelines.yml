@@ -1,0 +1,36 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- bash: |
+    sudo apt-get -y update
+    sudo apt-get install -y --no-install-recommends gfortran
+  displayName: Install fortran compiler
+
+- bash: echo "##vso[task.prependpath]$CONDA/bin"
+  displayName: Add conda to PATH
+
+- bash: conda env create --file environment.yml
+  displayName: Create conda environment
+
+- bash: |
+    source activate myenv
+    pip install vorbin
+    pip install -e .
+  displayName: Install ifscube
+
+- bash: |
+    source activate myenv
+    cd ifscube/examples/
+    python cube_fit_gaussian_cfg.py
+    specfit --overwrite -c halpha_gauss.cfg manga_onedspec.fits
+    cubefit --overwrite -c halpha_cube.cfg ngc3081_cube.fits
+  displayName: 'Perform IFSCube tests'
