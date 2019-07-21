@@ -13,18 +13,19 @@ steps:
 - task: UsePythonVersion@0
   inputs:
     versionSpec: '3.6'
-- script: |
+- bash: |
     sudo apt-get -y update
-    sudo apt-get install -y python3-dev
-    sudo apt-get install -y python-dev
     sudo apt-get install -y --no-install-recommends gfortran
-    sudo apt-get install python3-setuptools
-  displayName: 'Install fortran compiler'
-- script: |
-    pip install --upgrade pip
-    pip3 install -r requirements.txt
-    pip3 install .
-  displayName: 'Install ifscube'
+  displayName: Install fortran compiler
+- bash: echo "##vso[task.prependpath]$CONDA/bin"
+  displayName: Add conda to PATH
+- bash: conda create --yes --quiet --name myenv
+  displayName: Create Anaconda environment
+- bash:
+    source activate myenv
+    conda install --yes --name myenv numpy
+    conda develop --build_ext .
+  displayName: Install ifscube
 # - script: |
 #     cd ifscube/examples/
 #     python3 cube_fit_gaussian_cfg.py
