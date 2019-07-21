@@ -6,3 +6,6 @@ dependencies:
   - numpy
   - scipy
   - conda-build
+  - matplotlib
+  - astropy
+  - tqdm
