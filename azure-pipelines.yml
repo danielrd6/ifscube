@@ -18,12 +18,17 @@ steps:
   displayName: Add conda to PATH
 # - bash: conda env create --file environment.yml
 #   displayName: Create Anaconda environment
-- bash: |
-    conda env create --quiet --file environment.yml
-    conda info --envs
+- bash: conda env create --file environment.yml
+  displayName: Create conda environment
 #     conda install --yes --name myenv numpy
 #     conda info --envs
 #     conda develop --name myenv --build_ext .
+- bash: |
+    source activate myenv
+    conda info --envs
+    conda install --yes --name myenv numpy
+    python -c "import numpy as np; print(np.__file__)"
+    conda develop --name myenv --build_ext .
   displayName: Install ifscube
 # - script: |
 #     cd ifscube/examples/
