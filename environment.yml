@@ -3,9 +3,9 @@ channels:
   - conda-forge
 dependencies:
   - python=3.6
-  - numpy
-  - scipy
+#   - numpy
+#   - scipy
   - conda-build
-  - matplotlib
-  - astropy
-  - tqdm
+#   - matplotlib
+#   - astropy
+#   - tqdm
