@@ -19,8 +19,9 @@ steps:
 # - bash: conda env create --file environment.yml
 #   displayName: Create Anaconda environment
 - bash: |
+    conda install conda-build
     conda create --yes --name myenv
-    conda install --yes --name myenv conda-build numpy
+    conda install --yes --name myenv numpy
     conda info --envs
     conda develop --name myenv --build_ext .
   displayName: Install ifscube
