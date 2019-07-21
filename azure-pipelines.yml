@@ -7,7 +7,7 @@ trigger:
 - master
 
 pool:
-  vmImage: 'ubuntu-16.04'
+  vmImage: 'ubuntu-latest'
 
 steps:
 # - bash: |
@@ -16,15 +16,18 @@ steps:
 #   displayName: Install fortran compiler
 - bash: echo "##vso[task.prependpath]$CONDA/bin"
   displayName: Add conda to PATH
-- bash: conda env create --file environment.yml
-  displayName: Create Anaconda environment
+# - bash: conda env create --file environment.yml
+#   displayName: Create Anaconda environment
 - bash: |
+    conda env create --yes --name myenv
+    conda install --name myenv numpy
     conda info --envs
     source activate myenv
-    conda info --envs
-    conda install --yes numpy
-    conda info --envs
-    conda develop --build_ext .
+    python -c "import numpy; print(numpy.__file__)"
+#     conda info --envs
+#     conda install --yes numpy
+#     conda info --envs
+#     conda develop --build_ext .
   displayName: Install ifscube
 # - script: |
 #     cd ifscube/examples/
