@@ -20,12 +20,11 @@ steps:
 #   displayName: Create Anaconda environment
 - bash: |
     conda create --yes --name myenv
-    conda install --yes --name myenv conda-build numpy scipy matplotlib tqdm astropy
+    conda install --yes --name myenv conda-build numpy
     conda info --envs
     source activate myenv
     python -c "import numpy; print(numpy.__file__)"
-    conda info --envs
-    conda develop --build_ext .
+    conda develop --name myenv --build_ext .
   displayName: Install ifscube
 # - script: |
 #     cd ifscube/examples/
