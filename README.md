@@ -9,13 +9,12 @@ Website: https://github.com/danielrd6/ifscube/
 
 ## Installation instructions
 
-We recommend installing the package via pip (https://pypi.python.org/pypi/pip),
-which is bundled with the standard Python distribution since Python 3.4.
+I recommend installing the package via pip (https://pypi.python.org/pypi/pip).
 
 To install IFSCUBE using pip, you must first intall git (https://git-scm.com/),
 and then just enter the following in a terminal:
 
-        pip install git+https://danielrd6@bitbucket.org/danielrd6/ifscube.git
+        pip install git+https://github.com/danielrd6/ifscube.git
 
 ## Documentation
 

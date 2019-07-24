@@ -32,7 +32,7 @@ can install directly from the git repository using the following command:
 
 .. code-block:: bash
 
-    pip install git+https://danielrd6@bitbucket.org/danielrd6/ifscube.git
+    pip install git+https://github.com/danielrd6/ifscube.git
 
 IFSCube uses third party programs that are not distributed with the
 package, namely pPXF and Voronoi Binning, written by Michelle Cappellari. If
@@ -58,7 +58,7 @@ If you want to upgrade an existing installation of IFSCube use
 
 .. code-block:: bash
 
-    pip install --upgrade git+https://danielrd6@bitbucket.org/danielrd6/ifscube.git
+    pip install --upgrade git+https://github.com/danielrd6/ifscube.git
 
 If you are having trouble with the Fortran compiler you can force one with
 pip's install options, which are exemplified below.
@@ -67,7 +67,7 @@ To force a specific compiler:
 
 .. code-block:: bash
 
-    pip install --install-option=build --install-option='--fcompiler=gnu95' git+https://danielrd6@bitbucket.org/danielrd6/ifscube.git
+    pip install --install-option=build --install-option='--fcompiler=gnu95' git+https://github.com/danielrd6/ifscube.git
 
 IFSCube has been extensively tested with the
 astroconda [#astroconda]_ distribution,
@@ -80,7 +80,7 @@ repository and install the package as an editable package.
 
 .. code-block:: bash
 
-    git clone https://danielrd6@bitbucket.org/danielrd6/ifscube.git
+    git clone https://github.com/danielrd6/ifscube.git
     cd ifscube
     pip install -e .
 
@@ -88,7 +88,7 @@ If you are using Conda you can substitute the last line by
 
 .. code-block:: bash
 
-    conda develop .
+    conda develop -b .
 
 Remember to switch to the desired Conda environment prior to running this command.
 
