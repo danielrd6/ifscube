@@ -192,7 +192,8 @@ def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, *
             m = None
 
         pp = fit.fit(wavelength, data[:, i, j], mask=m, **kwargs)
-        kwargs.pop('noise')
+        if 'noise' in kwargs:
+            kwargs.pop('noise')
 
         if vor is not None:
 
@@ -387,7 +388,7 @@ class Fit(object):
         noise = np.abs(noise / self.normalization_factor)
 
         pp = ppxf.ppxf(
-            templates, galaxy, noise, velscale, start, goodpixels=gp, moments=moments, degree=deg,
+            templates, galaxy.data, noise.data, velscale, start, goodpixels=gp, moments=moments, degree=deg,
             vsyst=dv, quiet=quiet,
         )
 
@@ -416,6 +417,9 @@ class Fit(object):
 
         ax.set_ylim(self.solution.bestfit.min() * 0.8, self.solution.bestfit.max() * 1.2)
 
-        print('Velocity: {:.2f}\nSigma: {:.2f}\nh3: {:.2f}\nh4: {:.2f}'.format(*self.solution.sol))
+        if len(self.solution.sol) == 4:
+            print('Velocity: {:.2f}\nSigma: {:.2f}\nh3: {:.2f}\nh4: {:.2f}'.format(*self.solution.sol))
+        elif len(self.solution.sol) == 2:
+            print('Velocity: {:.2f}\nSigma: {:.2f}'.format(*self.solution.sol))
 
         plt.show()
