@@ -4,24 +4,22 @@ Functions for the analysis of integral field spectroscopy.
 Author: Daniel Ruschel Dutra
 Website: https://github.com/danielrd6/ifscube
 """
-import copy
 import configparser
-
-from astropy.io import fits
-from astropy import table
+import copy
 
 import numpy as np
-from numpy import ma
+from astropy import table
+from astropy.io import fits
+from numpy import interp, ma
 from scipy.integrate import trapz
 
 
 def peak_spaxel(cube):
-
     im = cube.sum(axis=0)
     y_max, x_max = np.where(im == im[~np.isnan(im)].max())
 
-    assert y_max.size == 1,\
-        'More than one spaxel with flux equal to the maximum. '\
+    assert y_max.size == 1, \
+        'More than one spaxel with flux equal to the maximum. ' \
         'Consider using center of mass for the center spaxel. '
 
     y, x = [int(i) for i in (y_max, x_max)]
@@ -111,7 +109,7 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
       The integrated flux of the cube times the filter.
     """
 
-    assert (wl[0] < wl0 - fwhm / 2) and (wl[-1] > wl0 + fwhm / 2),\
+    assert (wl[0] < wl0 - fwhm / 2) and (wl[-1] > wl0 + fwhm / 2), \
         'Wavelength limits outside wavelength vector.'
 
     if filtertype == 'box':
@@ -136,17 +134,17 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
         wl[0] = lower_wl
         wl[-1] = upper_wl
         arrfilt[0, :, :] += lower_frac * (
-            arr[1, :, :] - arr[0, :, :]
+                arr[1, :, :] - arr[0, :, :]
         ) / arr[0, :, :]
         arrfilt[-1, :, :] -= upper_frac * (
-            arr[-1, :, :] - arr[-2, :, :]
+                arr[-1, :, :] - arr[-2, :, :]
         ) / arr[-1, :, :]
         arrfilt /= trapz(arrfilt, wl, axis=0)
         # AINDA PRECISA? #
     elif filtertype == 'gaussian':
         s = fwhm / (2. * np.sqrt(2. * np.log(2.)))
-        arrfilt = 1. / np.sqrt(2 * np.pi) *\
-            np.exp(-(wl - wl0)**2 / 2. / s**2)
+        arrfilt = 1. / np.sqrt(2 * np.pi) * \
+                  np.exp(-(wl - wl0) ** 2 / 2. / s ** 2)
         arrfilt = np.tile(
             arrfilt, (len(arr[0, 0, :]), len(arr[0, :, 0]), 1)
         ).T
@@ -156,7 +154,7 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
     else:
         raise ValueError(
             'ERROR! Parameter filtertype "{:s}" not understood.'
-            .format(filtertype))
+                .format(filtertype))
 
     # outim = np.zeros(arr.shape[1:], dtype='float32')
     # idx = np.column_stack([np.ravel(i) for i in np.indices(outim.shape)])
@@ -167,7 +165,6 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
 
 
 def bound_updater(p0, bound_range, bounds=None):
-
     newbound = []
     if np.shape(bound_range) != ():
         npars = len(bound_range)
@@ -234,7 +231,6 @@ def bound_updater(p0, bound_range, bounds=None):
 
 
 def scale_bounds(bounds, flux_sf):
-
     b = copy.deepcopy(bounds)
     for i, j in enumerate(b):
         for k in (0, 1):
@@ -245,8 +241,7 @@ def scale_bounds(bounds, flux_sf):
 
 
 def rebin(arr, xbin, ybin, combine='sum', mask=None):
-
-    assert combine in ['sum', 'mean'],\
+    assert combine in ['sum', 'mean'], \
         'The combine parameter must be "sum" or "mean".'
 
     old_shape = copy.copy(arr.shape)
@@ -279,7 +274,6 @@ def rebin(arr, xbin, ybin, combine='sum', mask=None):
 
 
 def aperture_spectrum(arr, x0=None, y0=None, radius=3, combine='sum'):
-
     y, x = np.indices(arr.shape[1:])
 
     if x0 is None:
@@ -289,7 +283,7 @@ def aperture_spectrum(arr, x0=None, y0=None, radius=3, combine='sum'):
 
     x -= x0
     y -= y0
-    r = np.sqrt(x**2 + y**2)
+    r = np.sqrt(x ** 2 + y ** 2)
 
     new_arr = ma.masked_invalid(arr)
     new_arr.mask |= (r > radius)
@@ -312,7 +306,6 @@ def aperture_spectrum(arr, x0=None, y0=None, radius=3, combine='sum'):
 class gmosdc:
 
     def __init__(self, *args, **kwargs):
-
         raise DeprecationWarning(
             'The gmosdc class has been moved to the ifscube.gmos '
             'module. Please change the instance initialization line from '
@@ -350,3 +343,38 @@ def append_config(config_file: str, fit_file: str) -> None:
         outfits.writeto(fit_file, overwrite=True)
 
     return
+
+
+def resample_stellar(binned, original, normalization_wavelength=5500, span=30):
+    """
+    Resamples binned stellar spectra to each individual spaxel.
+
+    Parameters
+    ----------
+    binned
+        Binned cube with stellar spectra.
+    original
+        Original data cube
+    normalization_wavelength
+        Wavelength coordinate to perform the normalization.
+    span
+        Width in wavelength of the normalization window.
+
+    Returns
+    -------
+    unbinned
+        A data cube with the stellar spectra resampled for each spaxel.
+    """
+
+    binned_level = wlprojection(binned.stellar, binned.rest_wavelength, normalization_wavelength, span)
+    original_level = wlprojection(original.data, original.rest_wavelength, normalization_wavelength, span)
+
+    original.stellar = np.zeros_like(original.data)
+
+    new_stellar = binned.stellar * original_level / binned_level
+    for h in original.spec_indices:
+        i, j = h
+        original.stellar[:, i, j] = interp(original.rest_wavelength, binned.rest_wavelength, new_stellar[:, i, j],
+                                           left=np.nan, right=np.nan)
+
+    return original
