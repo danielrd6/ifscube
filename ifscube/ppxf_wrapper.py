@@ -4,6 +4,7 @@ import glob
 
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy import ma
 import tqdm
 from astropy import wcs, constants
 from astropy.io import fits
@@ -384,11 +385,12 @@ class Fit(object):
         self.noise = noise
 
         self.normalization_factor = np.nanmean(galaxy)
-        galaxy = galaxy / self.normalization_factor
-        noise = np.abs(noise / self.normalization_factor)
+        galaxy = copy.deepcopy(ma.getdata(galaxy / self.normalization_factor))
+        noise = copy.deepcopy(ma.getdata(np.abs(noise / self.normalization_factor)))
 
+        assert np.all((noise > 0) & np.isfinite(noise)), 'ok'
         pp = ppxf.ppxf(
-            templates, galaxy.data, noise.data, velscale, start, goodpixels=gp, moments=moments, degree=deg,
+            templates, galaxy, noise, velscale, start, goodpixels=gp, moments=moments, degree=deg,
             vsyst=dv, quiet=quiet,
         )
 
