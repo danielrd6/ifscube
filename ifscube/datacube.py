@@ -994,6 +994,10 @@ class Cube:
             else:
                 spec.linefit(p0, **kwargs)
 
+            # TODO: This fit_status should not be exclusive to refit.
+            if refit and np.isnan(spec.em_model).any():
+                spec.fit_status = 400
+
             self.feature_wl = kwargs['feature_wl']
 
             # If successful, sets is_first_spec to False.
