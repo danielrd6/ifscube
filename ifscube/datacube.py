@@ -81,7 +81,7 @@ class Cube:
         if spatial_mask is not None:
             assert hdu[spatial_mask].data.shape == self.data.shape[1:], \
                 'Spatial mask must match the last two dimensions of the data cube.'
-            self.spatial_mask = hdu[spatial_mask].data
+            self.spatial_mask = hdu[spatial_mask].data.astype('bool')
         else:
             self.spatial_mask = np.zeros(self.data.shape[1:]).astype('bool')
 
@@ -384,6 +384,11 @@ class Cube:
 
         h.writeto(outimage)
 
+    def _masked_to_nan(self):
+        for c, j in np.ndenumerate(self.spatial_mask):
+            if j:
+                self.em_model[:, c[0], c[1]] = np.nan
+
     def _spiral(self, xy, spiral_center=None):
 
         if self.binned:
@@ -430,6 +435,10 @@ class Cube:
 
         hdu = fits.ImageHDU(data=self.variance, header=hdr)
         hdu.name = 'VAR'
+        h.append(hdu)
+
+        hdu = fits.ImageHDU(data=self.spatial_mask.astype(int), header=hdr)
+        hdu.name = 'MASK2D'
         h.append(hdu)
 
         if hasattr(self, 'flags'):
@@ -1039,6 +1048,8 @@ class Cube:
         self.npars = len(spec.parnames)
 
         self.em_model = sol
+
+        self._masked_to_nan()
 
         if write_fits:
             self._write_line_fit(args=locals())
