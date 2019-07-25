@@ -980,7 +980,15 @@ class Cube:
                 radsol = np.sqrt((yy - i) ** 2 + (xx - j) ** 2)
                 nearsol = sol[:-1, (radsol < refit_radius) & (self.fit_status == 0)]
 
-                p0 = deepcopy(np.average(nearsol.transpose(), 0))
+                old_p0 = deepcopy(p0)
+                p0 = np.average(nearsol.transpose(), 0)
+                if not np.isnan(p0).any():
+                    if debug:
+                        print('Skipped refit on spaxel {:d}, {:d}.'.format(i, j))
+                        print('old' + str(old_p0))
+                        print('new' + str(p0))
+                        print('Reverting to old p0.')
+                    p0 = old_p0
 
                 if update_bounds:
                     kwargs['bounds'] = cubetools.bound_updater(p0, bound_range, bounds=original_bounds)
