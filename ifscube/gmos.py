@@ -53,25 +53,31 @@ class Cube(datacube.Cube):
         self.dataext = dataext
         self.var_ext = var_ext
         self.ncubes_ext = ncubes_ext
-        self.spatial_mask = spatial_mask
 
-        hdulist = fits.open(fitsfile)
+        hdu = fits.open(fitsfile)
 
-        self.data = hdulist[dataext].data
-        self.header_data = hdulist[dataext].header
-        self.header = hdulist[hdrext].header
+        self.data = hdu[dataext].data
+        self.header_data = hdu[dataext].header
+        self.header = hdu[hdrext].header
         self.hdrext = hdrext
 
-        if nan_spaxels is not None:
-            if nan_spaxels == 'all':
-                self.nanSpaxels = np.all(self.data == 0, 0)
-            if nan_spaxels == 'any':
-                self.nanSapxels = np.any(self.data == 0, 0)
-            self.data[:, self.nanSpaxels] = np.nan
+        if spatial_mask is not None:
+            assert hdu[spatial_mask].data.shape == self.data.shape[1:], \
+                'Spatial mask must match the last two dimensions of the data cube.'
+            self.spatial_mask = hdu[spatial_mask].data.astype('bool')
+        else:
+            self.spatial_mask = np.zeros(self.data.shape[1:]).astype('bool')
+
+        if nan_spaxels == 'all':
+            self.nan_mask = np.isnan(self.data).all(axis=0)
+        elif nan_spaxels == 'any':
+            self.nan_mask = np.isnan(self.data).any(axis=0)
+        else:
+            self.nan_mask = np.zeros(self.data.shape[1:]).astype('bool')
+        self.spatial_mask |= self.nan_mask
 
         self.wcs = wcs.WCS(self.header_data)
-        self.wl = self.wcs.sub(axes=(3,)).wcs_pix2world(
-            np.arange(self.data.shape[0]), 0)[0]
+        self.wl = self.wcs.sub(axes=(3,)).wcs_pix2world(np.arange(self.data.shape[0]), 0)[0]
 
         if redshift is None:
             try:
@@ -83,12 +89,12 @@ class Cube(datacube.Cube):
 
         if var_ext is not None:
             # The noise for each pixel in the cube
-            self.noise_cube = hdulist[var_ext].data
+            self.noise_cube = hdu[var_ext].data
             self.variance = np.square(self.noise_cube)
 
             # An image of the mean noise, collapsed over the
             # wavelength dimension.
-            self.noise = np.nanmean(hdulist[var_ext].data, 0)
+            self.noise = np.nanmean(hdu[var_ext].data, 0)
 
             # Image of the mean signal
             self.signal = np.nanmean(self.data, 0)
@@ -96,8 +102,8 @@ class Cube(datacube.Cube):
             # Maybe this step is redundant, I have to check it later.
             # Guarantees that both noise and signal images have
             # the appropriate spaxels set to nan.
-            self.noise[self.nanSpaxels] = np.nan
-            self.signal[self.nanSpaxels] = np.nan
+            self.noise[self.nan_mask] = np.nan
+            self.signal[self.nan_mask] = np.nan
 
             self.noise[np.isinf(self.noise)] = self.signal[np.isinf(self.noise)]
         else:
@@ -110,7 +116,7 @@ class Cube(datacube.Cube):
             # pixel. Additionally, it may be useful to mask regions that
             # are present in only one observation, for greater
             # confidence.
-            self.ncubes = hdulist[ncubes_ext].data
+            self.ncubes = hdu[ncubes_ext].data
         else:
             self.ncubes = np.ones_like(self.data)
 
