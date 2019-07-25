@@ -559,6 +559,7 @@ class Spectrum:
         self.eqw_model = np.nan
         self.eqw_direct = np.nan
 
+        # noinspection PyTypeChecker
         p0 = np.array(self.guess_parser(p0))
         self.fitbounds = bounds
 
@@ -570,12 +571,9 @@ class Spectrum:
             self.fit_status = 98
             warnings.warn(
                 message=RuntimeWarning(
-                    'Minimum fraction of good pixels not reached!\n'
-                    'User set threshold: {:.2f}\n'
-                    'Measured good fracion: {:.2f}'
-                        .format(
-                        good_minfraction,
-                        np.sum(valid_pixels) / valid_pixels[fw].size)))
+                    'Minimum fraction of good pixels not reached!\nUser set threshold: {:.2f}\n'
+                    'Measured good fracion: {:.2f}'.format(
+                        good_minfraction, np.sum(valid_pixels) / valid_pixels[fw].size)))
             return
 
         if weights is None:
@@ -595,6 +593,7 @@ class Spectrum:
             self.fitcont = self.continuum[fw]
         else:
             if fit_continuum:
+                assert not np.any(np.isnan(data - stellar)), 'Data cannot have NaNs for continuum fitting.'
                 pcont = spectools.continuum(wl, data - stellar, **copts)
                 self.fitcont = np.polyval(pcont, self.rest_wavelength[fw])
                 cont = np.polyval(pcont, wl)
