@@ -77,11 +77,17 @@ class Cube:
         self.flags = np.zeros_like(self.data).astype('bool')
         self.stellar = np.zeros_like(self.data)
         self.weights = np.ones_like(self.data)
-        self.spatial_mask = np.zeros(self.data.shape[1:]).astype('bool')
 
-        acc_data = [self.variance, self.flags, self.stellar, self.weights, self.spatial_mask]
-        ext_names = [variance, flags, stellar, weights, spatial_mask]
-        labels = ['Variance', 'Flags', 'Synthetic', 'Weights', 'Spatial Mask']
+        if spatial_mask is not None:
+            assert hdu[spatial_mask].data.shape == self.data.shape[1:], \
+                'Spatial mask must match the last two dimensions of the data cube.'
+            self.spatial_mask = hdu[spatial_mask].data
+        else:
+            self.spatial_mask = np.zeros(self.data.shape[1:]).astype('bool')
+
+        acc_data = [self.variance, self.flags, self.stellar, self.weights]
+        ext_names = [variance, flags, stellar, weights]
+        labels = ['Variance', 'Flags', 'Synthetic', 'Weights']
 
         for i, j, lab in zip(acc_data, ext_names, labels):
 
@@ -924,6 +930,8 @@ class Cube:
                 xy = [individual_spec[::-1]]
             if verbose:
                 print('Individual spaxel: {:d}, {:d}\n'.format(*xy[0][::-1]))
+            assert np.all([xy[0][i] in self.spec_indices[:, i] for i in range(2)]), \
+                'Requested spaxel is either masked or outside the data cube.'
         elif spiral_loop:
             if spiral_center == 'peak':
                 spiral_center = cubetools.peak_spaxel(self.data[fw_mask])
