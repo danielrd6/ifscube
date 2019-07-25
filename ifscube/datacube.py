@@ -155,9 +155,9 @@ class Cube:
             self.noise_cube[self.flags] = 0.0
 
         if nan_spaxels == 'all':
-            self.nan_mask = np.all(self.data == 0, 0)
+            self.nan_mask = np.isnan(self.data).all(axis=0) | np.isnan(self.stellar).all(axis=0)
         elif nan_spaxels == 'any':
-            self.nan_mask = np.any(self.data == 0, 0)
+            self.nan_mask = np.isnan(self.data).any(axis=0) | np.isnan(self.stellar).any(axis=0)
         else:
             self.nan_mask = np.zeros(self.data.shape[1:]).astype('bool')
         self.spatial_mask |= self.nan_mask
@@ -188,10 +188,6 @@ class Cube:
         self.cont = None
 
     def _set_spec_indices(self):
-
-        if self.spatial_mask is None:
-            self.spatial_mask = np.zeros_like(self.data[0]).astype('bool')
-
         self.spec_indices = np.column_stack([
             np.ravel(np.indices(np.shape(self.data)[1:])[0][~self.spatial_mask]),
             np.ravel(np.indices(np.shape(self.data)[1:])[1][~self.spatial_mask]),
@@ -930,7 +926,7 @@ class Cube:
                 xy = [individual_spec[::-1]]
             if verbose:
                 print('Individual spaxel: {:d}, {:d}\n'.format(*xy[0][::-1]))
-            assert np.all([xy[0][i] in self.spec_indices[:, i] for i in range(2)]), \
+            assert np.any([np.all(xy[0] == _) for _ in self.spec_indices]), \
                 'Requested spaxel is either masked or outside the data cube.'
         elif spiral_loop:
             if spiral_center == 'peak':
