@@ -383,9 +383,18 @@ class Spectrum:
                 if up_lam > wl[-1]:
                     up_lam = wl[-1]
 
-            wl_lims = [
-                wl[wl <= low_lam][-1],
-                wl[wl >= up_lam][0]]
+            try:
+                wl_lims = [wl[wl <= low_lam][-1], wl[wl >= up_lam][0]]
+            except IndexError:
+                warnings.warn('Could not optimize fit!', category=RuntimeWarning)
+                print('wl: ' + str(wl))
+                print('low_lam: ' + str(low_lam))
+                print('up_lam: ' + str(up_lam))
+                print('width: ' + str(width))
+                print('sigma: ' + str(s))
+                mask = np.ones_like(wl).astype('bool')
+                return mask
+
             idx = [np.where(wl == i)[0][0] for i in wl_lims]
 
             ws = slice(idx[0], idx[1])
