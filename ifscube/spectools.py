@@ -370,8 +370,21 @@ def continuum(x, y, output='ratio', degree=6, n_iterate=5, lower_threshold=2, up
 
     """
 
+    assert not np.isnan(x).all(), 'All x values are NaN.'
+    assert not np.isnan(y).all(), 'All y values are NaN.'
+
     x_full = copy.deepcopy(x)
+    # NOTE: For now, interp1d skips interpolation of NaNs.
     s = interp1d(x, y)
+
+    if np.isnan(y).any():
+        nan_mask = np.isnan(y)
+        x = x[~nan_mask]
+        warnings.warn(
+            'NaN values found in data! Removed {:d} out of {:d} data points.'.format(
+                np.count_nonzero(nan_mask), len(x_full)),
+            category=RuntimeWarning,
+        )
 
     if weights is None:
         weights = np.ones_like(x)
