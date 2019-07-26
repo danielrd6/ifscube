@@ -1090,16 +1090,14 @@ class Cube:
         if not hasattr(self, 'header'):
             self.header = fit_file[0].header
 
-        self.fit_wavelength = spectools.get_wl(
-            fname, pix0key='crpix3', wl0key='crval3', dwlkey='cd3_3',
-            hdrext=1, dataext=1)
+        self.fit_wavelength = spectools.get_wl(fname, pix0key='crpix3', wl0key='crval3', dwlkey='cd3_3', hdrext=1,
+                                               dataext=1)
 
         if 'fitconfig' not in fit_file:
             raise RuntimeError('Extension "fitconfig" is not present in the input file.')
 
-        self.feature_wl = np.array([
-            float(i[1]) for i in fit_file['fitconfig'].data
-            if 'rest_wavelength' in i['parameters']])
+        self.feature_wl = np.array(
+            [float(i[1]) for i in fit_file['fitconfig'].data if 'rest_wavelength' in i['parameters']])
 
         self.fitspec = fit_file['FITSPEC'].data
         self.fitcont = fit_file['FITCONT'].data
@@ -1224,8 +1222,8 @@ class Cube:
         else:
             xy = self.spec_indices
 
-        w80_model = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
-        w80_direct = np.zeros(np.shape(self.em_model)[1:], dtype='float32')
+        w80_model = np.zeros(np.shape(self.em_model)[1:])
+        w80_direct = np.zeros(np.shape(self.em_model)[1:])
 
         if (self.fit_func == lprof.gauss) or (self.fit_func == lprof.gaussvel):
             npars = 3
