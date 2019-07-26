@@ -713,7 +713,7 @@ class Cube:
 
         return s
 
-    def plotspec(self, x, y, show_noise=True, noise_smooth=30.0, ax=None):
+    def plotspec(self, x, y, show_noise: bool = False, noise_smooth: float = 0.0, ax: plt.Axes = None):
         """
         Plots the spectrum at coordinates x,y.
 
