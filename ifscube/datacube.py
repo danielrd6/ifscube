@@ -1247,12 +1247,13 @@ class Cube:
             if verbose:
                 print(i, j)
 
+            light_speed = 2.99792e+5  # km/s
             # Wavelength vector of the line fit
             fwl = self.fit_wavelength
             # Center wavelength coordinate of the fit
-            cwl = (self.em_model[center_index, i, j] / 2.998e+5 + 1.0) * self.feature_wl[component]
+            cwl = (self.em_model[center_index, i, j] / light_speed + 1.0) * self.feature_wl[component]
             # Sigma of the fit
-            sig = (self.em_model[sigma_index, i, j] / 2.998e+5) * self.feature_wl[component]
+            sig = (self.em_model[sigma_index, i, j] / light_speed) * self.feature_wl[component]
             # Just a short alias for the sigma_factor parameter
             sf = sigma_factor
 
@@ -1266,11 +1267,12 @@ class Cube:
 
             else:
 
-                cond = (fwl > cwl - sf * sig) & (fwl < cwl + sf * sig)
+                cond = (fwl > (cwl - (sf * sig))) & (fwl < (cwl + (sf * sig)))
                 fit = self.fit_func(fwl[cond], self.feature_wl[component], self.em_model[par_indexes, i, j])
                 obs_spec = deepcopy(self.fitspec[cond, i, j])
 
                 cont = self.fitcont[cond, i, j]
+                star = self.fitstellar[cond, i, j]
 
                 # Evaluates the W80 over the modeled emission line.
                 # noinspection PyTupleAssignmentBalance
@@ -1290,7 +1292,8 @@ class Cube:
                             fwl[cond], self.feature_wl[component], self.em_model[ci:ci + npars, i, j])
                 # And now for the actual W80 evaluation.
                 # noinspection PyTupleAssignmentBalance
-                w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(fwl[cond], obs_spec - cont, cwl, smooth=smooth)
+                w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(
+                    fwl[cond], obs_spec - cont - star, cwl, smooth=smooth)
 
                 # Plots the fit when evaluating only one spectrum.
                 if len(xy) == 1:
