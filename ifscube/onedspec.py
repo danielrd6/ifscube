@@ -1,5 +1,6 @@
 import warnings
 from copy import deepcopy
+from typing import Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -403,12 +404,44 @@ class Spectrum:
 
         return mask
 
+    @staticmethod
+    def _setup_fixed(fixed_components: str, component_names: list, feature_wl: list, npars_pc: int,
+                     opt_mask: np.ndarray, fit_func: Callable, p0: list, wl: np.ndarray, v: np.ndarray, sbounds: np.ndarray,
+                     w: np.ndarray, s: np.ndarray):
+        fixed_components = [i.strip() for i in fixed_components.split(',')]
+        parameter_indices = {
+            'fixed': [component_names.index(i) for i in component_names if i in fixed_components],
+            'free': [component_names.index(i) for i in component_names if i not in fixed_components],
+        }
+
+        fixed_feature_wl = [feature_wl[i] for i in parameter_indices['fixed']]
+        free_feature_wl = [feature_wl[i] for i in parameter_indices['free']]
+        fixed_parameters = np.concatenate([p0[i * npars_pc: (i + 1) * npars_pc] for i in parameter_indices['fixed']])
+        free_parameters = np.concatenate([p0[i * npars_pc: (i + 1) * npars_pc] for i in parameter_indices['free']])
+        fixed_emission = fit_func(wl[opt_mask], fixed_feature_wl, fixed_parameters)
+
+        def res(x):
+            m = fit_func(wl[opt_mask], free_feature_wl, x[:-1]) + (x[-1] * fixed_emission)
+            a = w[opt_mask] * (s[opt_mask] - m) ** 2
+            b = a / v[opt_mask]
+            rms = np.sqrt(np.sum(b))
+            return rms
+
+        full_p0 = deepcopy(p0)
+        full_sbounds = deepcopy(sbounds)
+        sbounds = np.row_stack([full_sbounds[i * npars_pc: (i + 1) * npars_pc] for i in parameter_indices['free']])
+        sbounds = np.row_stack([sbounds, full_sbounds[parameter_indices['fixed'][0] * npars_pc]])
+
+        p0 = np.concatenate([free_parameters, [1.0, ]])
+
+        return res, p0, sbounds, full_p0, full_sbounds, parameter_indices
+
     def linefit(self, p0, feature_wl, function='gaussian', fitting_window=None, write_fits=False, out_image=None,
                 variance=None, constraints=None, bounds=None, instrument_dispersion=1.0, min_method='SLSQP',
                 minopts=None, copts=None, weights=None, verbose=False, fit_continuum=False, component_names=None,
                 overwrite=False, eqw_opts=None, trivial=False, suffix=None, optimize_fit=False,
                 optimization_window=10.0, guess_parameters=False, test_jacobian=False, good_minfraction=.8,
-                fixed: bool = False):
+                fixed: bool = False, fixed_components: str = None):
         """
         Fits a spectral features.
 
@@ -671,12 +704,17 @@ class Spectrum:
         # Here the actual fit begins
         #
 
-        def res(x):
-            m = fit_func(wl[opt_mask], feature_wl, x)
-            a = w[opt_mask] * (s[opt_mask] - m) ** 2
-            b = a / v[opt_mask]
-            rms = np.sqrt(np.sum(b))
-            return rms
+        if fixed_components is None:
+            def res(x):
+                m = fit_func(wl[opt_mask], feature_wl, x)
+                a = w[opt_mask] * (s[opt_mask] - m) ** 2
+                b = a / v[opt_mask]
+                rms = np.sqrt(np.sum(b))
+                return rms
+        else:
+            res, p0, sbounds, full_p0, full_sbounds, parameter_indices = self._setup_fixed(
+                fixed_components, list(component_names), list(feature_wl), npars_pc, opt_mask, fit_func, p0, wl, v,
+                sbounds, w, s)
 
         if minopts is None:
             minopts = {'eps': 1e-3}
@@ -684,8 +722,6 @@ class Spectrum:
             constraints = []
 
         r = minimize(res, x0=p0, method=min_method, bounds=sbounds, constraints=constraints, options=minopts)
-        if fixed:
-            r.x = deepcopy(p0)
 
         # Perform the fit a second time with the RMS as the flux
         # initial guess. This was added after a number of fits returned
@@ -706,6 +742,18 @@ class Spectrum:
                     r.x[i:i + npars_pc] = np.nan
                     # r.status = 94
                     # r.message = 'Jacobian has terms equal to zero.'
+
+        if fixed_components is not None:
+            for i in parameter_indices['free']:
+                full_p0[i * npars_pc: (i + 1) * npars_pc] = r.x[i * npars_pc: (i + 1) * npars_pc]
+            for i in parameter_indices['fixed']:
+                full_p0[i * npars_pc] *= r.x[-1]
+            p0 = deepcopy(full_p0)
+            sbounds = deepcopy(full_sbounds)
+            r.x = deepcopy(p0)
+
+        if fixed:
+            r.x = deepcopy(p0)
 
         self.r = r
 
