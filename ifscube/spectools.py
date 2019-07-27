@@ -377,17 +377,18 @@ def continuum(x, y, output='ratio', degree=6, n_iterate=5, lower_threshold=2, up
     # NOTE: For now, interp1d skips interpolation of NaNs.
     s = interp1d(x, y)
 
+    if weights is None:
+        weights = np.ones_like(x)
+
     if np.isnan(y).any():
         nan_mask = np.isnan(y)
         x = x[~nan_mask]
+        weights = copy.deepcopy(weights)[~nan_mask]
         warnings.warn(
             'NaN values found in data! Removed {:d} out of {:d} data points.'.format(
                 np.count_nonzero(nan_mask), len(x_full)),
             category=RuntimeWarning,
         )
-
-    if weights is None:
-        weights = np.ones_like(x)
 
     def f(z):
         return np.polyval(np.polyfit(z, s(z), deg=degree, w=weights), z)
