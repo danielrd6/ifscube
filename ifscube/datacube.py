@@ -1644,7 +1644,7 @@ class Cube:
         assert hasattr(self, 'flags'), 'Could not access the variance attribute of the Cube object.'
         b_flags = np.zeros_like(self.flags, dtype=int)
 
-        valid_spaxels = np.ravel(~np.isnan(self.signal) & ~np.isnan(self.noise))
+        valid_spaxels = np.ravel(~np.isnan(self.signal) & ~np.isnan(self.noise) & ~self.spatial_mask)
 
         x = np.ravel(np.indices(np.shape(self.signal))[1])[valid_spaxels]
         y = np.ravel(np.indices(np.shape(self.signal))[0])[valid_spaxels]
