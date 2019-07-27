@@ -407,7 +407,8 @@ class Spectrum:
                 variance=None, constraints=None, bounds=None, instrument_dispersion=1.0, min_method='SLSQP',
                 minopts=None, copts=None, weights=None, verbose=False, fit_continuum=False, component_names=None,
                 overwrite=False, eqw_opts=None, trivial=False, suffix=None, optimize_fit=False,
-                optimization_window=10.0, guess_parameters=False, test_jacobian=False, good_minfraction=.8):
+                optimization_window=10.0, guess_parameters=False, test_jacobian=False, good_minfraction=.8,
+                fixed: bool = False):
         """
         Fits a spectral features.
 
@@ -496,6 +497,9 @@ class Spectrum:
             Read the Jacobian matrix and set those parameters which yield zeros to nan.
         good_minfraction: float
             Minimum fraction of non-flagged pixels within the portion of the spectra selected for the fit.
+        fixed : bool
+            Returns the input parameters instead of the fit results.
+            This is very useful when trying out inital guesses.
 
         Returns
         -------
@@ -632,7 +636,7 @@ class Spectrum:
         # Scaling the flux in the spectrum, the initial guess and the
         # bounds to bring everything close to unity.
         #
-        scale_factor = np.abs(np.mean(s))
+        scale_factor = np.abs(np.mean(data))
         # if scale_factor <= 0:
         #     self.fit_status = 97
         #     return
@@ -678,7 +682,10 @@ class Spectrum:
             minopts = {'eps': 1e-3}
         if constraints is None:
             constraints = []
+
         r = minimize(res, x0=p0, method=min_method, bounds=sbounds, constraints=constraints, options=minopts)
+        if fixed:
+            r.x = deepcopy(p0)
 
         # Perform the fit a second time with the RMS as the flux
         # initial guess. This was added after a number of fits returned
