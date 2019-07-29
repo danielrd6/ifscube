@@ -377,4 +377,5 @@ def resample_stellar(binned, original, normalization_wavelength=5500, span=30):
         original.stellar[:, i, j] = interp(original.rest_wavelength, binned.rest_wavelength, new_stellar[:, i, j],
                                            left=np.nan, right=np.nan)
 
+    original.flags |= np.isnan(original.stellar)
     return original
