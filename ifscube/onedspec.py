@@ -588,7 +588,7 @@ class Spectrum:
 
         # NOTE: These next lines, until the good fraction test, must be
         # executed always, to avoid problems with datacube.
-        valid_pixels = (self.flags == 0) & fw
+        valid_pixels = (~self.flags) & fw
         self.valid_pixels = valid_pixels
 
         wl = deepcopy(self.rest_wavelength[valid_pixels])
@@ -639,7 +639,6 @@ class Spectrum:
             self.fitcont = self.continuum[fw]
         else:
             if fit_continuum:
-                assert not np.any(np.isnan(data - stellar)), 'Data cannot have NaNs for continuum fitting.'
                 pcont = spectools.continuum(wl, data - stellar, **copts)
                 self.fitcont = np.polyval(pcont, self.rest_wavelength[fw])
                 cont = np.polyval(pcont, wl)
@@ -650,6 +649,7 @@ class Spectrum:
         # Short alias for the spectrum that is going to be fitted.
         #
         s = data - cont - stellar
+        assert not np.isnan(s).any(), 'NaN values found in spectrum to be fit.'
         w = weights
         v = self.variance[valid_pixels]
 
