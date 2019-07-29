@@ -116,48 +116,30 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
         lower_wl = wl0 - fwhm / 2.
         upper_wl = wl0 + fwhm / 2.
         # Find non zero filter indices.
-        ind_non_zero = np.flatnonzero(
-            np.array((wl >= lower_wl) & (wl <= upper_wl), dtype='float'))
-        ind_non_zero = np.pad(
-            ind_non_zero, (1, 1), 'constant', constant_values=(
-                ind_non_zero[0] - 1, ind_non_zero[-1] + 1))
+        ind_non_zero = np.flatnonzero(np.array((wl >= lower_wl) & (wl <= upper_wl), dtype='float'))
+        ind_non_zero = np.pad(ind_non_zero, (1, 1), 'constant',
+                              constant_values=(ind_non_zero[0] - 1, ind_non_zero[-1] + 1))
         # Keep only the relevant slices of data array.
         arr = arr[ind_non_zero, :, :]
         # Create filter and wavelenght arrays with array shape.
         arrfilt = np.ones(np.shape(arr))
-        wl = np.tile(
-            wl[ind_non_zero], (len(arr[0, 0, :]), len(arr[0, :, 0]), 1)
-        ).T
+        wl = np.tile(wl[ind_non_zero], (len(arr[0, 0, :]), len(arr[0, :, 0]), 1)).T
         # Adjust limits to account for integration of fractional pixel slice
         lower_frac = (lower_wl - wl[0]) / (wl[1] - wl[0])
         upper_frac = (wl[-1] - upper_wl) / (wl[-1] - wl[-2])
         wl[0] = lower_wl
         wl[-1] = upper_wl
-        arrfilt[0, :, :] += lower_frac * (
-                arr[1, :, :] - arr[0, :, :]
-        ) / arr[0, :, :]
-        arrfilt[-1, :, :] -= upper_frac * (
-                arr[-1, :, :] - arr[-2, :, :]
-        ) / arr[-1, :, :]
+        arrfilt[0, :, :] += lower_frac * (arr[1, :, :] - arr[0, :, :]) / arr[0, :, :]
+        arrfilt[-1, :, :] -= upper_frac * (arr[-1, :, :] - arr[-2, :, :]) / arr[-1, :, :]
         arrfilt /= trapz(arrfilt, wl, axis=0)
-        # AINDA PRECISA? #
+        # FIXME: Is this still needed? I can't remember why I put it here.
     elif filtertype == 'gaussian':
         s = fwhm / (2. * np.sqrt(2. * np.log(2.)))
-        arrfilt = 1. / np.sqrt(2 * np.pi) * \
-                  np.exp(-(wl - wl0) ** 2 / 2. / s ** 2)
-        arrfilt = np.tile(
-            arrfilt, (len(arr[0, 0, :]), len(arr[0, :, 0]), 1)
-        ).T
-        wl = np.tile(
-            wl, (len(arr[0, 0, :]), len(arr[0, :, 0]), 1)
-        ).T
+        arrfilt = 1. / np.sqrt(2 * np.pi) * np.exp(-(wl - wl0) ** 2 / 2. / s ** 2)
+        arrfilt = np.tile(arrfilt, (len(arr[0, 0, :]), len(arr[0, :, 0]), 1)).T
+        wl = np.tile(wl, (len(arr[0, 0, :]), len(arr[0, :, 0]), 1)).T
     else:
-        raise ValueError(
-            'ERROR! Parameter filtertype "{:s}" not understood.'
-                .format(filtertype))
-
-    # outim = np.zeros(arr.shape[1:], dtype='float32')
-    # idx = np.column_stack([np.ravel(i) for i in np.indices(outim.shape)])
+        raise ValueError('ERROR! Parameter filtertype "{:s}" not understood.'.format(filtertype))
 
     outim = trapz(arr * arrfilt, wl, axis=0)
 
