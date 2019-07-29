@@ -381,7 +381,7 @@ def continuum(x, y, output='ratio', degree=6, n_iterate=5, lower_threshold=2, up
         weights = np.ones_like(x)
 
     if np.isnan(y).any():
-        nan_mask = np.isnan(y)
+        nan_mask = np.isnan(s(x))
         x = x[~nan_mask]
         weights = copy.deepcopy(weights)[~nan_mask]
         warnings.warn(
