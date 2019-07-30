@@ -123,6 +123,7 @@ class Cube(datacube.Cube):
         self.flags = np.zeros_like(self.data, dtype=int)
         self.ncubes[np.isnan(self.ncubes)] = 0
         self.flags[self.ncubes <= 0] = 1
+        self.flags = self.flags.astype(bool)
 
         try:
             if self.header['VORBIN']:
