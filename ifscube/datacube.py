@@ -1215,7 +1215,7 @@ class Cube:
         """
 
         if individual_spec:
-            # The reflaction of the *individual_spec* iterable puts the
+            # The reflection of the *individual_spec* iterable puts the
             # horizontal coordinate first, and the vertical coordinate
             # second.
             xy = [individual_spec[::-1]]
@@ -1267,10 +1267,7 @@ class Cube:
 
                 cond = (fwl > (cwl - (sf * sig))) & (fwl < (cwl + (sf * sig)))
                 fit = self.fit_func(fwl[cond], self.feature_wl[component], self.em_model[par_indexes, i, j])
-                obs_spec = deepcopy(self.fitspec[cond, i, j])
-
-                cont = self.fitcont[cond, i, j]
-                star = self.fitstellar[cond, i, j]
+                obs_spec = self.fitspec[cond, i, j] - self.fitcont[cond, i, j] - self.fitstellar[cond, i, j]
 
                 # Evaluates the W80 over the modeled emission line.
                 # noinspection PyTupleAssignmentBalance
@@ -1284,14 +1281,13 @@ class Cube:
                 if remove_components is not None:
                     if remove_components == 'all':
                         remove_components = [i for i in range(len(self.feature_wl)) if i != component]
-                    for component in remove_components:
-                        ci = component * npars
+                    for k in remove_components:
+                        ci = k * npars
                         obs_spec -= self.fit_func(
-                            fwl[cond], self.feature_wl[component], self.em_model[ci:ci + npars, i, j])
+                            fwl[cond], self.feature_wl[k], self.em_model[ci:ci + npars, i, j])
                 # And now for the actual W80 evaluation.
                 # noinspection PyTupleAssignmentBalance
-                w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(
-                    fwl[cond], obs_spec - cont - star, cwl, smooth=smooth)
+                w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(fwl[cond], obs_spec, cwl, smooth=smooth)
 
                 # Plots the fit when evaluating only one spectrum.
                 if len(xy) == 1:
