@@ -19,7 +19,7 @@ from astropy import units
 from scipy.integrate import trapz, quad, cumtrapz
 from scipy.interpolate import interp1d, UnivariateSpline
 from scipy.ndimage import gaussian_filter
-from scipy.optimize import curve_fit, minimize, root
+from scipy.optimize import curve_fit, minimize
 
 
 def remove_bg(x: np.ndarray, y: np.ndarray, sampling_limits: list, order: int = 1) -> tuple:
@@ -648,7 +648,7 @@ def spectrophotometry(spec: Callable, transmission: Callable, limits: Iterable, 
         return photometry
 
 
-def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = 0) -> tuple:
+def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None) -> tuple:
     """
     Evaluates the W80 parameter of a given emission fature.
 
@@ -682,53 +682,19 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = 0) -> 
     For instance, see Zakamska+2014 MNRAS.
     """
 
-    # First we begin by transforming from wavelength space to velocity
-    # space.
-    velocity = (wl * units.angstrom).to(
-        units.km / units.s, equivalencies=units.doppler_relativistic(wl0 * units.angstrom))
+    velocity = (wl * units.angstrom).to(units.km / units.s,
+                                        equivalencies=units.doppler_relativistic(wl0 * units.angstrom))
 
-    s = interp1d(velocity, spec)
-
-    cumulative = cumtrapz(spec, velocity, initial=0)
-    cumulative /= cumulative[-1]
-
-    # This returns a function that will be used by the scipy.optimize.root
-    # routine below. There is a possibility for smoothing the cumulative curve
-    # after performing the integration, which might be useful for very noisy
-    # data.
-    def cumulative_fun(cumulative_sum, d):
-        c = gaussian_filter(cumulative_sum, smooth, mode='constant')
-        return interp1d(velocity, c - d, bounds_error=False)
-
-    # In order to have a good initial guess, the code will find the
-    # the Half-Width at Half Maximum (hwhm) of the specified feature.
-    hwhm = None
-    for i in np.linspace(0, velocity[-1]):
-        if s(i) <= (spec.max() / 2):
-            hwhm = i
-            break
-
-    # In some cases, when the spectral feature has a very low
-    # amplitude, the algorithm might have trouble finding the half
-    # width at half maximum (hwhm), which is used as an initial guess
-    # for the w80. In such cases the loop above will reach the end of
-    # the spectrum without finding a value below half the amplitude of
-    # the spectral feature, and consequently the *hwhm* variable will
-    # not be set.  This next conditional expression sets w80 to
-    # numpy.nan when such events occur.
-
-    velocity_spectrum = s(velocity)
-    if hwhm is not None:
-        # Finds the velocity of the 10-percentile
-        r0 = root(cumulative_fun(cumulative, .1), - hwhm).x
-        # Finds the velocity of the 90-percentile
-        r1 = root(cumulative_fun(cumulative, .9), + hwhm).x
-        # W80 is the difference between the two.
-        w80 = r1 - r0
-        return w80, r0, r1, velocity, velocity_spectrum
+    if smooth is not None:
+        cumulative = cumtrapz(gaussian_filter(spec, smooth), velocity, initial=0)
     else:
-        w80 = np.nan
-        return w80, np.nan, np.nan, velocity, velocity_spectrum
+        cumulative = cumtrapz(spec, velocity, initial=0)
+    cumulative /= cumulative.max()
+
+    r0 = velocity[(np.abs(cumulative - 0.1)).argsort()[0]].value
+    r1 = velocity[(np.abs(cumulative - 0.9)).argsort()[0]].value
+    w80 = r1 - r0
+    return w80, r0, r1, velocity, spec
 
 
 class Constraints:
