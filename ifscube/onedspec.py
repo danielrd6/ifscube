@@ -108,6 +108,8 @@ class Spectrum:
                 elif isinstance(j, np.ndarray):
                     i[:] = j
 
+        self.flags = self.flags.astype(bool)
+
     def _load(self, fname: str, scidata: str = 'SCI', variance: str = None, flags: str = None, stellar: str = None,
               primary: str = 'PRIMARY', redshift: float = None, wcs_axis: int = None) -> None:
         self.fitsfile = fname

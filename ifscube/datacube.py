@@ -74,7 +74,7 @@ class Cube:
             return s.format(name)
 
         self.variance = np.ones_like(self.data)
-        self.flags = np.zeros_like(self.data).astype('bool')
+        self.flags = np.zeros_like(self.data)
         self.stellar = np.zeros_like(self.data)
         self.weights = np.ones_like(self.data)
 
@@ -98,6 +98,8 @@ class Cube:
                         i[:] = hdu[j].data
                 elif isinstance(j, np.ndarray):
                     i[:] = j
+
+        self.flags = self.flags.astype(bool)
 
     def _load(self, fname, scidata='SCI', primary='PRIMARY', variance=None, flags=None, stellar=None, weights=None,
               redshift=None, vortab=None, nan_spaxels='all', spatial_mask=None, spectral_dimension=3):
