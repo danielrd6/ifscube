@@ -1174,7 +1174,7 @@ class Cube:
         fit_file.close()
 
     def w80(self, component: int, sigma_factor: float = 5.0, individual_spec: Union[bool, tuple] = False,
-            verbose: bool = False, smooth: float = 0, remove_components: Union[None, Iterable, str] = None) -> \
+            verbose: bool = False, smooth: float = None, remove_components: Union[None, Iterable, str] = None) -> \
             np.ndarray:
         """
 

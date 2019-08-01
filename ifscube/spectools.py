@@ -683,23 +683,24 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None) 
     For instance, see Zakamska+2014 MNRAS.
     """
 
+    np.seterr(all='raise')
     velocity = (wl * units.angstrom).to(units.km / units.s,
                                         equivalencies=units.doppler_relativistic(wl0 * units.angstrom))
 
     if not (spec == 0.0).all() and not np.isnan(spec).all():
-        y = ma.masked_invalid(spec)
         if smooth is not None:
             kernel = Gaussian1DKernel(smooth)
-            y = convolve(y, kernel=kernel, boundary='extend')
+            y = convolve(ma.masked_invalid(spec), kernel=kernel, boundary='extend')
+        else:
+            y = ma.masked_invalid(spec)
 
-        cumulative = cumtrapz(y[~y.mask], velocity[~y.mask], initial=0)
+        cumulative = cumtrapz(y.data[~y.mask], velocity.value[~y.mask])
         cumulative /= cumulative.max()
 
-        r0 = velocity[(np.abs(cumulative - 0.1)).argsort()[0]].value
-        r1 = velocity[(np.abs(cumulative - 0.9)).argsort()[0]].value
+        r0, r1 = [velocity[(np.abs(cumulative - k)).argsort()[0]].value for k in (0.1, 0.9)]
         w80 = r1 - r0
     else:
-        w80, r0, r1 = np.nan, np.nan, np.nan
+        w80, r0, r1 = 3 * (np.nan,)
 
     return w80, r0, r1, velocity, spec
 
