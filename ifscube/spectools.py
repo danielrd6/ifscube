@@ -16,9 +16,10 @@ from typing import Callable, Iterable
 import astropy.io.fits as pf
 import numpy as np
 from astropy import units
+from astropy.convolution import convolve, Gaussian1DKernel
+from numpy import ma
 from scipy.integrate import trapz, quad, cumtrapz
 from scipy.interpolate import interp1d, UnivariateSpline
-from scipy.ndimage import gaussian_filter
 from scipy.optimize import curve_fit, minimize
 
 
@@ -685,15 +686,21 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None) 
     velocity = (wl * units.angstrom).to(units.km / units.s,
                                         equivalencies=units.doppler_relativistic(wl0 * units.angstrom))
 
-    if smooth is not None:
-        cumulative = cumtrapz(gaussian_filter(spec, smooth), velocity, initial=0)
-    else:
-        cumulative = cumtrapz(spec, velocity, initial=0)
-    cumulative /= cumulative.max()
+    if not (spec == 0.0).all() and not np.isnan(spec).all():
+        y = ma.masked_invalid(spec)
+        if smooth is not None:
+            kernel = Gaussian1DKernel(smooth)
+            y = convolve(y, kernel=kernel, boundary='extend')
 
-    r0 = velocity[(np.abs(cumulative - 0.1)).argsort()[0]].value
-    r1 = velocity[(np.abs(cumulative - 0.9)).argsort()[0]].value
-    w80 = r1 - r0
+        cumulative = cumtrapz(y[~y.mask], velocity[~y.mask], initial=0)
+        cumulative /= cumulative.max()
+
+        r0 = velocity[(np.abs(cumulative - 0.1)).argsort()[0]].value
+        r1 = velocity[(np.abs(cumulative - 0.9)).argsort()[0]].value
+        w80 = r1 - r0
+    else:
+        w80, r0, r1 = np.nan, np.nan, np.nan
+
     return w80, r0, r1, velocity, spec
 
 
