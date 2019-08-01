@@ -641,6 +641,15 @@ class Spectrum:
             self.fitcont = self.continuum[fw]
         else:
             if fit_continuum:
+                def continuum_weights(sigmas):
+                    cw = np.ones_like(data)
+                    for i in feature_wl:
+                        idx = list(feature_wl).index(i)
+                        low_lambda = i - (1 * sigmas[idx])
+                        up_lambda = i + (1 * sigmas[idx])
+                        cw[(wl > low_lambda) & (wl < up_lambda)] = 0.5
+                    return cw
+                copts.update({'weights': continuum_weights(self.sigma_lambda(p0[2::npars_pc], feature_wl))})
                 pcont = spectools.continuum(wl, data - stellar, **copts)
                 self.fitcont = np.polyval(pcont, self.rest_wavelength[fw])
                 cont = np.polyval(pcont, wl)
