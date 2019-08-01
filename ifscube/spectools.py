@@ -683,7 +683,6 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None) 
     For instance, see Zakamska+2014 MNRAS.
     """
 
-    np.seterr(all='raise')
     velocity = (wl * units.angstrom).to(units.km / units.s,
                                         equivalencies=units.doppler_relativistic(wl0 * units.angstrom))
 
