@@ -1509,24 +1509,16 @@ class Cube:
         self.ncubes = cubetools.rebin(
             self.ncubes, xbin, ybin, combine='sum').astype('int')
 
-        self.flags = (
-                cubetools.rebin(
-                    self.flags, xbin, ybin, combine='sum') == xbin * ybin
-        ).astype('int')
+        self.flags = (cubetools.rebin(self.flags, xbin, ybin, combine='sum') == xbin * ybin).astype('int')
 
         if hasattr('self', 'noise_cube'):
-            self.noise_cube = np.sqrt(
-                cubetools.rebin(
-                    np.square(self.noise_cube), xbin, ybin, combine='sum',
-                    mask=m))
+            self.noise_cube = np.sqrt(cubetools.rebin(np.square(self.noise_cube), xbin, ybin, combine='sum', mask=m))
 
             if combine == 'mean':
                 self.noise_cube /= self.ncubes
 
             self.variance = np.square(self.noise_cube)
 
-        # FIXME: For now I am ignoring the spatial mask
-        self.spatial_mask = None
         self._set_spec_indices()
 
         return
