@@ -101,7 +101,7 @@ def channelmaps(cube, lambda0, vel_min, vel_max, channels=6, continuum_width=300
     cube.cont = cube.continuum(
         write_fits=False, output_image=None, fitting_window=fw, continuum_options=cp)
 
-    contwl = cube.wl[(cube.wl > fw[0]) & (cube.wl < fw[1])]
+    contwl = cube.rest_wavelength[(cube.rest_wavelength > fw[0]) & (cube.rest_wavelength < fw[1])]
     maps = []
     axes = []
     pmaps = []
@@ -393,8 +393,8 @@ def rgb_line_compose(
     cube.cont_g = cube.continuum(
         write_fits=False, output_image=None, fitting_window=fw_g, continuum_options=cp)
 
-    contwl_r = cube.wl[(cube.wl > fw_r[0]) & (cube.wl < fw_r[1])]
-    contwl_g = cube.wl[(cube.wl > fw_g[0]) & (cube.wl < fw_g[1])]
+    contwl_r = cube.rest_wavelength[(cube.rest_wavelength > fw_r[0]) & (cube.rest_wavelength < fw_r[1])]
+    contwl_g = cube.rest_wavelength[(cube.rest_wavelength > fw_g[0]) & (cube.rest_wavelength < fw_g[1])]
     channelMaps = []
     axes = []
     pmaps = []
@@ -426,7 +426,7 @@ def rgb_line_compose(
         fw_b = lambdas[2] + np.array([-cw / 2., cw / 2.])
         cube.cont_b = cube.continuum(
             write_fits=False, output_image=None, fitting_window=fw_b, continuum_options=cp)
-        contwl_b = cube.wl[(cube.wl > fw_b[0]) & (cube.wl < fw_b[1])]
+        contwl_b = cube.rest_wavelength[(cube.rest_wavelength > fw_b[0]) & (cube.rest_wavelength < fw_b[1])]
 
     for i in np.arange(channels):
         ax = fig.add_subplot(otherside, side, i + 1)
