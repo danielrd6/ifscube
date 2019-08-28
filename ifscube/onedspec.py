@@ -672,9 +672,13 @@ class Spectrum:
         # bounds to bring everything close to unity.
         #
         scale_factor = np.abs(np.mean(data))
-        # if scale_factor <= 0:
-        #     self.fit_status = 97
-        #     return
+        if np.isnan(scale_factor):
+            warnings.warn('Scale factor is NaN! Check your flags.', RuntimeWarning)
+            self.fit_status = 200
+        elif scale_factor == 0:
+            warnings.warn("Scale factor is null! Shouldn't this spectrum be masked?", RuntimeWarning)
+            scale_factor = 1.0
+            self.fit_status = 201
         s /= scale_factor
         if not np.all(v == 1.):
             v /= scale_factor ** 2
