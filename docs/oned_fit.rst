@@ -50,16 +50,25 @@ process.
 
 * fit_continuum: 'yes', 'no'
     Fits a polynomial pseudo continuum before fitting the spectral features.
-
+* fitting_window: lambda_0:lambda_1
+    Spectral window in which to perform the fit.
+* fixed_components: feature1, feature2, feature3, ...
+    The spectral features that are to be left out of the fitting process.
+    The spectral lines given in this parameter are kept fixed except for a
+    common factor on their amplitude. Bounds and constraints are ignored for
+    every fixed feature, except for the amplitude bounds of the first of the
+    fixed features.
+    **IMPORTANT:** All fixed spectral features must be specified at the end of the
+    configuration file!
 * function: 'gaussian', 'gauss_hermite'
     Sets the function to be used as the spectral feature profile. It can be
     either 'gaussian' or 'gauss_hermite'.
-* fitting_window: lambda_0:lambda_1
-    Spectral window in which to perform the fit.
-* out_image: string
-    Name of the output FITS file.
-* overwrite: 'yes', 'no'
-    Overwrites the output file if it already exists.
+* guess_parameters: 'yes', 'no'
+    Makes an initial guess for the amplitude, centroid and sigma of each
+    spectral feature based on the spectrum. Setting this option to yes
+    *does not* mean that you can leave the line definition sections empty. A lot
+    of other routines within the algorithm are based on the initial parameters you
+    give for each spectral feature.
 * optimize_fit: 'yes', 'no'
     Only fits pixels that are close to the spectral features set in the
     configuration file. For instance, if you want to fit a spectrum that goes from
@@ -71,23 +80,25 @@ process.
     guess. If optimize_fit is set to yes (see above) Only pixels with wavelength
     between (wavelength - optimization_window * sigma) and (wavelength +
     optimization_window * sigma) will be evaluated by the fitting algorithm.
+* out_image: string
+    Name of the output FITS file.
+* overwrite: 'yes', 'no'
+    Overwrites the output file if it already exists.
 * suffix: string
     Suffix to attach to the name of the input file. The resulting concatenation
     will be the output file's name.
-* verbose: 'yes', 'no'
-    Shows a nice progress bar.
-* write_fits: 'yes', 'no'
-    Writes the output of the fit to a file.  
-* guess_parameters: 'yes', 'no'
-    Makes an initial guess for the amplitude, centroid and sigma of each
-    spectral feature based on the spectrum. Setting this option to yes
-    *does not* mean that you can leave the line definition sections empty. A lot
-    of other routines within the algorithm are based on the initial parameters you
-    give for each spectral feature.
 * test_jacobian: 'yes', 'no'
     Checks if there are null values in the jacobian matrix of the fit. If there
     are, it usually means that the spectral feature is in a flagged section of
     the spectrum, or that the best fit is a line with zero amplitude.
+* trivial: 'yes', 'no'
+    For each spectral feature being fit, evaluates if the fit is not better
+    served by the null hypothesis, i.e. by setting the amplitude to zero.
+* verbose: 'yes', 'no'
+    Shows a nice progress bar.
+* write_fits: 'yes', 'no'
+    Writes the output of the fit to a file.  
+
 
 loading
 -------
