@@ -379,7 +379,7 @@ class Fit(object):
 
         # Assumes uniform noise accross the spectrum
         if isinstance(noise, float):
-            noise = np.zeros(len(galaxy), dtype=galaxy.dtype) + noise
+            noise = galaxy * noise
         elif isinstance(noise, np.ndarray):
             noise, log_lam1, velscale = ppxf_util.log_rebin(lam_range1, copy.deepcopy(noise)[fw])
         self.noise = noise
