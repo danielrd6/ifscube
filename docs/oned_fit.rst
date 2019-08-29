@@ -48,10 +48,20 @@ fit
 This part of the configuration file sets the main options of the fitting
 process. 
 
+* continuum_line_weight: number
+    When fitting a pseudo-continuum function, sets the weight of pixels near
+    spectral features to this number. Setting this option to 1.0 effectively
+    disables it, while setting it to zero makes the pseudo-continuum fitting
+    completely insensitive to any pixels within 3 times the given sigma from
+    the line center.
 * fit_continuum: 'yes', 'no'
     Fits a polynomial pseudo continuum before fitting the spectral features.
 * fitting_window: lambda_0:lambda_1
     Spectral window in which to perform the fit.
+* fixed: 'yes', 'no'
+    If set to yes, performs the fit but returns the given input as the result.
+    This option is very useful to debug the initial guess, and make sure the
+    given parameters are close to the actual spectrum.
 * fixed_components: feature1, feature2, feature3, ...
     The spectral features that are to be left out of the fitting process.
     The spectral lines given in this parameter are kept fixed except for a
