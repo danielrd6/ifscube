@@ -443,7 +443,7 @@ class Spectrum:
                 minopts=None, copts=None, weights=None, verbose=False, fit_continuum=False, component_names=None,
                 overwrite=False, eqw_opts=None, trivial=False, suffix=None, optimize_fit=False,
                 optimization_window=10.0, guess_parameters=False, test_jacobian=False, good_minfraction=.8,
-                fixed: bool = False, fixed_components: str = None):
+                fixed: bool = False, fixed_components: str = None, continuum_line_weight: float = 0.0):
         """
         Fits a spectral features.
 
@@ -645,9 +645,9 @@ class Spectrum:
                     cw = np.ones_like(data)
                     for i in feature_wl:
                         idx = list(feature_wl).index(i)
-                        low_lambda = i - (1 * sigmas[idx])
-                        up_lambda = i + (1 * sigmas[idx])
-                        cw[(wl > low_lambda) & (wl < up_lambda)] = 0.5
+                        low_lambda = i - (3.0 * sigmas[idx])
+                        up_lambda = i + (3.0 * sigmas[idx])
+                        cw[(wl > low_lambda) & (wl < up_lambda)] = continuum_line_weight
                     return cw
                 copts.update({'weights': continuum_weights(self.sigma_lambda(p0[2::npars_pc], feature_wl))})
                 pcont = spectools.continuum(wl, data - stellar, **copts)

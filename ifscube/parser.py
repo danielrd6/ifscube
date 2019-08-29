@@ -336,7 +336,7 @@ class LineFitParser:
 
         float_args = [
             'refit_radius', 'sig_threshold', 'inst_disp',
-            'optimization_window', 'good_minfraction']
+            'optimization_window', 'good_minfraction', 'continuum_line_weight']
         for i in float_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getfloat('fit', i)
