@@ -643,10 +643,9 @@ class Spectrum:
             if fit_continuum:
                 def continuum_weights(sigmas):
                     cw = np.ones_like(data)
-                    for i in feature_wl:
-                        idx = list(feature_wl).index(i)
-                        low_lambda = i - (3.0 * sigmas[idx])
-                        up_lambda = i + (3.0 * sigmas[idx])
+                    for i, j in enumerate(feature_wl):
+                        low_lambda = j - (3.0 * sigmas[i])
+                        up_lambda = j + (3.0 * sigmas[i])
                         cw[(wl > low_lambda) & (wl < up_lambda)] = continuum_line_weight
                     return cw
                 copts.update({'weights': continuum_weights(self.sigma_lambda(p0[2::npars_pc], feature_wl))})
