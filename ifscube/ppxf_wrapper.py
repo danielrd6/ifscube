@@ -180,8 +180,10 @@ def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, *
     for h in iterator:
         i, j = h
 
+        pop_it_later = False
         if ('noise' not in kwargs) and ~np.all(noise[:, i, j] == 1.0):
             kwargs['noise'] = noise[:, i, j]
+            pop_it_later = True
 
         if (mask is not None) and (cube.flags is not None):
             m = mask + spectools.flags_to_mask(wavelength, flags[:, i, j])
@@ -193,7 +195,7 @@ def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, *
             m = None
 
         pp = fit.fit(wavelength, data[:, i, j], mask=m, **kwargs)
-        if 'noise' in kwargs:
+        if pop_it_later:
             kwargs.pop('noise')
 
         if vor is not None:
@@ -378,8 +380,14 @@ class Fit(object):
         start = [initial_velocity, initial_sigma]  # (km/s), starting guess for [V,sigma]
 
         # Assumes uniform noise accross the spectrum
-        if isinstance(noise, float):
+        def make_noise(galaxy, noise):
             noise = galaxy * noise
+            noise_mask = (~np.isfinite(noise)) | (noise <= 0.0)
+            mean_noise = np.mean(noise[~noise_mask])
+            noise[noise_mask] = mean_noise
+            return noise
+        if isinstance(noise, float):
+            noise = make_noise(galaxy, noise)
         elif isinstance(noise, np.ndarray):
             noise, log_lam1, velscale = ppxf_util.log_rebin(lam_range1, copy.deepcopy(noise)[fw])
         self.noise = noise
@@ -388,7 +396,7 @@ class Fit(object):
         galaxy = copy.deepcopy(ma.getdata(galaxy / self.normalization_factor))
         noise = copy.deepcopy(ma.getdata(np.abs(noise / self.normalization_factor)))
 
-        assert np.all((noise > 0) & np.isfinite(noise)), 'ok'
+        assert np.all((noise > 0) & np.isfinite(noise)), 'Invalid values encountered in noise spectrum.'
         pp = ppxf.ppxf(
             templates, galaxy, noise, velscale, start, goodpixels=gp, moments=moments, degree=deg,
             vsyst=dv, quiet=quiet,
