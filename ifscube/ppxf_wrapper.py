@@ -4,10 +4,10 @@ import glob
 
 import matplotlib.pyplot as plt
 import numpy as np
-from numpy import ma
 import tqdm
 from astropy import wcs, constants
 from astropy.io import fits
+from numpy import ma
 from pkg_resources import resource_filename
 from ppxf import ppxf, ppxf_util
 from scipy.ndimage import gaussian_filter
@@ -288,7 +288,7 @@ class Fit(object):
         self.base_wavelength = self.base_wavelength[base_cut]
 
     def fit(self, wavelength, data, mask=None, initial_velocity=0.0, initial_sigma=150.0, fwhm_gal=2, fwhm_model=1.8,
-            noise=0.05, plot_fit=False, quiet=False, deg=4, moments=4):
+            noise=0.05, plot_fit=False, quiet=False, deg=4, moments=4, **kwargs):
         """
         Performs the pPXF fit.
         
@@ -319,6 +319,8 @@ class Fit(object):
             Degree of polynomial function to be fit in addition to the stellar population spectrum.
         moments : int
             Number of moments in the Gauss-Hermite polynomial. A simple Gaussian would be 2.
+        kwargs
+            Additional keyword arguments passed directly to ppxf.
 
         Returns
         -------
@@ -397,10 +399,8 @@ class Fit(object):
         noise = copy.deepcopy(ma.getdata(np.abs(noise / self.normalization_factor)))
 
         assert np.all((noise > 0) & np.isfinite(noise)), 'Invalid values encountered in noise spectrum.'
-        pp = ppxf.ppxf(
-            templates, galaxy, noise, velscale, start, goodpixels=gp, moments=moments, degree=deg,
-            vsyst=dv, quiet=quiet,
-        )
+        pp = ppxf.ppxf(templates, galaxy, noise, velscale, start, goodpixels=gp, moments=moments, degree=deg, vsyst=dv,
+                       quiet=quiet, **kwargs)
 
         self.solution = pp
 
