@@ -195,6 +195,11 @@ def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, *
             m = None
 
         pp = fit.fit(wavelength, data[:, i, j], mask=m, **kwargs)
+        if len(pp.sol) == 2:
+            pp.sol = np.concatenate([pp.sol, [0., 0.]])
+        elif len(pp.sol == 3:)
+            pp.sol = np.concatenate([pp.sol, [0.]])
+
         if pop_it_later:
             kwargs.pop('noise')
 
