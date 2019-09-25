@@ -64,7 +64,7 @@ def spectrum_kinematics(spectrum, fitting_window=None, **kwargs):
     if ('noise' not in kwargs) and (spectrum.variance is not None):
         kwargs['noise'] = np.sqrt(spectrum.variance)
 
-    if (mask is not None) and (spectrum.flags is not None):
+    if (mask is not None) and ((spectrum.flags is not None) and np.any(spectrum.flags)):
         m = mask + spectools.flags_to_mask(spectrum.rest_wavelength, spectrum.flags)
     elif spectrum.flags is not None:
         m = spectools.flags_to_mask(spectrum.rest_wavelength, spectrum.flags)
@@ -185,7 +185,7 @@ def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, *
             kwargs['noise'] = noise[:, i, j]
             pop_it_later = True
 
-        if (mask is not None) and (cube.flags is not None):
+        if (mask is not None) and ((cube.flags is not None) and np.any(cube.flags[:, i, j])):
             m = mask + spectools.flags_to_mask(wavelength, flags[:, i, j])
         elif cube.flags is not None:
             m = spectools.flags_to_mask(wavelength, flags[:, i, j])
@@ -195,10 +195,8 @@ def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, *
             m = None
 
         pp = fit.fit(wavelength, data[:, i, j], mask=m, **kwargs)
-        if len(pp.sol) == 2:
-            pp.sol = np.concatenate([pp.sol, [0., 0.]])
-        elif len(pp.sol == 3:)
-            pp.sol = np.concatenate([pp.sol, [0.]])
+        if len(pp.sol) < 4:
+            pp.sol = np.concatenate([pp.sol, (4 - len(pp.sol)) * [0.,]])
 
         if pop_it_later:
             kwargs.pop('noise')
