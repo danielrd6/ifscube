@@ -64,8 +64,11 @@ def spectrum_kinematics(spectrum, fitting_window=None, **kwargs):
     if ('noise' not in kwargs) and (spectrum.variance is not None):
         kwargs['noise'] = np.sqrt(spectrum.variance)
 
-    if (mask is not None) and ((spectrum.flags is not None) and np.any(spectrum.flags)):
-        m = mask + spectools.flags_to_mask(spectrum.rest_wavelength, spectrum.flags)
+    if mask is not None:
+        if ((spectrum.flags is not None) and np.any(spectrum.flags)):
+            m = mask + spectools.flags_to_mask(spectrum.rest_wavelength, spectrum.flags)
+        else:
+            m = mask
     elif spectrum.flags is not None:
         m = spectools.flags_to_mask(spectrum.rest_wavelength, spectrum.flags)
     else:
