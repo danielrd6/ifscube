@@ -23,7 +23,7 @@ setup(
     version=__version__,
     packages=['ifscube'],
     package_data=packdata,
-    scripts=['bin/fit_scrutinizer', 'bin/cubefit', 'bin/specfit'],
+    scripts=['bin/fit_scrutinizer', 'bin/cubefit', 'bin/specfit', 'bin/fit_rotation'],
     description="Fit emssision lines",
     author="Daniel Ruschel Dutra",
     author_email="druscheld@gmail.com",
