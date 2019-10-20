@@ -1,6 +1,6 @@
 import warnings
 from copy import deepcopy
-from typing import Callable
+from typing import Callable, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,8 +26,9 @@ def scale_bounds(bounds, scale_factor, npars_pc):
 
 class Spectrum:
 
-    def __init__(self, fname: str = None, scidata: str = 'SCI', variance: np.str = None, flags: str = None,
-                 stellar: str = None, primary: str = 'PRIMARY', redshift: float = None, wcs_axis: int = None) -> None:
+    def __init__(self, fname: str = None, scidata: Union[str, int] = 'SCI', variance: Union[str, int] = None,
+                 flags: Union[str, int] = None, stellar: Union[str, int] = None, primary: Union[str, int] = 'PRIMARY',
+                 redshift: float = None, wcs_axis: int = None) -> None:
         """
         Base class for 1D spectra.
 
