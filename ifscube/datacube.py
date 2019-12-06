@@ -1505,6 +1505,8 @@ class Cube:
         m = self.flags.astype('bool')
 
         self.data = cubetools.rebin(self.data, xbin, ybin, combine=combine, mask=m)
+        self.stellar = cubetools.rebin(self.stellar, xbin, ybin, combine=combine, mask=m)
+        self.variance = cubetools.rebin(self.flags, xbin, ybin, combine='mean')
         self.flags = (cubetools.rebin(self.flags, xbin, ybin, combine='sum') == xbin * ybin).astype('int')
 
         if hasattr('self', 'noise_cube'):
@@ -1512,8 +1514,7 @@ class Cube:
 
             if combine == 'mean':
                 self.noise_cube /= self.ncubes
-
-            self.variance = np.square(self.noise_cube)
+        
         self.spatial_mask = np.zeros(self.data.shape[1:], dtype=bool)
         self._set_spec_indices()
 

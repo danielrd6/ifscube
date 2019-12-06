@@ -77,10 +77,13 @@ def spectrum_kinematics(spectrum, fitting_window=None, **kwargs):
     if np.sum(spectrum.flags[fw]) / spectrum_length > 0.5:
         raise RuntimeError('Skipping spectrum due to too many (> 0.5) flagged pixels.')
 
+    if mask == []:
+        mask = None
+
     pp = fit.fit(spectrum.rest_wavelength, spectrum.data, mask=m, **kwargs)
 
     output = Spectrum()
-    output.sol = pp.sol
+    output.ppxf_sol = pp.sol
     output.data = np.interp(
         spectrum.rest_wavelength[fw], fit.obs_wavelength, pp.galaxy * fit.normalization_factor)
     output.stellar = np.interp(
@@ -405,6 +408,8 @@ class Fit(object):
         noise = copy.deepcopy(ma.getdata(np.abs(noise / self.normalization_factor)))
 
         assert np.all((noise > 0) & np.isfinite(noise)), 'Invalid values encountered in noise spectrum.'
+        if len(gp.shape) > 1:
+            gp = gp[0]
         pp = ppxf.ppxf(templates, galaxy, noise, velscale, start, goodpixels=gp, moments=moments, degree=deg, vsyst=dv,
                        quiet=quiet, **kwargs)
 
@@ -425,11 +430,11 @@ class Fit(object):
             for region in self.mask:
                 ax.axvspan(region[0], region[1], color='grey', alpha=0.1)
 
-        ax.plot(self.obs_wavelength, self.solution.galaxy)
-        ax.plot(self.obs_wavelength, self.solution.bestfit)
+        ax.plot(self.obs_wavelength, self.solution.galaxy, label='Observation')
+        ax.plot(self.obs_wavelength, self.solution.bestfit, label='pPXF best fit')
 
         ax.set_xlabel(r'Wavelength')
-        ax.set_ylabel(r'Normalized flux')
+        ax.set_ylabel(r'Normalized flux density')
 
         ax.set_ylim(self.solution.bestfit.min() * 0.8, self.solution.bestfit.max() * 1.2)
 
