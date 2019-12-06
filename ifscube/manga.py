@@ -29,7 +29,7 @@ class LogCube(datacube.Cube):
             self.wcs = wcs.WCS(self.header_data)
 
             self._accessory_data(hdu, variance, flags, stellar, weights, spatial_mask)
-            self.noise_cube = np.sqrt(1./self.variance)
+            self.noise_cube = np.sqrt(1. / self.variance)
             self.noise_cube[self.flags] = 0.0
 
             self.wl = hdu['wave'].data

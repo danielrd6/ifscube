@@ -110,9 +110,10 @@ class Cube:
                 elif isinstance(j, np.ndarray):
                     i[:] = j
 
-    def load(self, fname: str, scidata: str = 'SCI', primary: str = 'PRIMARY', variance: str = None, flags: str = None,
-             stellar: str = None, weights: str = None, redshift: float = None, vortab: str = None,
-             nan_spaxels: str = 'all', spatial_mask: str = None, spectral_dimension: int = 3) -> None:
+        self.flags = self.flags.astype(bool)
+
+    def _load(self, fname, scidata='SCI', primary='PRIMARY', variance=None, flags=None, stellar=None, weights=None,
+              redshift=None, vortab=None, nan_spaxels='all', spatial_mask=None, spectral_dimension=3):
         """
         and loads basic information onto the
         object.
