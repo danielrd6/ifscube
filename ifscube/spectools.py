@@ -11,7 +11,7 @@ points.
 import copy
 import re
 import warnings
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Union
 
 import astropy.io.fits as pf
 import numpy as np
@@ -21,6 +21,7 @@ from numpy import ma
 from scipy.integrate import trapz, quad, cumtrapz
 from scipy.interpolate import interp1d, UnivariateSpline
 from scipy.optimize import curve_fit, minimize
+from astropy.modeling import fitting, models
 
 
 def remove_bg(x: np.ndarray, y: np.ndarray, sampling_limits: list, order: int = 1) -> tuple:
@@ -327,7 +328,7 @@ def flags_to_mask(wavelength: np.ndarray, flags: np.ndarray) -> list:
 
 
 def continuum(x, y, output='ratio', degree=6, n_iterate=5, lower_threshold=2, upper_threshold=3, verbose=False,
-              weights=None):
+              weights=None) -> Union[Iterable, tuple, Callable]:
     """
     Builds a polynomial continuum from segments of a spectrum,
     given in the form of wl and flux arrays.
@@ -391,11 +392,12 @@ def continuum(x, y, output='ratio', degree=6, n_iterate=5, lower_threshold=2, up
             category=RuntimeWarning,
         )
 
-    def f(z):
-        return np.polyval(np.polyfit(z, s(z), deg=degree, w=weights), z)
+    model = models.Legendre1D(degree=degree)
+    fitter = fitting.LinearLSQFitter()
 
     for i in range(n_iterate):
 
+        f = fitter(model, x, s(x), weights=weights)
         res = s(x) - f(x)
         sig = np.std(res)
         rej_cond = ((res < upper_threshold * sig) & (res > -lower_threshold * sig))
@@ -416,17 +418,15 @@ def continuum(x, y, output='ratio', degree=6, n_iterate=5, lower_threshold=2, up
         weights = weights[rej_cond]
 
     if verbose:
-        print('Final number of points used in the fit: {:d}'
-              .format(len(x)))
-        print('Rejection ratio: {:.2f}'
-              .format(1. - float(len(x)) / float(len(x_full))))
+        print('Final number of points used in the fit: {:d}'.format(len(x)))
+        print('Rejection ratio: {:.2f}'.format(1. - float(len(x)) / float(len(x_full))))
 
-    p = np.polyfit(x, s(x), deg=degree, w=weights)
+    p = fitter(model, x, s(x), weights=weights)
 
     out = dict(
-        ratio=(x_full, s(x_full) / np.polyval(p, x_full)),
-        difference=(x_full, s(x_full) - np.polyval(p, x_full)),
-        function=(x_full, np.polyval(p, x_full)),
+        ratio=(x_full, s(x_full) / p(x_full)),
+        difference=(x_full, s(x_full) - p(x_full)),
+        function=(x_full, p(x_full)),
         polynomial=p,
     )
 

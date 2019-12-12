@@ -1,6 +1,6 @@
 import warnings
 from copy import deepcopy
-from typing import Callable, Union
+from typing import Callable, Union, Iterable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -650,9 +650,9 @@ class Spectrum:
                         cw[(wl > low_lambda) & (wl < up_lambda)] = continuum_line_weight
                     return cw
                 copts.update({'weights': continuum_weights(self.sigma_lambda(p0[2::npars_pc], feature_wl))})
-                pcont = spectools.continuum(wl, data - stellar, **copts)
-                self.fitcont = np.polyval(pcont, self.rest_wavelength[fw])
-                cont = np.polyval(pcont, wl)
+                pcont: Union[Iterable, Callable] = spectools.continuum(wl, data - stellar, **copts)
+                self.fitcont = pcont(self.rest_wavelength[fw])
+                cont = pcont(wl)
             else:
                 cont = np.zeros_like(data)
 
