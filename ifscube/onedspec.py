@@ -409,7 +409,8 @@ class Spectrum:
 
     @staticmethod
     def _setup_fixed(fixed_components: str, component_names: list, feature_wl: list, npars_pc: int,
-                     opt_mask: np.ndarray, fit_func: Callable, p0: list, wl: np.ndarray, v: np.ndarray, sbounds: np.ndarray,
+                     opt_mask: np.ndarray, fit_func: Callable, p0: list, wl: np.ndarray, v: np.ndarray,
+                     sbounds: np.ndarray,
                      w: np.ndarray, s: np.ndarray):
         fixed_components = [i.strip() for i in fixed_components.split(',')]
         parameter_indices = {
@@ -649,6 +650,7 @@ class Spectrum:
                         up_lambda = j + (3.0 * sigmas[i])
                         cw[(wl > low_lambda) & (wl < up_lambda)] = continuum_line_weight
                     return cw
+
                 copts.update({'weights': continuum_weights(self.sigma_lambda(p0[2::npars_pc], feature_wl))})
                 pcont: Union[Iterable, Callable] = spectools.continuum(wl, data - stellar, **copts)
                 self.fitcont = pcont(self.rest_wavelength[fw])
@@ -800,6 +802,25 @@ class Spectrum:
             self._write_linefit(args=locals())
         return
 
+    def _cut_fit_spectrum(self, sigma_factor, sigma_index, component_index, par_indexes):
+        sig = self.sigma_lambda(self.em_model[sigma_index], self.feature_wl[component_index])
+        low_wl, up_wl = [self.center_wavelength(component_index) + (_ * sigma_factor * sig) for _ in [-1.0, 1.0]]
+        cond = (self.fitwl > low_wl) & (self.fitwl < up_wl)
+        fit = self.fit_func(self.fitwl[cond], np.array([self.feature_wl[component_index]]), self.em_model[par_indexes])
+
+        return cond, fit, self.fitstellar, self.fitcont, self.fitspec
+
+    def _get_indexes_and_check_nans(self, component):
+        component_index = self.component_names.index(component)
+        par_indexes = np.arange(self.npars) + self.npars * component_index
+        sigma_index = 2 + self.npars * component_index
+        cwl = self.center_wavelength(component_index)
+
+        nan_data = np.any(np.isnan(self.em_model[par_indexes]))
+        null_center_wavelength = (cwl == 0) or (cwl == np.nan)
+
+        return nan_data, null_center_wavelength, component_index, sigma_index, par_indexes
+
     def eqw(self, sigma_factor=5.0, continuum_windows=None):
         """
         Evaluates the equivalent width of a previous linefit.
@@ -822,26 +843,10 @@ class Spectrum:
         eqw_model = np.zeros((len(self.component_names),))
         eqw_direct = np.zeros_like(eqw_model)
 
-        npars = self.npars
-
         for component in self.component_names:
 
-            component_index = self.component_names.index(component)
-            par_indexes = np.arange(npars) + npars * component_index
-
-            sigma_index = 2 + npars * component_index
-
-            # Wavelength vector of the line fit
-            fwl = self.fitwl
-            # Center wavelength coordinate of the fit
-            cwl = self.center_wavelength(component_index)
-            # Sigma of the fit
-            sig = self.sigma_lambda(self.em_model[sigma_index], self.feature_wl[component_index])
-            # Just a short alias for the sigma_factor parameter
-            sf = sigma_factor
-
-            nan_data = np.any(np.isnan(self.em_model[par_indexes]))
-            null_center_wavelength = (cwl == 0) or (cwl == np.nan)
+            nan_data, null_center_wavelength, component_index, sigma_index, par_indexes = \
+                self._get_indexes_and_check_nans(component)
 
             if nan_data or null_center_wavelength:
 
@@ -850,18 +855,8 @@ class Spectrum:
 
             else:
 
-                low_wl = cwl - sf * sig
-                up_wl = cwl + sf * sig
-
-                cond = (fwl > low_wl) & (fwl < up_wl)
-
-                fit = self.fit_func(
-                    fwl[cond],
-                    np.array([self.feature_wl[component_index]]),
-                    self.em_model[par_indexes])
-                syn = self.fitstellar
-                fitcont = self.fitcont
-                data = self.fitspec
+                cond, fit, syn, fit_continuum, data = self._cut_fit_spectrum(sigma_factor, sigma_index, component_index,
+                                                                             par_indexes)
 
                 # If the continuum fitting windows are set, use that
                 # to define the weights vector.
@@ -876,14 +871,17 @@ class Spectrum:
                 if cwin is not None:
                     assert len(cwin) == 4, 'Windows must be an iterable of the form (blue0, blue1, red0, red1)'
                     weights = np.zeros_like(self.fitwl)
-                    cwin_cond = (((fwl > cwin[0]) & (fwl < cwin[1])) | ((fwl > cwin[2]) & (fwl < cwin[3])))
+                    cwin_cond = (
+                            ((self.fitwl > cwin[0]) & (self.fitwl < cwin[1]))
+                            | ((self.fitwl > cwin[2]) & (self.fitwl < cwin[3]))
+                    )
                     weights[cwin_cond] = 1
                     nite = 1
                 else:
                     weights = np.ones_like(self.fitwl)
                     nite = 3
 
-                cont = spectools.continuum(fwl, syn + fitcont, weights=weights, degree=1, n_iterate=nite,
+                cont = spectools.continuum(self.fitwl, syn + fit_continuum, weights=weights, degree=1, n_iterate=nite,
                                            lower_threshold=3, upper_threshold=3, output='function')[1][cond]
 
                 # Remember that 1 - (g + c)/c = -g/c, where g is the
@@ -892,8 +890,8 @@ class Spectrum:
                 # That is why we can shorten the equivalent width
                 # definition in the eqw_model integration below.
                 ci = component_index
-                eqw_model[ci] = trapz(- fit / cont, x=fwl[cond])
-                eqw_direct[ci] = trapz(1. - data[cond] / cont, x=fwl[cond])
+                eqw_model[ci] = trapz(- fit / cont, x=self.fitwl[cond])
+                eqw_direct[ci] = trapz(1. - data[cond] / cont, x=self.fitwl[cond])
 
             self.eqw_model = eqw_model
             self.eqw_direct = eqw_direct
@@ -915,26 +913,9 @@ class Spectrum:
         flux_model = np.zeros((len(self.component_names),))
         flux_direct = np.zeros_like(flux_model)
 
-        npars = self.npars
-
         for component in self.component_names:
-
-            component_index = self.component_names.index(component)
-            par_indexes = np.arange(npars) + npars * component_index
-
-            sigma_index = 2 + npars * component_index
-
-            # Wavelength vector of the line fit
-            fwl = self.fitwl
-            # Center wavelength coordinate of the fit
-            cwl = self.center_wavelength(component_index)
-            # Sigma of the fit
-            sig = self.sigma_lambda(self.em_model[sigma_index], self.feature_wl[component_index])
-            # Just a short alias for the sigma_factor parameter
-            sf = sigma_factor
-
-            nan_data = np.any(np.isnan(self.em_model[par_indexes]))
-            null_center_wavelength = (cwl == 0) or (cwl == np.nan)
+            nan_data, null_center_wavelength, component_index, sigma_index, par_indexes = \
+                self._get_indexes_and_check_nans(component)
 
             if nan_data or null_center_wavelength:
 
@@ -942,25 +923,17 @@ class Spectrum:
                 flux_direct[component_index] = np.nan
 
             else:
-
-                low_wl = cwl - sf * sig
-                up_wl = cwl + sf * sig
-
-                cond = (fwl > low_wl) & (fwl < up_wl)
-
-                fit = self.fit_func(fwl[cond], np.array([self.feature_wl[component_index]]), self.em_model[par_indexes])
-                syn = self.fitstellar
-                fit_continuum = self.fitcont
-                data = self.fitspec
+                cond, fit, syn, fit_continuum, data = self._cut_fit_spectrum(sigma_factor, sigma_index, component_index,
+                                                                             par_indexes)
 
                 remove_components = [i for i in range(len(self.feature_wl)) if i != component_index]
                 obs_spec = deepcopy(data[cond])
                 for i in remove_components:
-                    ci = i * npars
-                    obs_spec -= self.fit_func(fwl[cond], self.feature_wl[i], self.em_model[ci:ci + npars])
+                    ci = i * self.npars
+                    obs_spec -= self.fit_func(self.fitwl[cond], self.feature_wl[i], self.em_model[ci:ci + self.npars])
 
-                flux_model[component_index] = trapz(fit, x=fwl[cond])
-                flux_direct[component_index] = trapz(obs_spec - (fit_continuum[cond] + syn[cond]), x=fwl[cond])
+                flux_model[component_index] = trapz(fit, x=self.fitwl[cond])
+                flux_direct[component_index] = trapz(obs_spec - (fit_continuum[cond] + syn[cond]), x=self.fitwl[cond])
 
             self.flux_model = flux_model
             self.flux_direct = flux_direct
