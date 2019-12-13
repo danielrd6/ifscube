@@ -649,16 +649,21 @@ class Spectrum:
             self.fitcont = self.continuum[fw]
         else:
             if fit_continuum:
-                def continuum_weights(sigmas):
+                new_copts = deepcopy(copts)
+                if 'weights' in copts:
+                    new_copts['weights'] = copts['weights'][fw]
+                else:
                     cw = np.ones_like(data)
-                    for i, j in enumerate(feature_wl):
-                        low_lambda = j - (3.0 * sigmas[i])
-                        up_lambda = j + (3.0 * sigmas[i])
-                        cw[(wl > low_lambda) & (wl < up_lambda)] = continuum_line_weight
-                    return cw
 
-                copts.update({'weights': continuum_weights(self.sigma_lambda(p0[2::npars_pc], feature_wl))})
-                pcont: Union[Iterable, Callable] = spectools.continuum(wl, data - stellar, **copts)
+                    def continuum_weights(sigmas):
+                        for i, j in enumerate(feature_wl):
+                            low_lambda = j - (3.0 * sigmas[i])
+                            up_lambda = j + (3.0 * sigmas[i])
+                            cw[(wl > low_lambda) & (wl < up_lambda)] = continuum_line_weight
+                        return cw
+                    new_copts.update({'weights': continuum_weights(self.sigma_lambda(p0[2::npars_pc], feature_wl))})
+
+                pcont: Union[Iterable, Callable] = spectools.continuum(wl, data - stellar, **new_copts)
                 self.fitcont = pcont(self.rest_wavelength[fw])
                 cont = pcont(wl)
             else:
