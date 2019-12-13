@@ -47,8 +47,8 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading, fit_type, config_fi
             print('ERROR! File {:s} already exists.'.format(outname))
             return
 
+    lockname = outname + '.lock'
     if lock:
-        lockname = outname + '.lock'
         if os.path.isfile(lockname):
             print('ERROR! Lock file {:s} is present.'.format(lockname))
             return
@@ -72,6 +72,8 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading, fit_type, config_fi
             a = manga.cube(fname, **loading)
         elif cubetype == 'gmos':
             a = gmos.Cube(fname, **loading)
+        else:
+            raise RuntimeError('cubetype "{:s}" not understood.'.format(cubetype))
 
     elif fit_type == 'spec':
 
@@ -79,6 +81,11 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading, fit_type, config_fi
             a = onedspec.Spectrum(fname, **loading)
         elif cubetype == 'intmanga':
             a = manga.IntegratedSpectrum(fname, **loading)
+        else:
+            raise RuntimeError('cubetype "{:s}" not understood.'.format(cubetype))
+
+    else:
+        raise RuntimeError('fit_type "{:s}" not understood.'.format(fit_type))
 
     linefit_args['out_image'] = outname
     a.linefit(**linefit_args)
