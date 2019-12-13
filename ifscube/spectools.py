@@ -179,7 +179,7 @@ def blackbody(x, t, coordinate='wavelength'):
     return b(x, t)
 
 
-def natural_sort(l):
+def natural_sort(sequence):
     # This code is not mine! I copied it from
     # http://stackoverflow.com/questions/4836710/does-python-have-a-built-in-
     # function-for-string-natural-sort
@@ -190,7 +190,7 @@ def natural_sort(l):
     def alphanum_key(key):
         return [convert(c) for c in re.split('([0-9]+)', key)]
 
-    return sorted(l, key=alphanum_key)
+    return sorted(sequence, key=alphanum_key)
 
 
 def closest(arr, value):
@@ -507,7 +507,7 @@ def joinspec(x1, y1, x2, y2):
     return x, f
 
 
-def fnu2flambda(fnu, l):
+def fnu2flambda(fnu, wavelength):
     """
     Converts between flux units
 
@@ -515,7 +515,7 @@ def fnu2flambda(fnu, l):
     -----------
     fnu : number
         Flux density in W/m^2/Hz
-    l : number
+    wavelength : number
         Wavelength in microns
 
     Returns
@@ -529,9 +529,9 @@ def fnu2flambda(fnu, l):
     d lambda      lambda^2
     """
 
-    flambda = 2.99792458 * fnu * 10 ** (-12) / l ** 2
+    f_lambda = 2.99792458 * fnu * 10 ** (-12) / wavelength ** 2
 
-    return flambda
+    return f_lambda
 
 
 def flambda2fnu(wl, fl):
@@ -702,6 +702,39 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None) 
         w80, r0, r1 = np.nan, np.nan, np.nan
 
     return w80, r0, r1, velocity, spec
+
+
+def read_weights(wavelength: np.ndarray, file_name: str) -> np.ndarray:
+    """
+    Reads a weight definition mask from an input ASCII file and returns
+    a vector of weights.
+
+    Parameters
+    ----------
+    wavelength : np.ndarray
+        Input wavelength coordinates.
+    file_name : str
+        File containing the weight mask definition, where each line
+        should have three values in the following order:
+
+            <lower wavelength> <upper wavelength> <weight>
+
+        By default every point has a weight of one.
+
+    Returns
+    -------
+    w : np.ndarray
+        Vector of weights.
+    """
+
+    w = np.ones_like(wavelength, dtype='float64')
+
+    weight_mask = np.genfromtxt(file_name, names=('low', 'up', 'weight'))
+    for i in weight_mask:
+        c = (wavelength >= i['low']) & (wavelength <= i['up'])
+        w[c] = i['weight']
+
+    return w
 
 
 class Constraints:
