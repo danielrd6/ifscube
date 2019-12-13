@@ -9,6 +9,7 @@ from . import gmos
 from . import manga
 from . import onedspec
 from . import parser
+from . import spectools
 
 
 def make_lock(fname):
@@ -88,6 +89,10 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading, fit_type, config_fi
         raise RuntimeError('fit_type "{:s}" not understood.'.format(fit_type))
 
     linefit_args['out_image'] = outname
+
+    if 'weights' in linefit_args['copts']:
+        linefit_args['copts']['weights'] = spectools.read_weights(a.rest_wavelength, linefit_args['copts']['weights'])
+
     a.linefit(**linefit_args)
 
     try:
