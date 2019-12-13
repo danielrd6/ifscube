@@ -4,11 +4,11 @@ import ctypes
 import os
 
 from . import Cube
+from . import cubetools
 from . import gmos
 from . import manga
 from . import onedspec
 from . import parser
-from . import cubetools
 
 
 def make_lock(fname):
@@ -24,8 +24,7 @@ def clear_lock(lockname):
     return
 
 
-def dofit(fname, linefit_args, overwrite, cubetype, loading,
-          fit_type, config_file_name, plot=False, lock=False):
+def dofit(fname, linefit_args, overwrite, cubetype, loading, fit_type, config_file_name, plot=False, lock=False):
     galname = fname.split('/')[-1]
 
     try:
@@ -101,28 +100,16 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading,
 
 def main(fit_type):
     ap = argparse.ArgumentParser()
-    ap.add_argument(
-        '-o', '--overwrite', action='store_true',
-        help='Overwrites previous fit with the same name.')
-    ap.add_argument(
-        '-p', '--plot', action='store_true',
-        help='Plots the resulting fit.')
-    ap.add_argument(
-        '-l', '--lock', action='store_true', default=False,
-        help='Creates a lock file to prevent multiple instances from'
-             ' attempting to fit the same file at the same time.')
-    ap.add_argument(
-        '-b', '--cubetype', type=str, default=None,
-        help='"gmos" or "manga".')
-    ap.add_argument(
-        '-t', '--mklthreads', type=int, default=1,
-        help='Number of threads for numpy routines.')
+    ap.add_argument('-o', '--overwrite', action='store_true', help='Overwrites previous fit with the same name.')
+    ap.add_argument('-p', '--plot', action='store_true', help='Plots the resulting fit.')
+    ap.add_argument('-l', '--lock', action='store_true', default=False, help='Creates a lock file to prevent multiple '
+                    'instances fromattempting to fit the same file at the same time.')
+    ap.add_argument('-b', '--cubetype', type=str, default=None, help='"gmos" or "manga".')
+    ap.add_argument('-t', '--mklthreads', type=int, default=1, help='Number of threads for numpy routines.')
     ap.add_argument('-c', '--config', type=str, help='Config file.')
     ap.add_argument('datafile', help='FITS data file to be fit.', nargs='*')
 
     args = ap.parse_args()
-
-    c = parser.LineFitParser(args.config)
 
     try:
         mkl_rt = ctypes.CDLL('libmkl_rt.so')
