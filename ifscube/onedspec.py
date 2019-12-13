@@ -537,6 +537,12 @@ class Spectrum:
         fixed : bool
             Returns the input parameters instead of the fit results.
             This is very useful when trying out inital guesses.
+        fixed_components : str
+            A string of comma separated names of fit components that are to be kept fixed
+            at the given value.
+        continuum_line_weight : float
+            Weight given in continuum fitting for points within 3 sigma from the center of
+            each spectral feature.
 
         Returns
         -------
