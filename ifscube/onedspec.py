@@ -651,7 +651,7 @@ class Spectrum:
             if fit_continuum:
                 new_copts = deepcopy(copts)
                 if 'weights' in copts:
-                    new_copts['weights'] = copts['weights'][fw]
+                    new_copts['weights'] = copts['weights'][valid_pixels]
                 else:
                     cw = np.ones_like(data)
 
