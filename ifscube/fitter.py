@@ -10,6 +10,7 @@ from . import manga
 from . import onedspec
 from . import parser
 from . import spectools
+from . import sdss
 
 
 def make_lock(fname):
@@ -25,7 +26,7 @@ def clear_lock(lockname):
     return
 
 
-def dofit(fname, linefit_args, overwrite, cubetype, loading, fit_type, config_file_name, plot=False, lock=False):
+def dofit(fname, linefit_args, overwrite, data_type, loading, fit_type, config_file_name, plot=False, lock=False):
     galname = fname.split('/')[-1]
 
     try:
@@ -67,23 +68,25 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading, fit_type, config_fi
 
     if fit_type == 'cube':
 
-        if cubetype is None:
+        if data_type is None:
             a = Cube(fname, **loading)
-        elif cubetype == 'manga':
+        elif data_type == 'manga':
             a = manga.cube(fname, **loading)
-        elif cubetype == 'gmos':
+        elif data_type == 'gmos':
             a = gmos.Cube(fname, **loading)
         else:
-            raise RuntimeError('cubetype "{:s}" not understood.'.format(cubetype))
+            raise RuntimeError('data_type "{:s}" not understood.'.format(data_type))
 
     elif fit_type == 'spec':
 
-        if cubetype is None:
+        if data_type is None:
             a = onedspec.Spectrum(fname, **loading)
-        elif cubetype == 'intmanga':
+        elif data_type == 'intmanga':
             a = manga.IntegratedSpectrum(fname, **loading)
+        elif data_type == 'sdss':
+            a = sdss.Spectrum(fname, **loading)
         else:
-            raise RuntimeError('cubetype "{:s}" not understood.'.format(cubetype))
+            raise RuntimeError('data_type "{:s}" not understood.'.format(data_type))
 
     else:
         raise RuntimeError('fit_type "{:s}" not understood.'.format(fit_type))
@@ -116,7 +119,7 @@ def main(fit_type):
     ap.add_argument('-p', '--plot', action='store_true', help='Plots the resulting fit.')
     ap.add_argument('-l', '--lock', action='store_true', default=False, help='Creates a lock file to prevent multiple '
                     'instances fromattempting to fit the same file at the same time.')
-    ap.add_argument('-b', '--cubetype', type=str, default=None, help='"gmos" or "manga".')
+    ap.add_argument('-b', '--data-type', type=str, default=None, help='"gmos" or "manga".')
     ap.add_argument('-t', '--mklthreads', type=int, default=1, help='Number of threads for numpy routines.')
     ap.add_argument('-c', '--config', type=str, help='Config file.')
     ap.add_argument('datafile', help='FITS data file to be fit.', nargs='*')
@@ -134,6 +137,6 @@ def main(fit_type):
     for i in args.datafile:
         c = parser.LineFitParser(args.config)
         line_fit_args = c.get_vars()
-        dofit(i, line_fit_args, overwrite=args.overwrite, cubetype=args.cubetype, plot=args.plot,
+        dofit(i, line_fit_args, overwrite=args.overwrite, data_type=args.data_type, plot=args.plot,
               loading=c.loading_opts, lock=args.lock, fit_type=fit_type, config_file_name=args.config)
         del c
