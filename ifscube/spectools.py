@@ -17,11 +17,11 @@ import astropy.io.fits as pf
 import numpy as np
 from astropy import units
 from astropy.convolution import convolve, Gaussian1DKernel
+from astropy.modeling import fitting, models
 from numpy import ma
 from scipy.integrate import trapz, quad, cumtrapz
 from scipy.interpolate import interp1d, UnivariateSpline
 from scipy.optimize import curve_fit, minimize
-from astropy.modeling import fitting, models
 
 
 def remove_bg(x: np.ndarray, y: np.ndarray, sampling_limits: list, order: int = 1) -> tuple:
@@ -649,7 +649,8 @@ def spectrophotometry(spec: Callable, transmission: Callable, limits: Iterable, 
         return photometry
 
 
-def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None) -> tuple:
+def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None,
+            clip_negative_flux: bool = True) -> tuple:
     """
     Evaluates the W80 parameter of a given emission fature.
 
@@ -663,6 +664,8 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None) 
       Central wavelength of the emission feature.
     smooth : float
         Smoothing sigma to apply after the cumulative sum.
+    clip_negative_flux : bool
+        Sets negative flux values to zero.
 
     Returns
     -------
@@ -688,6 +691,8 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None) 
 
     if not (spec == 0.0).all() and not np.isnan(spec).all():
         y = ma.masked_invalid(spec)
+        if clip_negative_flux:
+            y = np.clip(y, a_min=0.0, a_max=None)
         if smooth is not None:
             kernel = Gaussian1DKernel(smooth)
             y = convolve(y, kernel=kernel, boundary='extend')

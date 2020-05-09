@@ -1174,7 +1174,8 @@ class Cube:
         fit_file.close()
 
     def w80(self, component: int, sigma_factor: float = 5.0, individual_spec: Union[bool, tuple] = False,
-            verbose: bool = False, smooth: float = None, remove_components: Union[None, Iterable, str] = None) -> \
+            verbose: bool = False, smooth: float = None, remove_components: Union[None, Iterable, str] = None,
+            clip_negative_flux: bool = True) -> \
             np.ndarray:
         """
 
@@ -1200,6 +1201,8 @@ class Cube:
             (see *component* above) or 'all'. If set to 'all', all
             spectral features besides the one specified in *component*
             will be subtracted from the spectrum.
+        clip_negative_flux : bool
+            Set negative fluxes to zero, prior to W_80 evaluation.
 
         Returns
         -------
@@ -1289,7 +1292,8 @@ class Cube:
                             fwl[cond], self.feature_wl[k], self.em_model[ci:ci + npars, i, j])
                 # And now for the actual W80 evaluation.
                 # noinspection PyTupleAssignmentBalance
-                w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(fwl[cond], obs_spec, cwl, smooth=smooth)
+                w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(fwl[cond], obs_spec, cwl, smooth=smooth,
+                                                                     clip_negative_flux=clip_negative_flux)
 
                 # Plots the fit when evaluating only one spectrum.
                 if len(xy) == 1:
@@ -1514,7 +1518,7 @@ class Cube:
 
             if combine == 'mean':
                 self.noise_cube /= self.ncubes
-        
+
         self.spatial_mask = np.zeros(self.data.shape[1:], dtype=bool)
         self._set_spec_indices()
 
