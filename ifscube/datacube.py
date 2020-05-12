@@ -43,6 +43,7 @@ class Cube:
         self.fit_x0 = None
         self.fit_y0 = None
         self.fitbounds = None
+        self.fit_dispersion = None
         self.fitcont = None
         self.fitspec = None
         self.fitstellar = None
@@ -284,6 +285,14 @@ class Cube:
         hdu = fits.ImageHDU(data=self.em_model, header=hdr)
         hdu.name = 'SOLUTION'
         h.append(hdu)
+
+        if self.fit_dispersion is not None:
+            hdr['object'] = 'dispersion'
+            hdr['function'] = (function, 'Fitted function')
+            hdr['nfunc'] = (total_pars / self.npars, 'Number of functions')
+            hdu = fits.ImageHDU(data=self.fit_dispersion, header=hdr)
+            hdu.name = 'DISP'
+            h.append(hdu)
 
         # Creates the initial guess extension.
         hdu = fits.ImageHDU(data=self.initial_guess, header=hdr)
@@ -906,6 +915,7 @@ class Cube:
 
         npars = len(p0)
         sol = np.zeros((npars + 1,) + self.data.shape[1:])
+        fit_dispersion = np.zeros((npars,) + self.data.shape[1:])
         self.fitcont = np.zeros(fit_shape)
         self.fitspec = np.zeros(fit_shape)
         self.fitstellar = np.zeros(fit_shape)
@@ -1025,6 +1035,7 @@ class Cube:
             if self.binned:
                 for l, m in vor[vor[:, 2] == bin_num, :2]:
                     sol[:, l, m] = spec.em_model
+                    fit_dispersion[:, l, m] = spec.fit_dispersion
                     self.fitcont[:, l, m] = spec.fitcont
                     self.fitspec[:, l, m] = spec.fitspec
                     self.resultspec[:, l, m] = spec.resultspec
@@ -1039,6 +1050,7 @@ class Cube:
                         k if k is not None else np.nan for k in np.array(spec.fitbounds).flatten()]
             else:
                 sol[:, i, j] = spec.em_model
+                fit_dispersion[:, i, j] = spec.fit_dispersion
                 self.fitcont[:, i, j] = spec.fitcont
                 self.fitspec[:, i, j] = spec.fitspec
                 self.fitstellar[:, i, j] = spec.fitstellar
@@ -1062,6 +1074,7 @@ class Cube:
         self.npars = len(spec.parnames)
 
         self.em_model = sol
+        self.fit_dispersion = fit_dispersion
 
         self._masked_to_nan()
 

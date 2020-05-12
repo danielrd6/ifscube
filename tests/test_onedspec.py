@@ -12,16 +12,13 @@ def test_read_spec():
     assert 1
 
 
-def line_fitting(f_bounds: bool = False, f_constraints: bool = False):
+def line_fitting(f_bounds: bool = False, f_constraints: bool = False, f_monte_carlo: bool = False):
     file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
     lines_wl = np.array([
         6548.04,  # [N II] 6548
         6562.80,  # H alpha
         6583.46,  # [N II] 6583
     ])
-
-    # Approximate redshift of the spectrum
-    z = 0.0036
 
     # Defining the initial guess for the parameters.
     # five parameters for the gauss hermite polynomials
@@ -32,8 +29,8 @@ def line_fitting(f_bounds: bool = False, f_constraints: bool = False):
     p0 = np.zeros(n_components * n_pars)
 
     p0[0::n_pars] = 1e-14  # flux
-    p0[1::n_pars] = lines_wl * (1. + z)  # wavelength
-    p0[2::n_pars] = 3.0  # sigma
+    p0[1::n_pars] = 0  # velocity
+    p0[2::n_pars] = 100  # sigma
 
     # Setting bounds
 
@@ -65,16 +62,24 @@ def line_fitting(f_bounds: bool = False, f_constraints: bool = False):
     my_spec = onedspec.Spectrum(file_name)
     my_spec.variance = (my_spec.data / 10) ** 2
 
+    monte_carlo = 10 if f_monte_carlo else 0
     my_spec.linefit(
         p0, fitting_window=(6500.0, 6700.0), feature_wl=lines_wl, function='gaussian', constraints=c, bounds=b,
-        fit_continuum=True, write_fits=True, overwrite=True)
+        fit_continuum=True, write_fits=True, overwrite=True, monte_carlo=monte_carlo,
+        continuum_line_weight=0.0)
 
-    assert 1
+    return my_spec
 
 
 @pytest.mark.filterwarnings("ignore:RADECSYS", "ignore:'datfix'")
 def test_simple_fit():
     line_fitting()
+    assert 1
+
+
+@pytest.mark.filterwarnings("ignore:RADECSYS", "ignore:'datfix'")
+def test_monte_carlo_fit():
+    line_fitting(f_monte_carlo=True)
     assert 1
 
 

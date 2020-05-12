@@ -317,16 +317,14 @@ class LineFitParser:
                         '*individual_spec* must be "peak", "cofm", "no" or a' \
                         'pair of spaxel coordinates "x, y".'
                 except ValueError:
-                    fit_opts[key] = tuple(
-                        [int(i) for i in fit_opts[key].split(',')])
+                    fit_opts[key] = tuple([int(i) for i in fit_opts[key].split(',')])
 
         key = 'spiral_center'
         if key in fit_opts:
             if fit_opts[key] in string_values:
                 pass
             else:
-                fit_opts[key] = tuple(
-                    [int(i) for i in fit_opts[key].split(',')])
+                fit_opts[key] = tuple([int(i) for i in fit_opts[key].split(',')])
 
         boolean_args = ['write_fits', 'refit', 'update_bounds', 'spiral_loop', 'verbose', 'fit_continuum',
                         'optimize_fit', 'guess_parameters', 'trivial', 'test_jacobian', 'debug', 'fixed']
@@ -340,6 +338,11 @@ class LineFitParser:
         for i in float_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getfloat('fit', i)
+
+        int_args = ['monte_carlo']
+        for i in int_args:
+            if i in fit_opts:
+                fit_opts[i] = self.cfg.getint('fit', i)
 
         key = 'fitting_window'
         if key in fit_opts:
