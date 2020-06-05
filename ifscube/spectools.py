@@ -768,3 +768,24 @@ class Constraints:
         d = dict(type='eq', fun=func)
 
         return d
+
+    def same_instrinsic_sigma(ha, hb, instr_quadratic_differece=0):
+        '''
+        Same instrinsic velocity dispersion.
+            sigma0_ha ** 2 = sigma0_hb ** 2
+            (sigma_ha ** 2 - inst_ha ** 2) = (sigma_hb ** 2 - inst_hb ** 2)
+            (sigma_ha ** 2 - sigma_hb ** 2) - (inst_ha ** 2 - inst_hb ** 2) = 0
+             
+
+        Parameters
+        ----------
+        instr_quadratic_differece: float
+            (instr_ha ** 2) - (instr_hb ** 2). In km/s.
+        '''
+        def func(x):
+            return x[ha]**2 - x[hb]**2 - instr_quadratic_differece
+
+        d = dict(type='eq', fun=func)
+
+        return d
+

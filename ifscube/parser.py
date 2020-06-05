@@ -1,6 +1,7 @@
 # STDLIB
 import configparser
 import copy
+import numpy as np
 
 # LOCAL
 from . import spectools
@@ -328,15 +329,18 @@ class LineFitParser:
                 fit_opts[key] = tuple(
                     [int(i) for i in fit_opts[key].split(',')])
 
-        boolean_args = ['write_fits', 'refit', 'update_bounds', 'spiral_loop', 'verbose', 'fit_continuum',
-                        'optimize_fit', 'guess_parameters', 'trivial', 'test_jacobian', 'debug', 'fixed']
+        boolean_args = ['write_fits', 'refit', 'update_bounds', 'spiral_loop',
+                        'verbose', 'fit_continuum', 'optimize_fit',
+                        'guess_parameters', 'trivial', 'test_jacobian', 'debug',
+                        'fixed', 'intrinsic_sigma_constr']
         for i in boolean_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getboolean('fit', i)
 
         float_args = [
-            'refit_radius', 'sig_threshold', 'inst_disp',
-            'optimization_window', 'good_minfraction', 'continuum_line_weight']
+            'refit_radius', 'sig_threshold', 'instrument_dispersion',
+            'optimization_window', 'good_minfraction', 'continuum_line_weight',
+            'instrument_dispersion_angstrom',]
         for i in float_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getfloat('fit', i)
@@ -436,6 +440,18 @@ class LineFitParser:
         cn = self.k_component_names
         kg = self.k_groups
 
+        # Fix instrinsic velocity dispersion (sigma0) parameters 
+        fix_sigma0 = self.fit_opts.get('intrinsic_sigma_constr', False)
+        instdisp = self.fit_opts.get('instrument_dispersion_angstrom', 0)
+        # Remove key because it is not an argument of the linefit function
+        self.fit_opts.pop('intrinsic_sigma_constr', None)
+        self.fit_opts.pop('instrument_dispersion_angstrom', None)
+        print(fix_sigma0, instdisp)
+
+        if fix_sigma0:
+            instdisp_vel = instdisp * 299792.458 / np.array(self.feature_wl)
+        print(instdisp_vel)
+
         components = []
         for i in set(kg):
             components += [[cn[j] for j in range(len(cn)) if i == kg[j]]]
@@ -447,8 +463,16 @@ class LineFitParser:
                         if m in self.par_names:
                             par1 = self._idx(g[j], m)
                             par2 = self._idx(g[j + 1], m)
-                            self.constraints += [
-                                spectools.Constraints.same(par1, par2)]
+
+                            if (m == 'sigma') & fix_sigma0:
+                                self.constraints += [
+                                    spectools.Constraints.same_instrinsic_sigma(
+                                        par1, par2, 
+                                        instdisp_vel[j]**2 - instdisp_vel[j+1]**2)]
+                            else:
+                                self.constraints += [
+                                    spectools.Constraints.same(par1, par2)]
+
         self.k_components = components
 
     def parse_line(self, line):
