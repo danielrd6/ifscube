@@ -446,11 +446,9 @@ class LineFitParser:
         # Remove key because it is not an argument of the linefit function
         self.fit_opts.pop('intrinsic_sigma_constr', None)
         self.fit_opts.pop('instrument_dispersion_angstrom', None)
-        print(fix_sigma0, instdisp)
 
         if fix_sigma0:
             instdisp_vel = instdisp * 299792.458 / np.array(self.feature_wl)
-        print(instdisp_vel)
 
         components = []
         for i in set(kg):
