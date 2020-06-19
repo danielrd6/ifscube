@@ -91,7 +91,7 @@ class LineFit:
         pass
 
     def add_feature(self, name: str, rest_wavelength: float, amplitude: float, velocity: float, sigma: float,
-                    h_3: float = None, h_4: float = None, kinematic_group: int = None):
+                    h_3: float = 0.0, h_4: float = 0.0, kinematic_group: int = None):
 
         if (rest_wavelength < self.fitting_window[0]) or (rest_wavelength > self.fitting_window[1]):
             warnings.warn(f'Spectral feature {name} outside of fitting window. Skipping.')
@@ -105,7 +105,6 @@ class LineFit:
             elif self.parameters_per_feature == 5:
                 self.initial_guess = np.concatenate(
                     [self.initial_guess, [amplitude / self.flux_scale_factor, velocity, sigma, h_3, h_4]])
-                self.parameter_names += [f'{name}.{_}' for _ in ['amplitude', 'velocity', 'sigma', 'h_3', 'h_4']]
 
             self.parameter_names += [
                 f'{name}.{_}' for _ in ['amplitude', 'velocity', 'sigma', 'h_3', 'h_4'][:self.parameters_per_feature]]
@@ -116,8 +115,8 @@ class LineFit:
             bounds = [_ / self.flux_scale_factor if _ is not None else _ for _ in bounds]
         self.bounds[self.parameter_names.index(f'{feature}.{parameter}')] = bounds
 
-    def add_minimize_constraint(self, parameter, constraint):
-        self.constraint_expressions.append([parameter, constraint])
+    def add_minimize_constraint(self, parameter, expression):
+        self.constraint_expressions.append([parameter, expression])
 
     def _evaluate_constraints(self):
         component_names = []
@@ -140,9 +139,8 @@ class LineFit:
 
         return constraints
 
-    def res(self, x):
+    def res(self, x, s):
         m = self.function(self.wavelength[~self.mask], self.feature_wavelengths, x)
-        s = self.data[~self.mask] - self.pseudo_continuum[~self.mask] - self.stellar[~self.mask]
         a = np.square((s - m) * self.weights[~self.mask])
         b = a / self.variance[~self.mask]
         rms = np.sqrt(np.sum(b))
@@ -157,7 +155,8 @@ class LineFit:
             minimize_options = {'eps': 1.0e-3}
 
         constraints = self._evaluate_constraints()
-        self.solution = minimize(self.res, x0=self.initial_guess, method=min_method, bounds=self.bounds,
+        s = self.data[~self.mask] - self.pseudo_continuum[~self.mask] - self.stellar[~self.mask]
+        self.solution = minimize(self.res, x0=self.initial_guess, args=(s,), method=min_method, bounds=self.bounds,
                                  constraints=constraints, options=minimize_options)
 
         if verbose:
