@@ -56,3 +56,14 @@ def test_gauss_hermite():
     fit.add_minimize_constraint(parameter='n2_6548.h_4', expression='n2_6583')
     fit.fit()
     assert 1
+
+
+def test_kinematic_groups():
+    fit = modeling.LineFit(spec, function='gaussian', fitting_window=(6400.0, 6700.0), fit_continuum=True)
+    fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
+                    kinematic_group=0)
+    fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0, kinematic_group=1)
+    fit.add_feature(name='n2_6583', rest_wavelength=6583.46, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
+                    kinematic_group=0)
+    fit.fit()
+    assert 1

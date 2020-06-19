@@ -55,6 +55,8 @@ class LineFit:
         self.initial_guess = np.array([])
         self.feature_wavelengths = np.array([])
         self.constraint_expressions = []
+        self.kinematic_groups = {}
+        self.kinematic_group_inverse_transform = Ellipsis
 
         self.fit_status = 1
 
@@ -96,6 +98,16 @@ class LineFit:
         if (rest_wavelength < self.fitting_window[0]) or (rest_wavelength > self.fitting_window[1]):
             warnings.warn(f'Spectral feature {name} outside of fitting window. Skipping.')
         else:
+            if kinematic_group is not None:
+                if kinematic_group in self.kinematic_groups.keys():
+                    self.kinematic_groups[kinematic_group].append(name)
+                else:
+                    self.kinematic_groups[kinematic_group] = [name]
+            else:
+                assert self.kinematic_groups == {}, \
+                    'If you plan on using k_group, please set it for every spectral feature. ' \
+                    'Groups can have a single spectral feature in them.'
+
             self.feature_names.append(name)
             self.feature_wavelengths = np.concatenate([self.feature_wavelengths, [rest_wavelength]])
 
@@ -139,6 +151,7 @@ class LineFit:
         return constraints
 
     def res(self, x, s):
+        x = x[self.kinematic_group_inverse_transform]
         m = self.function(self.wavelength[~self.mask], self.feature_wavelengths, x)
         a = np.square((s - m) * self.weights[~self.mask])
         b = a / self.variance[~self.mask]
@@ -146,9 +159,34 @@ class LineFit:
         return rms
 
     def _pack_kinematic_group(self):
-        pass
+        pn = self.parameter_names
+        amplitudes = np.array([pn.index(_) for _ in pn if 'amplitude' in _])
 
-    def _unpack_kinematic_group(self):
+        k_range = np.arange(1, self.parameters_per_feature).astype(int)
+        kinematic_parameters = np.array([], dtype=int)
+        kg_keys = list(self.kinematic_groups.keys())
+        for g in kg_keys:
+            ff = self.kinematic_groups[g][0]  # first feature name
+            k_idx = pn.index(f'{ff}.amplitude') + k_range
+            kinematic_parameters = np.concatenate([kinematic_parameters, k_idx])
+        indices = np.concatenate([amplitudes, kinematic_parameters])
+
+        inverse_transform = np.array([])
+        n_features = len(amplitudes)
+        for i in range(int(len(pn) / self.parameters_per_feature)):
+            feature_name = pn[int(i * self.parameters_per_feature)].split('.')[0]
+            for j, k in enumerate(kg_keys):
+                if feature_name in self.kinematic_groups[k]:
+                    k_idx = n_features + (j * (self.parameters_per_feature - 1)) + k_range - 1
+                    inverse_transform = np.concatenate([inverse_transform, [i], k_idx])
+
+        new_x = self.initial_guess[indices]
+        new_bounds = [self.bounds[_] for _ in indices]
+        self.kinematic_group_inverse_transform = inverse_transform.astype(int)
+
+        return new_x, new_bounds
+
+    def _unpack_kinematic_group(self, x):
         pass
 
     def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, verbose: bool = True):
@@ -159,10 +197,18 @@ class LineFit:
         if minimize_options is None:
             minimize_options = {'eps': 1.0e-3}
 
-        constraints = self._evaluate_constraints()
         s = self.data[~self.mask] - self.pseudo_continuum[~self.mask] - self.stellar[~self.mask]
-        self.solution = minimize(self.res, x0=self.initial_guess, args=(s,), method=min_method, bounds=self.bounds,
+
+        if self.kinematic_groups != {}:
+            p_0, bounds = self._pack_kinematic_group()
+        else:
+            p_0, bounds = self.initial_guess, self.bounds
+
+        constraints = self._evaluate_constraints()
+        self.solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds,
                                  constraints=constraints, options=minimize_options)
+
+        self.solution.x = self.solution.x[self.kinematic_group_inverse_transform]
 
         if verbose:
             for i, j in enumerate(self.parameter_names):
