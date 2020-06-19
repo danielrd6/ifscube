@@ -51,6 +51,7 @@ class LineFit:
         self.uncertainties = None
 
         self.feature_names = []
+        self.parameter_names = []
         self.initial_guess = np.array([])
         self.feature_wavelengths = np.array([])
 
@@ -103,6 +104,16 @@ class LineFit:
             elif self.parameters_per_feature == 5:
                 self.initial_guess = np.concatenate(
                     [self.initial_guess, [amplitude / self.flux_scale_factor, velocity, sigma, h_3, h_4]])
+                self.parameter_names += [f'{name}.{_}' for _ in ['amplitude', 'velocity', 'sigma', 'h_3', 'h_4']]
+
+            self.parameter_names += [
+                f'{name}.{_}' for _ in ['amplitude', 'velocity', 'sigma', 'h_3', 'h_4'][:self.parameters_per_feature]]
+            self.bounds += [[None, None]] * self.parameters_per_feature
+
+    def set_bounds(self, feature: str, parameter: str, bounds: list):
+        if parameter == 'amplitude':
+            bounds = [_ / self.flux_scale_factor if _ is not None else _ for _ in bounds]
+        self.bounds[self.parameter_names.index(f'{feature}.{parameter}')] = bounds
 
     def res(self, x):
         m = self.function(self.wavelength[~self.mask], self.feature_wavelengths, x)
@@ -112,7 +123,7 @@ class LineFit:
         rms = np.sqrt(np.sum(b))
         return rms
 
-    def fit(self, min_method: str = 'slsqp', minimize_options: dict = None):
+    def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, verbose: bool = True):
         assert self.initial_guess.size > 0, 'There are no spectral features to fit. Aborting'
         assert self.initial_guess.size == (len(self.feature_names) * self.parameters_per_feature), \
             'There is a problem with the initial guess. Check the spectral feature definitions.'
@@ -121,6 +132,13 @@ class LineFit:
             minimize_options = {'eps': 1.0e-3}
         self.solution = minimize(self.res, x0=self.initial_guess, method=min_method, bounds=self.bounds,
                                  constraints=self.constraints, options=minimize_options)
+
+        if verbose:
+            for i, j in enumerate(self.parameter_names):
+                if 'amplitude' in j:
+                    print(f'{j:<32s} = {self.solution.x[i] * self.flux_scale_factor:8.2e}')
+                else:
+                    print(f'{j:<32s} = {self.solution.x[i]:8.2f}')
 
     def plot(self):
         model = (self.function(self.wavelength, self.feature_wavelengths, self.solution.x)
