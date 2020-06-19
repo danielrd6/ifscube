@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
 
-from ifscube import elprofile
+from ifscube import elprofile, parser
 from ifscube.spectools import continuum
 from .onedspec import Spectrum
 
@@ -54,6 +54,7 @@ class LineFit:
         self.parameter_names = []
         self.initial_guess = np.array([])
         self.feature_wavelengths = np.array([])
+        self.constraint_expressions = []
 
         self.fit_status = 1
 
@@ -115,6 +116,30 @@ class LineFit:
             bounds = [_ / self.flux_scale_factor if _ is not None else _ for _ in bounds]
         self.bounds[self.parameter_names.index(f'{feature}.{parameter}')] = bounds
 
+    def add_minimize_constraint(self, parameter, constraint):
+        self.constraint_expressions.append([parameter, constraint])
+
+    def _evaluate_constraints(self):
+        component_names = []
+        parameter_names = []
+        for i in self.parameter_names:
+            c = i.split('.')
+            if c[0] not in component_names:
+                component_names.append(c[0])
+            if c[1] not in parameter_names:
+                parameter_names.append(c[1])
+
+        constraints = []
+        for c in self.constraint_expressions:
+            expression = ' '.join([_ if '.' not in _ else _.split('.')[0] for _ in c[1].split()])
+            cp = parser.ConstraintParser(expression, feature_names=component_names,
+                                         parameter_names=parameter_names)
+            feature, parameter = c[0].split('.')
+            cp.evaluate(feature, parameter)
+            constraints.append(cp.constraint)
+
+        return constraints
+
     def res(self, x):
         m = self.function(self.wavelength[~self.mask], self.feature_wavelengths, x)
         s = self.data[~self.mask] - self.pseudo_continuum[~self.mask] - self.stellar[~self.mask]
@@ -130,8 +155,10 @@ class LineFit:
 
         if minimize_options is None:
             minimize_options = {'eps': 1.0e-3}
+
+        constraints = self._evaluate_constraints()
         self.solution = minimize(self.res, x0=self.initial_guess, method=min_method, bounds=self.bounds,
-                                 constraints=self.constraints, options=minimize_options)
+                                 constraints=constraints, options=minimize_options)
 
         if verbose:
             for i, j in enumerate(self.parameter_names):

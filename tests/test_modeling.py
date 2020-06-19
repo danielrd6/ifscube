@@ -38,3 +38,17 @@ def test_bounds():
     fit.fit()
     fit.plot()
     assert 1
+
+
+@pytest.mark.filterwarnings("ignore:RADECSYS", "ignore:'datfix'")
+def test_constraints():
+    fit = modeling.LineFit(spec, fitting_window=(6400.0, 6700.0), fit_continuum=True)
+    fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
+    fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
+    fit.add_feature(name='n2_6583', rest_wavelength=6583.46, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
+    fit.add_minimize_constraint('n2_6548.sigma', 'n2_6583')
+    fit.add_minimize_constraint('n2_6548.velocity', 'n2_6583')
+    fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583 / 3.06')
+    fit.fit()
+    fit.plot()
+    assert 1

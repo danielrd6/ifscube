@@ -9,9 +9,10 @@ from . import spectools
 
 class ConstraintParser:
 
-    def __init__(self, expr, linefit=None):
+    def __init__(self, expr, feature_names, parameter_names):
 
-        self.linefit = linefit
+        self.feature_names = feature_names
+        self.parameter_names = parameter_names
         self.expr = expr
         self._operators = '+-*/><'
         self._containers = '()[]{}'
@@ -90,9 +91,9 @@ class ConstraintParser:
 
     def _idx(self, cname, pname):
 
-        ci = self.linefit.component_names.index(cname)
-        pi = self.linefit.par_names.index(pname)
-        npars = len(self.linefit.par_names)
+        ci = self.feature_names.index(cname)
+        pi = self.parameter_names.index(pname)
+        npars = len(self.parameter_names)
 
         idx = ci * npars + pi
 
@@ -433,7 +434,7 @@ class LineFitParser:
 
         if len(props) > 2:
             if (~props[2].isspace()) and (props[2] != ''):
-                expr = ConstraintParser(props[2], self)
+                expr = ConstraintParser(props[2], feature_names=self.component_names, parameter_names=self.par_names)
                 expr.evaluate(component_name, par_name)
 
                 self.constraints += [expr.constraint]
