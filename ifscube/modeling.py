@@ -131,8 +131,7 @@ class LineFit:
         constraints = []
         for c in self.constraint_expressions:
             expression = ' '.join([_ if '.' not in _ else _.split('.')[0] for _ in c[1].split()])
-            cp = parser.ConstraintParser(expression, feature_names=component_names,
-                                         parameter_names=parameter_names)
+            cp = parser.ConstraintParser(expression, feature_names=component_names, parameter_names=parameter_names)
             feature, parameter = c[0].split('.')
             cp.evaluate(feature, parameter)
             constraints.append(cp.constraint)
@@ -145,6 +144,12 @@ class LineFit:
         b = a / self.variance[~self.mask]
         rms = np.sqrt(np.sum(b))
         return rms
+
+    def _pack_kinematic_group(self):
+        pass
+
+    def _unpack_kinematic_group(self):
+        pass
 
     def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, verbose: bool = True):
         assert self.initial_guess.size > 0, 'There are no spectral features to fit. Aborting'
@@ -167,15 +172,31 @@ class LineFit:
                     print(f'{j:<32s} = {self.solution.x[i]:8.2f}')
 
     def plot(self):
-        model = (self.function(self.wavelength, self.feature_wavelengths, self.solution.x)
-                 + self.stellar + self.pseudo_continuum)[~self.mask] * self.flux_scale_factor
+
+        wavelength = self.wavelength[~self.mask]
+        observed = (self.data * self.flux_scale_factor)[~self.mask]
+        pseudo_continuum = self.pseudo_continuum[~self.mask] * self.flux_scale_factor
+        stellar = self.stellar[~self.mask] * self.flux_scale_factor
+        model = self.function(wavelength, self.feature_wavelengths, self.solution.x) * self.flux_scale_factor
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-        wavelength = self.wavelength[~self.mask]
-        observed = (self.data * self.flux_scale_factor)[~self.mask]
         ax.plot(wavelength, observed)
-        ax.plot(wavelength, model)
+        ax.plot(wavelength, model + stellar + pseudo_continuum)
+        ax.plot(wavelength, pseudo_continuum)
+        ax.plot(wavelength, stellar)
 
+        ppf = self.parameters_per_feature
+        for i in range(0, len(self.parameter_names), ppf):
+            feature_wl = self.feature_wavelengths[int(i / ppf)]
+            parameters = self.solution.x[i:i + ppf]
+            line = self.function(wavelength, feature_wl, parameters) * self.flux_scale_factor
+            ax.plot(wavelength, pseudo_continuum + stellar + line, 'k--')
+
+        ax.set_xlabel('Wavelength')
+        ax.set_ylabel('Spectral flux density')
+        ax.minorticks_on()
+
+        ax.grid()
         plt.show()
