@@ -15,7 +15,7 @@ from typing import Callable, Iterable, Union
 
 import astropy.io.fits as pf
 import numpy as np
-from astropy import units
+from astropy import units, constants
 from astropy.convolution import convolve, Gaussian1DKernel
 from astropy.modeling import fitting, models
 from numpy import ma
@@ -797,6 +797,7 @@ class Constraints:
 
         return d
 
+
 def sigma_lambda(sigma_vel, rest_wl):
     return sigma_vel * rest_wl / constants.c.to('km/s').value
 
@@ -824,7 +825,7 @@ def feature_mask(wavelength, feature_wavelength, sigma, width=20, catch_error=Fa
         True for all wavelengths within the window of interest for the fit.
     """
 
-    mask = np.ones_like(wavelength).astype(bool)
+    opt_mask = np.ones_like(wavelength).astype(bool)
 
     for lam, s in zip(feature_wavelength, sigma):
 
@@ -832,8 +833,10 @@ def feature_mask(wavelength, feature_wavelength, sigma, width=20, catch_error=Fa
         up_lam = (lam + width * s)
 
         if catch_error:
-            assert low_lam > wavelength[0], 'Lower limit in optimization window is below the lowest available wavelength.'
-            assert up_lam < wavelength[-1], 'Upper limit in optimization window is above the highest available wavelength.'
+            assert low_lam > wavelength[0],\
+                'Lower limit in optimization window is below the lowest available wavelength.'
+            assert up_lam < wavelength[-1],\
+                'Upper limit in optimization window is above the highest available wavelength.'
         else:
             if low_lam < wavelength[0]:
                 low_lam = wavelength[0]
@@ -849,13 +852,13 @@ def feature_mask(wavelength, feature_wavelength, sigma, width=20, catch_error=Fa
             print('up_lam: ' + str(up_lam))
             print('width: ' + str(width))
             print('sigma: ' + str(s))
-            mask = np.ones_like(wavelength).astype('bool')
-            return mask
+            opt_mask = np.ones_like(wavelength).astype('bool')
+            return opt_mask
 
         idx = [np.where(wavelength == i)[0][0] for i in wl_lims]
 
         ws = slice(idx[0], idx[1])
 
-        mask[ws] = False
+        opt_mask[ws] = False
 
-    return mask
+    return opt_mask
