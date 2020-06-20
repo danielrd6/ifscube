@@ -1,5 +1,6 @@
 import pkg_resources
 import pytest
+import matplotlib.pyplot as plt
 
 from ifscube import onedspec, modeling
 
@@ -59,9 +60,9 @@ def test_gauss_hermite():
 
 
 def test_kinematic_groups():
-    fit = modeling.LineFit(spec, function='gaussian', fitting_window=(6400.0, 6700.0), fit_continuum=True)
-    names = ['n2_6548', 'ha', 'n2_6583']
-    r_wl = [6548.04, 6562.8, 6583.46]
+    fit = modeling.LineFit(spec, function='gaussian', fitting_window=(6400.0, 6800.0), fit_continuum=True)
+    names = ['n2_6548', 'ha', 'n2_6583', 's2_6716', 's2_6731']
+    r_wl = [6548.04, 6562.8, 6583.46, 6716.44, 6730.86]
 
     for name, wl in zip(names, r_wl):
         fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
@@ -71,8 +72,43 @@ def test_kinematic_groups():
         fit.add_feature(name=name + '_b', rest_wavelength=wl, amplitude=1.0e-14, velocity=-200.0, sigma=100.0,
                         kinematic_group=1)
 
+    for name in names:
+        fit.set_bounds(feature=name, parameter='amplitude', bounds=[0.0, None])
+        fit.set_bounds(feature=name + '_b', parameter='amplitude', bounds=[0.0, None])
+
     fit.add_minimize_constraint('n2_6548_b.sigma', '> n2_6548.sigma')
     fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
     fit.add_minimize_constraint('n2_6548_b.amplitude', 'n2_6583_b.amplitude / 3.06')
+
     fit.fit()
+    fit.plot()
+
+    assert 1
+
+
+def test_monte_carlo():
+    fit = modeling.LineFit(spec, function='gaussian', fitting_window=(6400.0, 6800.0), fit_continuum=True)
+    names = ['n2_6548', 'ha', 'n2_6583', 's2_6716', 's2_6731']
+    r_wl = [6548.04, 6562.8, 6583.46, 6716.44, 6730.86]
+
+    for name, wl in zip(names, r_wl):
+        fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
+                        kinematic_group=0)
+
+    for name, wl in zip(names, r_wl):
+        fit.add_feature(name=name + '_b', rest_wavelength=wl, amplitude=1.0e-14, velocity=-200.0, sigma=100.0,
+                        kinematic_group=1)
+
+    for name in names:
+        fit.set_bounds(feature=name, parameter='amplitude', bounds=[0.0, None])
+        fit.set_bounds(feature=name + '_b', parameter='amplitude', bounds=[0.0, None])
+
+    fit.add_minimize_constraint('n2_6548_b.sigma', '> n2_6548.sigma')
+    fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
+    fit.add_minimize_constraint('n2_6548_b.amplitude', 'n2_6583_b.amplitude / 3.06')
+
+    fit.fit()
+    fit.monte_carlo(100)
+    fit.plot()
+
     assert 1

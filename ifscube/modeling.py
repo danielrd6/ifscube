@@ -1,3 +1,4 @@
+import copy
 import warnings
 
 import matplotlib.pyplot as plt
@@ -61,6 +62,7 @@ class LineFit:
         self.kinematic_group_inverse_transform = None
 
         self.fit_status = 1
+        self.fit_arguments = None
 
     @property
     def weights(self):
@@ -180,6 +182,7 @@ class LineFit:
         self.kinematic_group_inverse_transform = inverse_transform.astype(int)
 
     def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, verbose: bool = True):
+        self.fit_arguments = {'min_method': min_method, 'minimize_options': minimize_options}
         assert self.initial_guess.size > 0, 'There are no spectral features to fit. Aborting'
         assert self.initial_guess.size == (len(self.feature_names) * self.parameters_per_feature), \
             'There is a problem with the initial guess. Check the spectral feature definitions.'
@@ -190,7 +193,8 @@ class LineFit:
         s = self.data[~self.mask] - self.pseudo_continuum[~self.mask] - self.stellar[~self.mask]
 
         if self.kinematic_groups != {}:
-            self._pack_kinematic_group()
+            if self.kinematic_group_transform is None:
+                self._pack_kinematic_group()
             p_0 = self.initial_guess[self.kinematic_group_transform]
             bounds = [self.bounds[_] for _ in self.kinematic_group_transform]
         else:
@@ -199,43 +203,71 @@ class LineFit:
 
         constraints = self._evaluate_constraints()
         # noinspection PyTypeChecker
-        self.solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds,
-                                 constraints=constraints, options=minimize_options)
-
+        solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds, constraints=constraints,
+                            options=minimize_options)
+        p = solution.x
         if self.kinematic_groups != {}:
-            self.solution.x = self.solution.x[self.kinematic_group_inverse_transform]
+            p = p[self.kinematic_group_inverse_transform]
+
+        self.solution = p
 
         if verbose:
             for i, j in enumerate(self.parameter_names):
                 if 'amplitude' in j:
-                    print(f'{j:<32s} = {self.solution.x[i] * self.flux_scale_factor:8.2e}')
+                    print(f'{j:<32s} = {p[i] * self.flux_scale_factor:8.2e}')
                 else:
-                    print(f'{j:<32s} = {self.solution.x[i]:8.2f}')
+                    print(f'{j:<32s} = {p[i]:8.2f}')
 
-    def plot(self):
+    def monte_carlo(self, n_iterations: int = 10):
+        assert self.solution is not None, 'Monte carlo uncertainties can only be evaluated after a successful fit.'
+        p = self.solution
+        old_data = copy.deepcopy(self.data)
+        solution_matrix = np.zeros((n_iterations, p.size))
+        self.uncertainties = np.zeros_like(p)
 
+        c = 0
+        while c < n_iterations:
+            self.data = np.random.normal(old_data, np.sqrt(self.variance))
+            self.fit(**self.fit_arguments, verbose=False)
+            solution_matrix[c] = copy.deepcopy(self.solution)
+            c += 1
+        self.solution = solution_matrix.mean(axis=0)
+        self.uncertainties = solution_matrix.std(axis=0)
+        self.data = old_data
+
+    def plot(self, plot_all: bool = False):
+        sf = self.flux_scale_factor
         wavelength = self.wavelength[~self.mask]
         observed = (self.data * self.flux_scale_factor)[~self.mask]
-        pseudo_continuum = self.pseudo_continuum[~self.mask] * self.flux_scale_factor
-        stellar = self.stellar[~self.mask] * self.flux_scale_factor
-        model = self.function(wavelength, self.feature_wavelengths, self.solution.x) * self.flux_scale_factor
+        pseudo_continuum = self.pseudo_continuum[~self.mask] * sf
+        stellar = self.stellar[~self.mask] * sf
+        model = self.function(wavelength, self.feature_wavelengths, self.solution) * sf
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-        ax.plot(wavelength, observed)
-        ax.plot(wavelength, model + stellar + pseudo_continuum)
-        ax.plot(wavelength, pseudo_continuum)
-        if np.any(stellar):
-            ax.plot(wavelength, stellar)
-        ax.plot(wavelength, observed - model - stellar - pseudo_continuum)
+        if self.uncertainties is not None:
+            low = self.function(wavelength, self.feature_wavelengths, self.solution - self.uncertainties) * sf
+            high = self.function(wavelength, self.feature_wavelengths, self.solution + self.uncertainties) * sf
+            low += stellar + pseudo_continuum
+            high += stellar + pseudo_continuum
+            ax.fill_between(wavelength, low, high, color='C2', alpha=0.5)
 
-        ppf = self.parameters_per_feature
-        for i in range(0, len(self.parameter_names), ppf):
-            feature_wl = self.feature_wavelengths[int(i / ppf)]
-            parameters = self.solution.x[i:i + ppf]
-            line = self.function(wavelength, feature_wl, parameters) * self.flux_scale_factor
-            ax.plot(wavelength, pseudo_continuum + stellar + line, 'k--')
+        ax.plot(wavelength, observed, color='C0')
+        ax.plot(wavelength, model + stellar + pseudo_continuum, color='C2')
+
+        if plot_all:
+            ax.plot(wavelength, pseudo_continuum)
+            if np.any(stellar):
+                ax.plot(wavelength, stellar)
+            ax.plot(wavelength, observed - model - stellar - pseudo_continuum)
+
+            ppf = self.parameters_per_feature
+            for i in range(0, len(self.parameter_names), ppf):
+                feature_wl = self.feature_wavelengths[int(i / ppf)]
+                parameters = self.solution[i:i + ppf]
+                line = self.function(wavelength, feature_wl, parameters) * self.flux_scale_factor
+                ax.plot(wavelength, pseudo_continuum + stellar + line, 'k--')
 
         ax.set_xlabel('Wavelength')
         ax.set_ylabel('Spectral flux density')
