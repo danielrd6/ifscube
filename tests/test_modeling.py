@@ -60,10 +60,21 @@ def test_gauss_hermite():
 
 def test_kinematic_groups():
     fit = modeling.LineFit(spec, function='gaussian', fitting_window=(6400.0, 6700.0), fit_continuum=True)
-    fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
-                    kinematic_group=0)
-    fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0, kinematic_group=1)
-    fit.add_feature(name='n2_6583', rest_wavelength=6583.46, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
-                    kinematic_group=0)
+    names = ['n2_6548', 'ha', 'n2_6583']
+    r_wl = [6548.04, 6562.8, 6583.46]
+
+    for name, wl in zip(names, r_wl):
+        fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
+                        kinematic_group=0)
+
+    for name, wl in zip(names, r_wl):
+        fit.add_feature(name=name + '_b', rest_wavelength=wl, amplitude=1.0e-14, velocity=-100.0, sigma=100.0,
+                        kinematic_group=1)
+
+    fit.add_minimize_constraint('n2_6548_b.sigma', '> n2_6548.sigma')
+    fit.set_bounds('ha', 'amplitude', [None, 0.4e-14])
+    fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
+    fit.add_minimize_constraint('n2_6548_b.amplitude', 'n2_6583_b.amplitude / 3.06')
     fit.fit()
+    fit.plot()
     assert 1

@@ -55,8 +55,10 @@ class LineFit:
         self.initial_guess = np.array([])
         self.feature_wavelengths = np.array([])
         self.constraint_expressions = []
+
         self.kinematic_groups = {}
-        self.kinematic_group_inverse_transform = Ellipsis
+        self.kinematic_group_transform = None
+        self.kinematic_group_inverse_transform = None
 
         self.fit_status = 1
 
@@ -131,21 +133,15 @@ class LineFit:
         self.constraint_expressions.append([parameter, expression])
 
     def _evaluate_constraints(self):
-        component_names = []
-        parameter_names = []
-        for i in self.parameter_names:
-            c = i.split('.')
-            if c[0] not in component_names:
-                component_names.append(c[0])
-            if c[1] not in parameter_names:
-                parameter_names.append(c[1])
+        if self.kinematic_groups != {}:
+            pn = [self.parameter_names[_] for _ in self.kinematic_group_transform]
+        else:
+            pn = self.parameter_names
 
         constraints = []
-        for c in self.constraint_expressions:
-            expression = ' '.join([_ if '.' not in _ else _.split('.')[0] for _ in c[1].split()])
-            cp = parser.ConstraintParser(expression, feature_names=component_names, parameter_names=parameter_names)
-            feature, parameter = c[0].split('.')
-            cp.evaluate(feature, parameter)
+        for parameter, expression in self.constraint_expressions:
+            cp = parser.ConstraintParser(expr=expression, parameter_names=pn)
+            cp.evaluate(parameter)
             constraints.append(cp.constraint)
 
         return constraints
@@ -169,7 +165,7 @@ class LineFit:
             ff = self.kinematic_groups[g][0]  # first feature name
             k_idx = pn.index(f'{ff}.amplitude') + k_range
             kinematic_parameters = np.concatenate([kinematic_parameters, k_idx])
-        indices = np.concatenate([amplitudes, kinematic_parameters])
+        transform = np.concatenate([amplitudes, kinematic_parameters])
 
         inverse_transform = np.array([])
         n_features = len(amplitudes)
@@ -180,14 +176,8 @@ class LineFit:
                     k_idx = n_features + (j * (self.parameters_per_feature - 1)) + k_range - 1
                     inverse_transform = np.concatenate([inverse_transform, [i], k_idx])
 
-        new_x = self.initial_guess[indices]
-        new_bounds = [self.bounds[_] for _ in indices]
+        self.kinematic_group_transform = transform.astype(int)
         self.kinematic_group_inverse_transform = inverse_transform.astype(int)
-
-        return new_x, new_bounds
-
-    def _unpack_kinematic_group(self, x):
-        pass
 
     def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, verbose: bool = True):
         assert self.initial_guess.size > 0, 'There are no spectral features to fit. Aborting'
@@ -200,11 +190,15 @@ class LineFit:
         s = self.data[~self.mask] - self.pseudo_continuum[~self.mask] - self.stellar[~self.mask]
 
         if self.kinematic_groups != {}:
-            p_0, bounds = self._pack_kinematic_group()
+            self._pack_kinematic_group()
+            p_0 = self.initial_guess[self.kinematic_group_transform]
+            bounds = [self.bounds[_] for _ in self.kinematic_group_transform]
         else:
-            p_0, bounds = self.initial_guess, self.bounds
+            p_0 = self.initial_guess
+            bounds = self.bounds
 
         constraints = self._evaluate_constraints()
+        # noinspection PyTypeChecker
         self.solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds,
                                  constraints=constraints, options=minimize_options)
 

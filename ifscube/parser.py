@@ -9,9 +9,8 @@ from . import spectools
 
 class ConstraintParser:
 
-    def __init__(self, expr, feature_names, parameter_names):
+    def __init__(self, expr, parameter_names):
 
-        self.feature_names = feature_names
         self.parameter_names = parameter_names
         self.expr = expr
         self._operators = '+-*/><'
@@ -89,14 +88,12 @@ class ConstraintParser:
         self.variables = variables
         self.containers = containers
 
-    def _idx(self, cname, pname):
-
-        ci = self.feature_names.index(cname)
-        pi = self.parameter_names.index(pname)
-        npars = len(self.parameter_names)
-
-        idx = ci * npars + pi
-
+    def _idx(self, p_name):
+        assert p_name in self.parameter_names, \
+            f'Constraint expression "{self.expr}" refers to an undefined parameter "{p_name}".' \
+            ' If you are using kinematic grouping, make sure your constraints refer only to the first feature' \
+            ' of each group.'
+        idx = self.parameter_names.index(p_name)
         return idx
 
     def _get_constraint_type(self):
@@ -110,9 +107,9 @@ class ConstraintParser:
 
         self.type = t
 
-    def evaluate(self, component, parameter):
+    def evaluate(self, parameter):
 
-        idx = self._idx(component, parameter)
+        idx = self._idx(parameter)
 
         lis = self.tolist()
 
@@ -135,7 +132,7 @@ class ConstraintParser:
                     return r
 
             elif lis[0] in self.variables:
-                idx2 = self._idx(lis[0], parameter)
+                idx2 = self._idx(lis[0])
 
                 def func(x):
                     r = sign * (x[idx2] - x[idx])
@@ -147,7 +144,7 @@ class ConstraintParser:
 
             num = [i for i in lis if i in self.numbers][0]
             var = [i for i in lis if i in self.variables][0]
-            idx2 = self._idx(var, parameter)
+            idx2 = self._idx(var)
             a = float(num)
             oper = lis[1]
 
