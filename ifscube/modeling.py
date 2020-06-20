@@ -191,28 +191,27 @@ class LineFit:
         if minimize_options is None:
             minimize_options = {'eps': 1.0e-3}
 
-        s = self.data[~self.mask] - self.pseudo_continuum[~self.mask] - self.stellar[~self.mask]
         valid_fraction = np.sum(~self.mask & ~self.flags) / np.sum(~self.mask)
         assert valid_fraction >= minimum_good_fraction, 'Minimum fraction of valid pixels not reached: ' \
             f'{valid_fraction} < {minimum_good_fraction}.'
 
-        if self.kinematic_groups != {}:
+        if self.kinematic_groups == {}:
+            p_0 = self.initial_guess
+            bounds = self.bounds
+            self.kinematic_group_inverse_transform = Ellipsis
+        else:
             if self.kinematic_group_transform is None:
                 self._pack_kinematic_group()
             p_0 = self.initial_guess[self.kinematic_group_transform]
             bounds = [self.bounds[_] for _ in self.kinematic_group_transform]
-        else:
-            p_0 = self.initial_guess
-            bounds = self.bounds
 
         constraints = self._evaluate_constraints()
+
+        s = self.data[~self.mask] - self.pseudo_continuum[~self.mask] - self.stellar[~self.mask]
         # noinspection PyTypeChecker
         solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds, constraints=constraints,
                             options=minimize_options)
-        p = solution.x
-        if self.kinematic_groups != {}:
-            p = p[self.kinematic_group_inverse_transform]
-
+        p = solution.x[self.kinematic_group_inverse_transform]
         self.solution = p
 
         if verbose:
