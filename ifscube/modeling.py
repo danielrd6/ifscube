@@ -181,16 +181,20 @@ class LineFit:
         self.kinematic_group_transform = transform.astype(int)
         self.kinematic_group_inverse_transform = inverse_transform.astype(int)
 
-    def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, verbose: bool = True):
-        self.fit_arguments = {'min_method': min_method, 'minimize_options': minimize_options}
+    def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, minimum_good_fraction: float = 0.8,
+            verbose: bool = True):
         assert self.initial_guess.size > 0, 'There are no spectral features to fit. Aborting'
         assert self.initial_guess.size == (len(self.feature_names) * self.parameters_per_feature), \
             'There is a problem with the initial guess. Check the spectral feature definitions.'
 
+        self.fit_arguments = {'min_method': min_method, 'minimize_options': minimize_options}
         if minimize_options is None:
             minimize_options = {'eps': 1.0e-3}
 
         s = self.data[~self.mask] - self.pseudo_continuum[~self.mask] - self.stellar[~self.mask]
+        valid_fraction = np.sum(~self.mask & ~self.flags) / np.sum(~self.mask)
+        assert valid_fraction >= minimum_good_fraction, 'Minimum fraction of valid pixels not reached: ' \
+            f'{valid_fraction} < {minimum_good_fraction}.'
 
         if self.kinematic_groups != {}:
             if self.kinematic_group_transform is None:
