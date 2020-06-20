@@ -202,7 +202,8 @@ class LineFit:
         self.solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds,
                                  constraints=constraints, options=minimize_options)
 
-        self.solution.x = self.solution.x[self.kinematic_group_inverse_transform]
+        if self.kinematic_groups != {}:
+            self.solution.x = self.solution.x[self.kinematic_group_inverse_transform]
 
         if verbose:
             for i, j in enumerate(self.parameter_names):
@@ -225,7 +226,9 @@ class LineFit:
         ax.plot(wavelength, observed)
         ax.plot(wavelength, model + stellar + pseudo_continuum)
         ax.plot(wavelength, pseudo_continuum)
-        ax.plot(wavelength, stellar)
+        if np.any(stellar):
+            ax.plot(wavelength, stellar)
+        ax.plot(wavelength, observed - model - stellar - pseudo_continuum)
 
         ppf = self.parameters_per_feature
         for i in range(0, len(self.parameter_names), ppf):
