@@ -1,6 +1,5 @@
 import pkg_resources
 import pytest
-import matplotlib.pyplot as plt
 
 from ifscube import onedspec, modeling
 
@@ -13,8 +12,19 @@ def test_simple_fit():
     fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
     fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
     fit.add_feature(name='n2_6583', rest_wavelength=6583.46, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
-    fit.fit(verbose=True)
+    fit.fit()
     assert 1
+
+
+def test_good_fraction():
+    fit = modeling.LineFit(spec, fitting_window=(6400.0, 6700.0), fit_continuum=True)
+    fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
+    fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
+    fit.add_feature(name='n2_6583', rest_wavelength=6583.46, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
+    fit.flags[0:len(fit.flags):2] = True
+    with pytest.raises(AssertionError) as err:
+        fit.fit()
+    assert 'valid pixels not reached' in str(err.value)
 
 
 def test_skip_feature():
