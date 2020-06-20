@@ -72,7 +72,6 @@ def test_kinematic_groups():
                         kinematic_group=1)
 
     fit.add_minimize_constraint('n2_6548_b.sigma', '> n2_6548.sigma')
-    fit.set_bounds('ha', 'amplitude', [None, 0.4e-14])
     fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
     fit.add_minimize_constraint('n2_6548_b.amplitude', 'n2_6583_b.amplitude / 3.06')
     fit.fit()
