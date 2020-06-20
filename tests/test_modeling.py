@@ -3,11 +3,10 @@ import pytest
 
 from ifscube import onedspec, modeling
 
-file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
-spec = onedspec.Spectrum(file_name)
-
 
 def test_simple_fit():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
+    spec = onedspec.Spectrum(file_name)
     fit = modeling.LineFit(spec, fitting_window=(6400.0, 6700.0), fit_continuum=True)
     fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
     fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
@@ -17,6 +16,8 @@ def test_simple_fit():
 
 
 def test_good_fraction():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
+    spec = onedspec.Spectrum(file_name)
     fit = modeling.LineFit(spec, fitting_window=(6400.0, 6700.0), fit_continuum=True)
     fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
     fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
@@ -28,6 +29,8 @@ def test_good_fraction():
 
 
 def test_skip_feature():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
+    spec = onedspec.Spectrum(file_name)
     fit = modeling.LineFit(spec, fitting_window=(6400.0, 6700.0), fit_continuum=True)
     with pytest.warns(UserWarning):
         fit.add_feature(name='hb', rest_wavelength=4861.0, amplitude=0, velocity=0, sigma=10)
@@ -37,6 +40,8 @@ def test_skip_feature():
 
 
 def test_bounds():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
+    spec = onedspec.Spectrum(file_name)
     fit = modeling.LineFit(spec, fitting_window=(6400.0, 6700.0), fit_continuum=True)
     fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
     fit.set_bounds('ha', 'velocity', [-50, 50])
@@ -46,6 +51,8 @@ def test_bounds():
 
 
 def test_constraints():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
+    spec = onedspec.Spectrum(file_name)
     fit = modeling.LineFit(spec, function='gauss_hermite', fitting_window=(6400.0, 6700.0), fit_continuum=True)
     fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
     fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
@@ -59,6 +66,8 @@ def test_constraints():
 
 
 def test_gauss_hermite():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
+    spec = onedspec.Spectrum(file_name)
     fit = modeling.LineFit(spec, function='gauss_hermite', fitting_window=(6400.0, 6700.0), fit_continuum=True)
     fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
     fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
@@ -70,6 +79,8 @@ def test_gauss_hermite():
 
 
 def test_kinematic_groups():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
+    spec = onedspec.Spectrum(file_name)
     fit = modeling.LineFit(spec, function='gaussian', fitting_window=(6400.0, 6800.0), fit_continuum=True)
     names = ['n2_6548', 'ha', 'n2_6583', 's2_6716', 's2_6731']
     r_wl = [6548.04, 6562.8, 6583.46, 6716.44, 6730.86]
@@ -91,12 +102,13 @@ def test_kinematic_groups():
     fit.add_minimize_constraint('n2_6548_b.amplitude', 'n2_6583_b.amplitude / 3.06')
 
     fit.fit()
-    fit.plot()
 
     assert 1
 
 
 def test_monte_carlo():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
+    spec = onedspec.Spectrum(file_name)
     fit = modeling.LineFit(spec, function='gaussian', fitting_window=(6400.0, 6800.0), fit_continuum=True)
     names = ['n2_6548', 'ha', 'n2_6583', 's2_6716', 's2_6731']
     r_wl = [6548.04, 6562.8, 6583.46, 6716.44, 6730.86]
@@ -118,7 +130,6 @@ def test_monte_carlo():
     fit.add_minimize_constraint('n2_6548_b.amplitude', 'n2_6583_b.amplitude / 3.06')
 
     fit.fit()
-    fit.monte_carlo(100)
-    fit.plot()
+    fit.monte_carlo(6)
 
     assert 1
