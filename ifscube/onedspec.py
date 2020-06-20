@@ -153,9 +153,6 @@ class Spectrum:
         restwl = wl / (1. + z)
         return restwl
 
-    @staticmethod
-    def sigma_lambda(sigma_vel, rest_wl):
-        return sigma_vel * rest_wl / constants.c.to('km/s').value
 
     def center_wavelength(self, idx):
         j = idx * self.npars
@@ -355,66 +352,6 @@ class Spectrum:
                     new_p0[j] = deepcopy(p0[j])
 
         return new_p0
-
-    @staticmethod
-    def optimize_mask(wl, feature_wl, sigma, width=20, catch_error=False):
-        """
-        Creates the fit optimization window by selecting the appropriate portions of the spectrum.
-
-        Parameters
-        ----------
-        wl: numpy.ndarray
-            Wavelength coordinates
-        feature_wl: numpy.ndarray
-            Central wavelength of the spectral features to be fit.
-        sigma: numpy.ndarray
-            Sigma of each of the spectral features.
-        width: float
-            Number of sigmas to each side that will be considered in the fit.
-        catch_error: bool
-            Interrupts the program when the optimization window falls outside the available wavelengths.
-
-        Returns
-        -------
-        mask: numpy.ndarray
-            True for all wavelengths within the window of interest for the fit.
-        """
-
-        mask = np.zeros_like(wl).astype(bool)
-
-        for lam, s in zip(feature_wl, sigma):
-
-            low_lam = (lam - width * s)
-            up_lam = (lam + width * s)
-
-            if catch_error:
-                assert low_lam > wl[0], 'Lower limit in optimization window is below the lowest available wavelength.'
-                assert up_lam < wl[-1], 'Upper limit in optimization window is above the highest available wavelength.'
-            else:
-                if low_lam < wl[0]:
-                    low_lam = wl[0]
-                if up_lam > wl[-1]:
-                    up_lam = wl[-1]
-
-            try:
-                wl_lims = [wl[wl <= low_lam][-1], wl[wl >= up_lam][0]]
-            except IndexError:
-                warnings.warn('Could not optimize fit!', category=RuntimeWarning)
-                print('wl: ' + str(wl))
-                print('low_lam: ' + str(low_lam))
-                print('up_lam: ' + str(up_lam))
-                print('width: ' + str(width))
-                print('sigma: ' + str(s))
-                mask = np.ones_like(wl).astype('bool')
-                return mask
-
-            idx = [np.where(wl == i)[0][0] for i in wl_lims]
-
-            ws = slice(idx[0], idx[1])
-
-            mask[ws] = True
-
-        return mask
 
     @staticmethod
     def _setup_fixed(fixed_components: str, component_names: list, feature_wl: list, npars_pc: int,
@@ -672,7 +609,7 @@ class Spectrum:
                             cw[(wl > low_lambda) & (wl < up_lambda)] = continuum_line_weight
                         return cw
 
-                    new_copts.update({'weights': continuum_weights(self.sigma_lambda(p0[2::npars_pc], feature_wl))})
+                    new_copts.update({'weights': continuum_weights(spectools.sigma_lambda(p0[2::npars_pc], feature_wl))})
 
                 pcont: Union[Iterable, Callable] = spectools.continuum(wl, data - stellar, **new_copts)
                 self.fitcont = pcont(self.rest_wavelength[fw])
@@ -727,8 +664,9 @@ class Spectrum:
         #
         if optimize_fit:
             sigma = np.array([p0[i] if sbounds[i][1] is None else sbounds[i][1] for i in range(2, len(p0), npars_pc)])
-            sigma_lam = self.sigma_lambda(sigma, feature_wl)
-            opt_mask = self.optimize_mask(wl=wl, feature_wl=feature_wl, sigma=sigma_lam, width=optimization_window)
+            sigma_lam = spectools.sigma_lambda(sigma, feature_wl)
+            opt_mask = ~spectools.feature_mask(
+                wavelength=wl, feature_wavelength=feature_wl, sigma=sigma_lam, width=optimization_window)
             if not np.any(opt_mask):
                 self.fit_status = 80
                 return
@@ -842,7 +780,7 @@ class Spectrum:
         return
 
     def _cut_fit_spectrum(self, sigma_factor, sigma_index, component_index, par_indexes):
-        sig = self.sigma_lambda(self.em_model[sigma_index], self.feature_wl[component_index])
+        sig = spectools.sigma_lambda(self.em_model[sigma_index], self.feature_wl[component_index])
         low_wl, up_wl = [self.center_wavelength(component_index) + (_ * sigma_factor * sig) for _ in [-1.0, 1.0]]
         cond = (self.fitwl > low_wl) & (self.fitwl < up_wl)
         fit = self.fit_func(self.fitwl[cond], np.array([self.feature_wl[component_index]]), self.em_model[par_indexes])
