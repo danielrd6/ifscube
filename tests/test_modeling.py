@@ -15,6 +15,18 @@ def test_simple_fit():
     assert 1
 
 
+def test_optimize_fit():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
+    spec = onedspec.Spectrum(file_name)
+    fit = modeling.LineFit(spec, fitting_window=(6400.0, 6700.0), fit_continuum=True)
+    fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
+    fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
+    fit.add_feature(name='n2_6583', rest_wavelength=6583.46, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
+    fit.optimize_fit(width=5.0)
+    fit.fit()
+    assert 1
+
+
 def test_good_fraction():
     file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
     spec = onedspec.Spectrum(file_name)
@@ -101,6 +113,7 @@ def test_kinematic_groups():
     fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
     fit.add_minimize_constraint('n2_6548_b.amplitude', 'n2_6583_b.amplitude / 3.06')
 
+    fit.optimize_fit(width=5.0)
     fit.fit()
 
     assert 1
@@ -129,7 +142,8 @@ def test_monte_carlo():
     fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
     fit.add_minimize_constraint('n2_6548_b.amplitude', 'n2_6583_b.amplitude / 3.06')
 
+    fit.optimize_fit(width=5.0)
     fit.fit()
-    fit.monte_carlo(6)
+    fit.monte_carlo(10)
 
     assert 1

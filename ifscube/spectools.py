@@ -797,3 +797,65 @@ class Constraints:
 
         return d
 
+def sigma_lambda(sigma_vel, rest_wl):
+    return sigma_vel * rest_wl / constants.c.to('km/s').value
+
+
+def feature_mask(wavelength, feature_wavelength, sigma, width=20, catch_error=False):
+    """
+    Creates the fit optimization window by selecting the appropriate portions of the spectrum.
+
+    Parameters
+    ----------
+    wavelength: numpy.ndarray
+        Wavelength coordinates
+    feature_wavelength: numpy.ndarray
+        Central wavelength of the spectral features to be fit.
+    sigma: numpy.ndarray
+        Sigma of each of the spectral features.
+    width: float
+        Number of sigmas to each side that will be considered in the fit.
+    catch_error: bool
+        Interrupts the program when the optimization window falls outside the available wavelengths.
+
+    Returns
+    -------
+    mask: numpy.ndarray
+        True for all wavelengths within the window of interest for the fit.
+    """
+
+    mask = np.ones_like(wavelength).astype(bool)
+
+    for lam, s in zip(feature_wavelength, sigma):
+
+        low_lam = (lam - width * s)
+        up_lam = (lam + width * s)
+
+        if catch_error:
+            assert low_lam > wavelength[0], 'Lower limit in optimization window is below the lowest available wavelength.'
+            assert up_lam < wavelength[-1], 'Upper limit in optimization window is above the highest available wavelength.'
+        else:
+            if low_lam < wavelength[0]:
+                low_lam = wavelength[0]
+            if up_lam > wavelength[-1]:
+                up_lam = wavelength[-1]
+
+        try:
+            wl_lims = [wavelength[wavelength <= low_lam][-1], wavelength[wavelength >= up_lam][0]]
+        except IndexError:
+            warnings.warn('Could not optimize fit!', category=RuntimeWarning)
+            print('wl: ' + str(wavelength))
+            print('low_lam: ' + str(low_lam))
+            print('up_lam: ' + str(up_lam))
+            print('width: ' + str(width))
+            print('sigma: ' + str(s))
+            mask = np.ones_like(wavelength).astype('bool')
+            return mask
+
+        idx = [np.where(wavelength == i)[0][0] for i in wl_lims]
+
+        ws = slice(idx[0], idx[1])
+
+        mask[ws] = False
+
+    return mask

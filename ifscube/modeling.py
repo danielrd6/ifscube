@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
 
-from ifscube import elprofile, parser
-from ifscube.spectools import continuum
+from ifscube import elprofile, parser, spectools
 from .onedspec import Spectrum
 
 
@@ -32,7 +31,8 @@ class LineFit:
             self.variance /= self.flux_scale_factor ** 2
 
         if fit_continuum:
-            self.pseudo_continuum = continuum(self.wavelength, (self.data - self.stellar), output='function')[1]
+            self.pseudo_continuum = spectools.continuum(
+                self.wavelength, (self.data - self.stellar), output='function')[1]
         else:
             self.pseudo_continuum = np.zeros_like(self.data)
 
@@ -180,6 +180,16 @@ class LineFit:
 
         self.kinematic_group_transform = transform.astype(int)
         self.kinematic_group_inverse_transform = inverse_transform.astype(int)
+
+    def _get_parameter_indices(self, regular_expression: str):
+        return np.array([self.parameter_names.index(_) for _ in self.parameter_names if regular_expression in _])
+
+    def optimize_fit(self, width: float = 5.0):
+        sigma = self.initial_guess[self._get_parameter_indices('sigma')]
+        sigma_lam = spectools.sigma_lambda(sigma_vel=sigma, rest_wl=self.feature_wavelengths)
+        optimized_mask = spectools.feature_mask(wavelength=self.wavelength, feature_wavelength=self.feature_wavelengths,
+                                                sigma=sigma_lam, width=width)
+        self.mask |= optimized_mask
 
     def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, minimum_good_fraction: float = 0.8,
             verbose: bool = True):
