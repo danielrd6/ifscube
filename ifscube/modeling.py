@@ -3,6 +3,8 @@ import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy import constants
+from scipy import integrate
 from scipy.optimize import minimize
 
 from ifscube import elprofile, parser, spectools
@@ -63,6 +65,9 @@ class LineFit:
 
         self.fit_status = 1
         self.fit_arguments = None
+
+        self.flux_model = np.array([])
+        self.flux_direct = np.array([])
 
     @property
     def weights(self):
@@ -245,6 +250,58 @@ class LineFit:
         self.solution = solution_matrix.mean(axis=0)
         self.uncertainties = solution_matrix.std(axis=0)
         self.data = old_data
+
+    def _get_solution_parameter(self, feature, parameter):
+        return self.solution[self.parameter_names.index((feature, parameter))]
+
+    def _get_feature_solution(self, feature):
+        i = self.parameter_names.index((feature, 'amplitude'))
+        return self.solution[i:i + self.parameters_per_feature]
+
+    def integrate_flux(self, sigma_factor: float = 5.0):
+        """
+        Integrates the flux of spectral features.
+
+        Parameters
+        ----------
+        sigma_factor: float
+            Radius of integration as a number of line sigmas.
+
+        Returns
+        -------
+        None.
+        """
+
+        flux_model = np.zeros((len(self.feature_names),))
+        flux_direct = np.zeros_like(flux_model)
+        c = constants.c.to('km / s').value
+
+        for idx, component in enumerate(self.feature_names):
+            if np.any(np.isnan(self._get_feature_solution(component))):
+                flux_model[idx] = np.nan
+                flux_direct[idx] = np.nan
+
+            else:
+                z = (1.0 + self._get_solution_parameter(component, 'velocity') / c)
+                center_wavelength = np.array([self.feature_wavelengths[idx] * z])
+                sigma_vel = np.array([self._get_solution_parameter(component, 'sigma')])
+                sigma_lam = spectools.sigma_lambda(sigma_vel, center_wavelength)
+                mask = spectools.feature_mask(wavelength=self.wavelength, feature_wavelength=center_wavelength,
+                                              sigma=sigma_lam, width=sigma_factor)
+
+                observed_feature = self.data[~mask] - self.pseudo_continuum[~mask] - self.stellar[~mask]
+                fit = self.function(self.wavelength[~mask], self.feature_wavelengths[idx],
+                                    self._get_feature_solution(component))
+                for i, j in enumerate(self.feature_names):
+                    if j != component:
+                        observed_feature -= self.function(
+                            self.wavelength[~mask], self.feature_wavelengths[i], self._get_feature_solution(j))
+
+                flux_model[idx] = integrate.trapz(fit, x=self.wavelength[~mask])
+                flux_direct[idx] = integrate.trapz(observed_feature, x=self.wavelength[~mask])
+
+            self.flux_model = flux_model * self.flux_scale_factor
+            self.flux_direct = flux_direct * self.flux_scale_factor
 
     def plot(self, plot_all: bool = False):
         sf = self.flux_scale_factor
