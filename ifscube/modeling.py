@@ -93,9 +93,6 @@ class LineFit:
         assert value.dtype == bool, 'Mask must be an array of boolean type.'
         self._mask = value
 
-    def optimization_mask(self):
-        pass
-
     def add_feature(self, name: str, rest_wavelength: float, amplitude: float, velocity: float, sigma: float,
                     h_3: float = 0.0, h_4: float = 0.0, kinematic_group: int = None):
 
@@ -123,13 +120,13 @@ class LineFit:
                     [self.initial_guess, [amplitude / self.flux_scale_factor, velocity, sigma, h_3, h_4]])
 
             self.parameter_names += [
-                f'{name}.{_}' for _ in ['amplitude', 'velocity', 'sigma', 'h_3', 'h_4'][:self.parameters_per_feature]]
+                (name, _) for _ in ['amplitude', 'velocity', 'sigma', 'h_3', 'h_4'][:self.parameters_per_feature]]
             self.bounds += [[None, None]] * self.parameters_per_feature
 
     def set_bounds(self, feature: str, parameter: str, bounds: list):
         if parameter == 'amplitude':
             bounds = [_ / self.flux_scale_factor if _ is not None else _ for _ in bounds]
-        self.bounds[self.parameter_names.index(f'{feature}.{parameter}')] = bounds
+        self.bounds[self.parameter_names.index((feature, parameter))] = bounds
 
     def add_minimize_constraint(self, parameter, expression):
         self.constraint_expressions.append([parameter, expression])
@@ -140,6 +137,7 @@ class LineFit:
         else:
             pn = self.parameter_names
 
+        pn = ['.'.join(_) for _ in pn]
         constraints = []
         for parameter, expression in self.constraint_expressions:
             cp = parser.ConstraintParser(expr=expression, parameter_names=pn)
@@ -158,21 +156,21 @@ class LineFit:
 
     def _pack_kinematic_group(self):
         pn = self.parameter_names
-        amplitudes = np.array([pn.index(_) for _ in pn if 'amplitude' in _])
+        amplitudes = self._get_parameter_indices('amplitude')
 
         k_range = np.arange(1, self.parameters_per_feature).astype(int)
         kinematic_parameters = np.array([], dtype=int)
         kg_keys = list(self.kinematic_groups.keys())
         for g in kg_keys:
             ff = self.kinematic_groups[g][0]  # first feature name
-            k_idx = pn.index(f'{ff}.amplitude') + k_range
+            k_idx = pn.index((ff, 'amplitude')) + k_range
             kinematic_parameters = np.concatenate([kinematic_parameters, k_idx])
         transform = np.concatenate([amplitudes, kinematic_parameters])
 
         inverse_transform = np.array([])
         n_features = len(amplitudes)
-        for i in range(int(len(pn) / self.parameters_per_feature)):
-            feature_name = pn[int(i * self.parameters_per_feature)].split('.')[0]
+        for i in range(len(self.feature_names)):
+            feature_name = pn[int(i * self.parameters_per_feature)][0]
             for j, k in enumerate(kg_keys):
                 if feature_name in self.kinematic_groups[k]:
                     k_idx = n_features + (j * (self.parameters_per_feature - 1)) + k_range - 1
@@ -192,7 +190,7 @@ class LineFit:
         self.mask |= optimized_mask
 
     def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, minimum_good_fraction: float = 0.8,
-            verbose: bool = True):
+            verbose: bool = False):
         assert self.initial_guess.size > 0, 'There are no spectral features to fit. Aborting'
         assert self.initial_guess.size == (len(self.feature_names) * self.parameters_per_feature), \
             'There is a problem with the initial guess. Check the spectral feature definitions.'
@@ -226,10 +224,10 @@ class LineFit:
 
         if verbose:
             for i, j in enumerate(self.parameter_names):
-                if 'amplitude' in j:
-                    print(f'{j:<32s} = {p[i] * self.flux_scale_factor:8.2e}')
+                if j[1] == 'amplitude':
+                    print(f'{j[0]}.{j[1]} = {p[i] * self.flux_scale_factor:8.2e}')
                 else:
-                    print(f'{j:<32s} = {p[i]:8.2f}')
+                    print(f'{j[0]}.{j[1]} = {p[i]:.2f}')
 
     def monte_carlo(self, n_iterations: int = 10):
         assert self.solution is not None, 'Monte carlo uncertainties can only be evaluated after a successful fit.'
