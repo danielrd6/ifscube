@@ -670,7 +670,7 @@ class Cube:
 
         return output_image
 
-    def aperture_spectrum(self, radius=1.0, x0=None, y0=None, flag_threshold=0.5):
+    def aperture_spectrum(self, radius=1.0, x0=None, y0=None, flag_threshold=0.5, combine: str = 'sum'):
         """
         Makes an aperture spectrum out of the data cube.
 
@@ -684,6 +684,8 @@ class Cube:
         flag_threshold : float
             Amount of flagged pixels for the output spectrum to also
             be flagged in this pixel.
+        combine : str
+            Combination type. Can be either 'sum', 'mean' or 'median'.
 
         Returns
         -------
@@ -697,12 +699,12 @@ class Cube:
             y0 = int(self.spec_indices[:, 0].mean())
 
         sci, npix_sci = cubetools.aperture_spectrum(
-            self.data, x0=x0, y0=y0, radius=radius, combine='sum')
+            self.data, x0=x0, y0=y0, radius=radius, combine=combine)
         var, npix_var = cubetools.aperture_spectrum(
             self.variance, x0=x0, y0=y0, radius=radius, combine='sum')
         if np.all(self.variance == 1.0):
             var = self.variance[:, 0, 0]
-        ste, npix_ste = cubetools.aperture_spectrum(self.stellar, x0=x0, y0=y0, radius=radius, combine='sum')
+        ste, npix_ste = cubetools.aperture_spectrum(self.stellar, x0=x0, y0=y0, radius=radius, combine=combine)
         fla, npix_fla = cubetools.aperture_spectrum(
             (self.flags.astype('bool')).astype('float64'), x0=x0, y0=y0, radius=radius, combine='mean')
 
