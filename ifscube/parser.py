@@ -1,6 +1,7 @@
 # STDLIB
 import configparser
 import copy
+
 import numpy as np
 
 # LOCAL
@@ -210,12 +211,10 @@ class LineFitParser:
     def __init__(self, *args, **kwargs):
 
         self.component_names = []
-        self.p0 = []
         self.bounds = []
         self.constraints = []
-        self.k_groups = []
-        self.k_component_names = []
         self.cwin = {}
+        self.features = []
 
         if args or kwargs:
             self._load(*args, **kwargs)
@@ -225,14 +224,12 @@ class LineFitParser:
         self.cfg = configparser.ConfigParser()
         self.cfg.read(fname)
 
-        par_names = dict(
-            gaussian=('amplitude', 'velocity', 'sigma',),
-            gauss_hermite=(
-                'amplitude', 'velocity', 'sigma', 'h3', 'h4'),
-        )
+        par_names = {
+            'gaussian': ('rest_wavelength', 'amplitude', 'velocity', 'sigma', 'k_group'),
+            'gauss_hermite': ('rest_wavelength', 'amplitude', 'velocity', 'sigma', 'h3', 'h4', 'k_group'),
+        }
 
-        self.par_names = par_names[
-            self.cfg.get('fit', 'function', fallback='gaussian')]
+        self.par_names = par_names[self.cfg.get('fit', 'function', fallback='gaussian')]
         self.component_names = [
             i for i in self.cfg.sections() if i not in [
                 'continuum', 'minimization', 'fit', 'equivalent_width',
@@ -240,17 +237,17 @@ class LineFitParser:
 
         # Each section has to be a line, except for the DEFAULT, MINOPTS,
         # and CONTINUUM sections, and equivalent_width.
-        self.feature_wl = []
         for line in self.component_names:
             self.parse_line(line)
 
+        unconstrained_parameters = ['rest_wavelength', 'k_group', 'continuum_windows']
         for line in self.component_names:
-            for par in self.par_names:
+            for par in [_ for _ in self.cfg.options(section=line) if _ not in unconstrained_parameters]:
                 prop = self.cfg[line][par].split(',')
-                self._constraints(prop, line, par)
+                self._constraints(prop, f'{line}.{par}')
 
         self._fit()
-        self._kinematic_constraints()
+        # self._kinematic_constraints()
         self._minimization()
         self._continuum()
         self._eqw()
@@ -336,7 +333,7 @@ class LineFitParser:
         float_args = [
             'refit_radius', 'sig_threshold', 'instrument_dispersion',
             'optimization_window', 'good_minfraction', 'continuum_line_weight',
-            'instrument_dispersion_angstrom',]
+            'instrument_dispersion_angstrom', ]
         for i in float_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getfloat('fit', i)
@@ -427,14 +424,15 @@ class LineFitParser:
         else:
             self.bounds += [(None, None)]
 
-    def _constraints(self, props, component_name, par_name):
+    def _constraints(self, props, par_name):
 
         if len(props) > 2:
             if (~props[2].isspace()) and (props[2] != ''):
-                expr = ConstraintParser(props[2], feature_names=self.component_names, parameter_names=self.par_names)
-                expr.evaluate(component_name, par_name)
+                # expr = ConstraintParser(props[2], parameter_names=self.par_names)
+                # expr.evaluate(par_name)
 
-                self.constraints += [expr.constraint]
+                # self.constraints += [expr.constraint]
+                self.constraints += [(par_name, props[2])]
 
     def _kinematic_constraints(self):
 
@@ -466,8 +464,8 @@ class LineFitParser:
                             if (m == 'sigma') & fix_sigma0:
                                 self.constraints += [
                                     spectools.Constraints.same_instrinsic_sigma(
-                                        par1, par2, 
-                                        instdisp_vel[j]**2 - instdisp_vel[j+1]**2)]
+                                        par1, par2,
+                                        instdisp_vel[j] ** 2 - instdisp_vel[j + 1] ** 2)]
                             else:
                                 self.constraints += [
                                     spectools.Constraints.same(par1, par2)]
@@ -476,31 +474,33 @@ class LineFitParser:
 
     def parse_line(self, line):
 
+        d = {'name': line}
         line_pars = self.cfg[line]
-        self.feature_wl += [float(line_pars['rest_wavelength'])]
-        for par in self.par_names:
-            props = line_pars[par].split(',')
-            if props[0] not in ['peak', 'mean', 'median']:
-                self.p0 += [float(props[0])]
+        for par in [_ for _ in self.cfg.options(section=line)]:
+            if par == 'continuum_windows':
+                pass
+            elif par == 'k_group':
+                d.update({'kinematic_group': line_pars.getint(par)})
+            elif par == 'rest_wavelength':
+                d.update({par: line_pars.getfloat(par)})
             else:
-                self.p0 += [props[0]]
-            self._bounds(props)
+                props = line_pars[par].split(',')
+                if props[0] not in ['peak', 'mean', 'median']:
+                    x = float(props[0])
+                else:
+                    x = props[0]
 
-        if 'k_group' in line_pars:
-            self.k_groups += [line_pars.getint('k_group')]
-            self.k_component_names += [line]
+                d.update({par: x})
+                self._bounds(props)
 
-        self._continuum_windows(line, line_pars)
+        self.features += [d]
 
     def get_vars(self):
 
         d = {**vars(self), **self.fit_opts}
-        todel = [
-            'cfg', 'par_names', 'fit_opts', 'copts', 'loading_opts',
-            'k_groups', 'k_components', 'k_component_names', 'cwin']
+        todel = ['cfg', 'par_names', 'fit_opts', 'copts', 'loading_opts', 'cwin']
         for i in todel:
             del d[i]
         d['copts'] = self.copts
         d['constraints'] = self.constraints
-        d['feature_wl'] = self.feature_wl
         return d

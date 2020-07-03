@@ -7,6 +7,7 @@ from . import Cube
 from . import cubetools
 from . import gmos
 from . import manga
+from . import modeling
 from . import onedspec
 from . import parser
 from . import spectools
@@ -23,6 +24,25 @@ def clear_lock(lockname):
         os.remove(lockname)
 
     return
+
+
+def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
+    general_fit_args = {_: line_fit_args[_]for _ in ['function', 'fit_continuum', 'fitting_window']
+                        if _ in line_fit_args.keys()}
+    fit = modeling.LineFit(data, **general_fit_args)
+
+    for feature in line_fit_args['features']:
+        fit.add_feature(**feature)
+
+    for constraint in line_fit_args['constraints']:
+        fit.add_minimize_constraint(*constraint)
+
+    fit.fit()
+    return fit
+
+
+def cube_fit(data: Cube, **line_fit_args):
+    assert 1 == 0, 'NOT IMPLEMENTED YET!'
 
 
 def dofit(fname, linefit_args, overwrite, cubetype, loading, fit_type, config_file_name, plot=False, lock=False):
@@ -75,6 +95,7 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading, fit_type, config_fi
             a = gmos.Cube(fname, **loading)
         else:
             raise RuntimeError('cubetype "{:s}" not understood.'.format(cubetype))
+        fit_function = cube_fit
 
     elif fit_type == 'spec':
 
@@ -84,6 +105,7 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading, fit_type, config_fi
             a = manga.IntegratedSpectrum(fname, **loading)
         else:
             raise RuntimeError('cubetype "{:s}" not understood.'.format(cubetype))
+        fit_function = spectrum_fit
 
     else:
         raise RuntimeError('fit_type "{:s}" not understood.'.format(fit_type))
@@ -93,8 +115,7 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading, fit_type, config_fi
     if 'weights' in linefit_args['copts']:
         linefit_args['copts']['weights'] = spectools.read_weights(a.rest_wavelength, linefit_args['copts']['weights'])
 
-    a.linefit(**linefit_args)
-
+    fit = fit_function(data=a, **linefit_args)
     try:
         cubetools.append_config(config_file_name, outname)
     except IOError:
@@ -102,7 +123,7 @@ def dofit(fname, linefit_args, overwrite, cubetype, loading, fit_type, config_fi
             clear_lock(lockname)
 
     if plot:
-        a.plotfit()
+        fit.plot()
 
     if lock:
         clear_lock(lockname)
@@ -115,7 +136,7 @@ def main(fit_type):
     ap.add_argument('-o', '--overwrite', action='store_true', help='Overwrites previous fit with the same name.')
     ap.add_argument('-p', '--plot', action='store_true', help='Plots the resulting fit.')
     ap.add_argument('-l', '--lock', action='store_true', default=False, help='Creates a lock file to prevent multiple '
-                    'instances fromattempting to fit the same file at the same time.')
+                                                                             'instances fromattempting to fit the same file at the same time.')
     ap.add_argument('-b', '--cubetype', type=str, default=None, help='"gmos" or "manga".')
     ap.add_argument('-t', '--mklthreads', type=int, default=1, help='Number of threads for numpy routines.')
     ap.add_argument('-c', '--config', type=str, help='Config file.')

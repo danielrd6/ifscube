@@ -1,5 +1,6 @@
 import copy
 import warnings
+from typing import Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -98,8 +99,21 @@ class LineFit:
         assert value.dtype == bool, 'Mask must be an array of boolean type.'
         self._mask = value
 
-    def add_feature(self, name: str, rest_wavelength: float, amplitude: float, velocity: float, sigma: float,
-                    h_3: float = 0.0, h_4: float = 0.0, kinematic_group: int = None):
+    def amplitude_parser(self, amplitude):
+        try:
+            if amplitude == 'peak':
+                a = self.data[self.mask].max()
+            elif amplitude == 'mean':
+                a = self.data[self.mask].mean()
+            elif amplitude == 'median':
+                a = np.median(self.data[self.mask])
+        except ValueError:
+            a = np.nan
+
+        return a
+
+    def add_feature(self, name: str, rest_wavelength: float, amplitude: Union[float, str], velocity: float = 0.0,
+                    sigma: float = 100.0, h_3: float = 0.0, h_4: float = 0.0, kinematic_group: int = None):
 
         if (rest_wavelength < self.fitting_window[0]) or (rest_wavelength > self.fitting_window[1]):
             warnings.warn(f'Spectral feature {name} outside of fitting window. Skipping.')
@@ -116,6 +130,9 @@ class LineFit:
 
             self.feature_names.append(name)
             self.feature_wavelengths = np.concatenate([self.feature_wavelengths, [rest_wavelength]])
+
+            if type(amplitude) == str:
+                amplitude = self.amplitude_parser(amplitude)
 
             if self.parameters_per_feature == 3:
                 self.initial_guess = np.concatenate(
@@ -209,6 +226,7 @@ class LineFit:
             f'{valid_fraction} < {minimum_good_fraction}.'
 
         if self.kinematic_groups == {}:
+            # TODO: Make initial guess reflect kinematic groups to output it correctly later.
             p_0 = self.initial_guess
             bounds = self.bounds
             self.kinematic_group_inverse_transform = Ellipsis
