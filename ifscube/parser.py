@@ -325,10 +325,12 @@ class LineFitParser:
         boolean_args = ['write_fits', 'refit', 'update_bounds', 'spiral_loop',
                         'verbose', 'fit_continuum', 'optimize_fit',
                         'guess_parameters', 'trivial', 'test_jacobian', 'debug',
-                        'fixed', 'intrinsic_sigma_constr']
+                        'intrinsic_sigma_constr']
         for i in boolean_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getboolean('fit', i)
+
+        fit_opts['fixed'] = self.cfg.getboolean('fit', 'fixed', fallback=False)
 
         float_args = [
             'refit_radius', 'sig_threshold', 'instrument_dispersion',
