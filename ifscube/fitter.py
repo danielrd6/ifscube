@@ -43,7 +43,13 @@ def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
     if line_fit_args['optimize_fit']:
         fit.optimize_fit(width=line_fit_args['optimization_window'])
 
-    fit.fit(verbose=True)
+    if line_fit_args['fixed']:
+        fit.solution = fit.initial_guess
+        print('Not fitting! Returning initial guess.')
+        fit.print_parameters('solution')
+    else:
+        fit.fit(verbose=True)
+
     if line_fit_args['monte_carlo']:
         fit.monte_carlo(line_fit_args['monte_carlo'], verbose=True)
     return fit

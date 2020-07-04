@@ -338,10 +338,7 @@ class LineFitParser:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getfloat('fit', i)
 
-        int_args = ['monte_carlo']
-        for i in int_args:
-            if i in fit_opts:
-                fit_opts[i] = self.cfg.getint('fit', i)
+        fit_opts['monte_carlo'] = self.cfg.getint('fit', 'monte_carlo', fallback=0)
 
         key = 'fitting_window'
         if key in fit_opts:

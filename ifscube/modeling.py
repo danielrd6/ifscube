@@ -112,8 +112,8 @@ class LineFit:
 
         return a
 
-    def add_feature(self, name: str, rest_wavelength: float, amplitude: Union[float, str], velocity: float = 0.0,
-                    sigma: float = 100.0, h_3: float = 0.0, h_4: float = 0.0, kinematic_group: int = None):
+    def add_feature(self, name: str, rest_wavelength: float, amplitude: Union[float, str], velocity: float = None,
+                    sigma: float = None, h_3: float = None, h_4: float = None, kinematic_group: int = None):
 
         if (rest_wavelength < self.fitting_window[0]) or (rest_wavelength > self.fitting_window[1]):
             warnings.warn(f'Spectral feature {name} outside of fitting window. Skipping.')
@@ -121,6 +121,12 @@ class LineFit:
             if kinematic_group is not None:
                 if kinematic_group in self.kinematic_groups.keys():
                     self.kinematic_groups[kinematic_group].append(name)
+                    first_feature = self.kinematic_groups[kinematic_group][0]
+                    velocity = self._get_feature_parameter(first_feature, 'velocity', 'initial_guess')
+                    sigma = self._get_feature_parameter(first_feature, 'sigma', 'initial_guess')
+                    if self.parameters_per_feature == 5:
+                        h_3 = self._get_feature_parameter(first_feature, 'h_3', 'initial_guess')
+                        h_4 = self._get_feature_parameter(first_feature, 'h_4', 'initial_guess')
                 else:
                     self.kinematic_groups[kinematic_group] = [name]
             else:
@@ -226,7 +232,6 @@ class LineFit:
             f'{valid_fraction} < {minimum_good_fraction}.'
 
         if self.kinematic_groups == {}:
-            # TODO: Make initial guess reflect kinematic groups to output it correctly later.
             p_0 = self.initial_guess
             bounds = self.bounds
             self.kinematic_group_inverse_transform = Ellipsis
@@ -242,15 +247,26 @@ class LineFit:
         # noinspection PyTypeChecker
         solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds, constraints=constraints,
                             options=minimize_options)
-        p = solution.x[self.kinematic_group_inverse_transform]
-        self.solution = p
+        self.solution = solution.x[self.kinematic_group_inverse_transform]
 
         if verbose:
-            for i, j in enumerate(self.parameter_names):
-                if j[1] == 'amplitude':
+            self.print_parameters('solution')
+
+    def print_parameters(self, attribute: str):
+        p = getattr(self, attribute)
+        u = getattr(self, 'uncertainties')
+        for i, j in enumerate(self.parameter_names):
+            if j[1] == 'amplitude':
+                if u is None:
                     print(f'{j[0]}.{j[1]} = {p[i] * self.flux_scale_factor:8.2e}')
                 else:
+                    print(f'{j[0]}.{j[1]} = {p[i] * self.flux_scale_factor:8.2e} +- '
+                          f'{u[i] * self.flux_scale_factor:8.2e}')
+            else:
+                if u is None:
                     print(f'{j[0]}.{j[1]} = {p[i]:.2f}')
+                else:
+                    print(f'{j[0]}.{j[1]} = {p[i]:.2f} +- {u[i]:.2f}')
 
     def monte_carlo(self, n_iterations: int = 10, verbose: bool = False):
         assert self.solution is not None, 'Monte carlo uncertainties can only be evaluated after a successful fit.'
@@ -269,24 +285,16 @@ class LineFit:
         self.uncertainties = solution_matrix.std(axis=0)
         self.data = old_data
 
-        p = self.solution
-        u = self.uncertainties
-
         if verbose:
-            for i, j in enumerate(self.parameter_names):
-                if j[1] == 'amplitude':
-                    print(
-                        f'{j[0]}.{j[1]} = {p[i] * self.flux_scale_factor:8.2e}'
-                        f'+- {u[i] * self.flux_scale_factor:8.2e}')
-                else:
-                    print(f'{j[0]}.{j[1]} = {p[i]:.2f} +- {u[i]:.2f}')
+            self.print_parameters('solution')
 
-    def _get_solution_parameter(self, feature, parameter):
-        return self.solution[self.parameter_names.index((feature, parameter))]
-
-    def _get_feature_solution(self, feature):
-        i = self.parameter_names.index((feature, 'amplitude'))
-        return self.solution[i:i + self.parameters_per_feature]
+    def _get_feature_parameter(self, feature: str, parameter: str, attribute: str):
+        x = getattr(self, attribute)
+        if parameter == 'all':
+            i = self.parameter_names.index((feature, 'amplitude'))
+            return self.solution[i:i + self.parameters_per_feature]
+        else:
+            return x[self.parameter_names.index((feature, parameter))]
 
     def integrate_flux(self, sigma_factor: float = 5.0):
         """
@@ -307,25 +315,26 @@ class LineFit:
         c = constants.c.to('km / s').value
 
         for idx, component in enumerate(self.feature_names):
-            if np.any(np.isnan(self._get_feature_solution(component))):
+            if np.any(np.isnan(self._get_feature_parameter(component, 'all', 'solution'))):
                 flux_model[idx] = np.nan
                 flux_direct[idx] = np.nan
 
             else:
-                z = (1.0 + self._get_solution_parameter(component, 'velocity') / c)
+                z = (1.0 + self._get_feature_parameter(component, 'velocity', 'solution') / c)
                 center_wavelength = np.array([self.feature_wavelengths[idx] * z])
-                sigma_vel = np.array([self._get_solution_parameter(component, 'sigma')])
+                sigma_vel = np.array([self._get_feature_parameter(component, 'sigma', 'solution')])
                 sigma_lam = spectools.sigma_lambda(sigma_vel, center_wavelength)
                 mask = spectools.feature_mask(wavelength=self.wavelength, feature_wavelength=center_wavelength,
                                               sigma=sigma_lam, width=sigma_factor)
 
                 observed_feature = self.data[~mask] - self.pseudo_continuum[~mask] - self.stellar[~mask]
                 fit = self.function(self.wavelength[~mask], self.feature_wavelengths[idx],
-                                    self._get_feature_solution(component))
+                                    self._get_feature_parameter(component, 'all', 'solution'))
                 for i, j in enumerate(self.feature_names):
                     if j != component:
                         observed_feature -= self.function(
-                            self.wavelength[~mask], self.feature_wavelengths[i], self._get_feature_solution(j))
+                            self.wavelength[~mask], self.feature_wavelengths[i],
+                            self._get_feature_parameter(j, 'all', 'solution'))
 
                 flux_model[idx] = integrate.trapz(fit, x=self.wavelength[~mask])
                 flux_direct[idx] = integrate.trapz(observed_feature, x=self.wavelength[~mask])
