@@ -14,7 +14,7 @@ from .onedspec import Spectrum
 
 class LineFit:
     def __init__(self, spectrum: Spectrum, function: str = 'gaussian', fitting_window: tuple = None,
-                 fit_continuum: bool = False):
+                 fit_continuum: bool = False, continuum_options: dict = {}):
         self.fitting_window = fitting_window
 
         self.data = spectrum.data
@@ -35,7 +35,7 @@ class LineFit:
 
         if fit_continuum:
             self.pseudo_continuum = spectools.continuum(
-                self.wavelength, (self.data - self.stellar), output='function')[1]
+                self.wavelength, (self.data - self.stellar), output='function', **continuum_options)[1]
         else:
             self.pseudo_continuum = np.zeros_like(self.data)
 

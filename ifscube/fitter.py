@@ -29,6 +29,7 @@ def clear_lock(lockname):
 def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
     general_fit_args = {_: line_fit_args[_]for _ in ['function', 'fit_continuum', 'fitting_window']
                         if _ in line_fit_args.keys()}
+    general_fit_args['continuum_options'] = line_fit_args['copts']
     fit = modeling.LineFit(data, **general_fit_args)
 
     for feature in line_fit_args['features']:
@@ -48,7 +49,7 @@ def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
         print('Not fitting! Returning initial guess.')
         fit.print_parameters('solution')
     else:
-        fit.fit(verbose=True)
+        fit.fit(minimize_options=line_fit_args['minopts'])
 
     if line_fit_args['monte_carlo']:
         fit.monte_carlo(line_fit_args['monte_carlo'], verbose=True)
