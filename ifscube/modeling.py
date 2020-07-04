@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy import constants
 from scipy import integrate
-from scipy.optimize import minimize
+from scipy.optimize import minimize, differential_evolution
 
 from ifscube import elprofile, parser, spectools
 from .onedspec import Spectrum
@@ -229,7 +229,7 @@ class LineFit:
 
         valid_fraction = np.sum(~self.mask & ~self.flags) / np.sum(~self.mask)
         assert valid_fraction >= minimum_good_fraction, 'Minimum fraction of valid pixels not reached: ' \
-            f'{valid_fraction} < {minimum_good_fraction}.'
+                                                        f'{valid_fraction} < {minimum_good_fraction}.'
 
         if self.kinematic_groups == {}:
             p_0 = self.initial_guess
@@ -244,10 +244,18 @@ class LineFit:
         constraints = self._evaluate_constraints()
 
         s = self.data[~self.mask] - self.pseudo_continuum[~self.mask] - self.stellar[~self.mask]
-        # noinspection PyTypeChecker
-        solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds, constraints=constraints,
-                            options=minimize_options)
-        self.solution = solution.x[self.kinematic_group_inverse_transform]
+        if min_method == 'slsqp':
+            # noinspection PyTypeChecker
+            solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds, constraints=constraints,
+                                options=minimize_options)
+            self.solution = solution.x[self.kinematic_group_inverse_transform]
+        elif min_method == 'differential_evolution':
+            assert not any([_ is None for _ in np.ravel(bounds)]), \
+                'Cannot have unbound parameters when using differential_evolution.'
+            self.solution = differential_evolution(
+                self.res, bounds=bounds, args=(s,)).x[self.kinematic_group_inverse_transform]
+        else:
+            raise RuntimeError(f'Unknown minimization method {min_method}.')
 
         if verbose:
             self.print_parameters('solution')

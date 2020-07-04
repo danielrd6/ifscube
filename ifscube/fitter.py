@@ -49,7 +49,7 @@ def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
         print('Not fitting! Returning initial guess.')
         fit.print_parameters('solution')
     else:
-        fit.fit(minimize_options=line_fit_args['minopts'])
+        fit.fit(min_method=line_fit_args['method'], minimize_options=line_fit_args['minopts'], verbose=True)
 
     if line_fit_args['monte_carlo']:
         fit.monte_carlo(line_fit_args['monte_carlo'], verbose=True)
@@ -161,9 +161,7 @@ def main(fit_type):
 
     try:
         mkl_rt = ctypes.CDLL('libmkl_rt.so')
-        mkl_rt.mkl_set_num_threads(
-            ctypes.byref(
-                ctypes.c_int(args.mklthreads)))
+        mkl_rt.mkl_set_num_threads(ctypes.byref(ctypes.c_int(args.mklthreads)))
     except OSError:
         print('WARNING!: Not setting the number of threads.')
 

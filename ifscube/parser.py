@@ -341,6 +341,7 @@ class LineFitParser:
                 fit_opts[i] = self.cfg.getfloat('fit', i)
 
         fit_opts['monte_carlo'] = self.cfg.getint('fit', 'monte_carlo', fallback=0)
+        fit_opts['method'] = self.cfg.get('fit', 'method', fallback='slsqp')
 
         key = 'fitting_window'
         if key in fit_opts:
