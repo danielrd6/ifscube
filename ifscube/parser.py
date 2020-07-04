@@ -405,7 +405,7 @@ class LineFitParser:
         else:
             self.cwin[line] = None
 
-    def _bounds(self, props):
+    def _bounds(self, line, par, props):
 
         if len(props) > 1:
             if (~props[1].isspace()) and (props[1] != ''):
@@ -413,16 +413,15 @@ class LineFitParser:
                     number = float(props[1].split()[-1])
                     low, up = [float(props[0]) + i for i in [-number, +number]]
                 elif ':' in props[1]:
-                    low, up = [
-                        float(i) if (i != '') else None
-                        for i in props[1].split(':')]
+                    low, up = [float(i) if (i != '') else None for i in props[1].split(':')]
                 else:
                     raise Exception('Failed to parse bounds.')
-                self.bounds += [(low, up)]
+                b = (low, up)
             else:
-                self.bounds += [(None, None)]
+                b = (None, None)
+            self.bounds += [[line, par, b]]
         else:
-            self.bounds += [(None, None)]
+            b = (None, None)
 
     def _constraints(self, props, par_name):
 
@@ -491,7 +490,7 @@ class LineFitParser:
                     x = props[0]
 
                 d.update({par: x})
-                self._bounds(props)
+                self._bounds(line, par, props)
 
         self.features += [d]
 

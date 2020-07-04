@@ -34,10 +34,18 @@ def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
     for feature in line_fit_args['features']:
         fit.add_feature(**feature)
 
+    for bounds in line_fit_args['bounds']:
+        fit.set_bounds(*bounds)
+
     for constraint in line_fit_args['constraints']:
         fit.add_minimize_constraint(*constraint)
 
-    fit.fit()
+    if line_fit_args['optimize_fit']:
+        fit.optimize_fit(width=line_fit_args['optimization_window'])
+
+    fit.fit(verbose=True)
+    if line_fit_args['monte_carlo']:
+        fit.monte_carlo(line_fit_args['monte_carlo'], verbose=True)
     return fit
 
 
