@@ -252,7 +252,7 @@ class LineFit:
                 else:
                     print(f'{j[0]}.{j[1]} = {p[i]:.2f}')
 
-    def monte_carlo(self, n_iterations: int = 10):
+    def monte_carlo(self, n_iterations: int = 10, verbose: bool = False):
         assert self.solution is not None, 'Monte carlo uncertainties can only be evaluated after a successful fit.'
         p = self.solution
         old_data = copy.deepcopy(self.data)
@@ -268,6 +268,18 @@ class LineFit:
         self.solution = solution_matrix.mean(axis=0)
         self.uncertainties = solution_matrix.std(axis=0)
         self.data = old_data
+
+        p = self.solution
+        u = self.uncertainties
+
+        if verbose:
+            for i, j in enumerate(self.parameter_names):
+                if j[1] == 'amplitude':
+                    print(
+                        f'{j[0]}.{j[1]} = {p[i] * self.flux_scale_factor:8.2e}'
+                        f'+- {u[i] * self.flux_scale_factor:8.2e}')
+                else:
+                    print(f'{j[0]}.{j[1]} = {p[i]:.2f} +- {u[i]:.2f}')
 
     def _get_solution_parameter(self, feature, parameter):
         return self.solution[self.parameter_names.index((feature, parameter))]
