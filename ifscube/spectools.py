@@ -697,7 +697,9 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None,
             kernel = Gaussian1DKernel(smooth)
             y = convolve(y, kernel=kernel, boundary='extend')
 
-        cumulative = cumtrapz(y[~y.mask], velocity[~y.mask], initial=0)
+        cumulative = cumtrapz(y[~y.mask], velocity[~y.mask], initial=0)[0]
+        if len(cumulative.shape) > 1:
+            raise ValueError(f'cumulative must have only one dimension, but it has {len(cumulative.shape)}.')
         cumulative /= cumulative.max()
 
         r0 = velocity[(np.abs(cumulative - 0.1)).argsort()[0]].value
