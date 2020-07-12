@@ -1,6 +1,7 @@
-import pkg_resources
-from ifscube import Cube
 import numpy as np
+import pkg_resources
+
+from ifscube import Cube
 
 
 def fit_setup():
@@ -61,5 +62,22 @@ def test_cube_w80():
         fit_continuum=True, write_fits=True, overwrite=True, continuum_line_weight=0.0)
 
     my_cube.w80(1)
+
+    assert 1
+
+
+def test_cube_w80_smooth():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc3081_cube.fits')
+    lines_wl, p0, b, c = fit_setup()
+
+    # Creating a fake variance spectrum with signal-to-noise = 20.
+    my_cube = Cube(file_name)
+    my_cube.variance = (my_cube.data / 10) ** 2
+
+    my_cube.linefit(
+        p0, fitting_window=(6500.0, 6700.0), feature_wl=lines_wl, function='gaussian', constraints=c, bounds=b,
+        fit_continuum=True, write_fits=True, overwrite=True, continuum_line_weight=0.0)
+
+    my_cube.w80(1, smooth=3)
 
     assert 1

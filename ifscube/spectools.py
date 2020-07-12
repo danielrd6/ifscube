@@ -695,7 +695,8 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None,
             y = np.clip(y, a_min=0.0, a_max=None)
         if smooth is not None:
             kernel = Gaussian1DKernel(smooth)
-            y = convolve(y, kernel=kernel, boundary='extend')
+            y_mask = copy.deepcopy(y.mask)
+            y = ma.array(data=convolve(y, kernel=kernel, boundary='extend'), mask=y_mask)
 
         cumulative = cumtrapz(y[~y.mask], velocity[~y.mask], initial=0)[0]
         if len(cumulative.shape) > 1:
