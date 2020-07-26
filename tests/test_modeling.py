@@ -115,6 +115,22 @@ def test_kinematic_groups():
     assert 1
 
 
+def test_fixed_features():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
+    spec = onedspec.Spectrum(file_name)
+    fit = modeling.LineFit(spec, function='gaussian', fitting_window=(6400.0, 6800.0), fit_continuum=True)
+    names = ['n2_6548', 'ha', 'n2_6583', 's2_6716', 's2_6731']
+    r_wl = [6548.04, 6562.8, 6583.46, 6716.44, 6730.86]
+
+    for name, wl in zip(names, r_wl):
+        fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0e-14, velocity=0.0, sigma=100.0, fixed=True)
+
+    fit.fit(verbose=1)
+    fit.plot()
+
+    assert 1
+
+
 def test_monte_carlo():
     fit = setup_full_fit()
     fit.optimize_fit(width=5.0)

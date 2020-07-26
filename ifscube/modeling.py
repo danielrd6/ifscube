@@ -14,7 +14,7 @@ from .onedspec import Spectrum
 
 class LineFit:
     def __init__(self, spectrum: Spectrum, function: str = 'gaussian', fitting_window: tuple = None,
-                 fit_continuum: bool = False, continuum_options: dict = {}):
+                 fit_continuum: bool = False, continuum_options: dict = None):
         self.fitting_window = fitting_window
 
         self.data = spectrum.data
@@ -34,6 +34,8 @@ class LineFit:
             self.variance /= self.flux_scale_factor ** 2
 
         if fit_continuum:
+            if continuum_options is None:
+                continuum_options = {}
             self.pseudo_continuum = spectools.continuum(
                 self.wavelength, (self.data - self.stellar), output='function', **continuum_options)[1]
         else:
@@ -61,8 +63,9 @@ class LineFit:
         self.constraint_expressions = []
 
         self.kinematic_groups = {}
-        self.kinematic_group_transform = None
-        self.kinematic_group_inverse_transform = None
+        self.fixed_features = []
+        self._pack_parameters = None
+        self._unpack_parameters = None
 
         self.fit_status = 1
         self.fit_arguments = None
@@ -107,13 +110,16 @@ class LineFit:
                 a = self.data[self.mask].mean()
             elif amplitude == 'median':
                 a = np.median(self.data[self.mask])
+            else:
+                raise ValueError(f'Amplitude {amplitude} not understood.')
         except ValueError:
             a = np.nan
 
         return a
 
     def add_feature(self, name: str, rest_wavelength: float, amplitude: Union[float, str], velocity: float = None,
-                    sigma: float = None, h_3: float = None, h_4: float = None, kinematic_group: int = None):
+                    sigma: float = None, h_3: float = None, h_4: float = None, kinematic_group: int = None,
+                    fixed: bool = True):
 
         if (rest_wavelength < self.fitting_window[0]) or (rest_wavelength > self.fitting_window[1]):
             warnings.warn(f'Spectral feature {name} outside of fitting window. Skipping.')
@@ -129,6 +135,8 @@ class LineFit:
                         h_4 = self._get_feature_parameter(first_feature, 'h_4', 'initial_guess')
                 else:
                     self.kinematic_groups[kinematic_group] = [name]
+            elif fixed:
+                self.fixed_features.append(name)
             else:
                 assert self.kinematic_groups == {}, \
                     'If you plan on using k_group, please set it for every spectral feature. ' \
@@ -160,10 +168,7 @@ class LineFit:
         self.constraint_expressions.append([parameter, expression])
 
     def _evaluate_constraints(self):
-        if self.kinematic_groups != {}:
-            pn = [self.parameter_names[_] for _ in self.kinematic_group_transform]
-        else:
-            pn = self.parameter_names
+        pn = self._pack_parameters(np.array(self.parameter_names))
 
         pn = ['.'.join(_) for _ in pn]
         constraints = []
@@ -175,37 +180,54 @@ class LineFit:
         return constraints
 
     def res(self, x, s):
-        x = x[self.kinematic_group_inverse_transform]
+        x = self._unpack_parameters(x)
         m = self.function(self.wavelength[~self.mask], self.feature_wavelengths, x)
         a = np.square((s - m) * self.weights[~self.mask])
         b = a / self.variance[~self.mask]
         rms = np.sqrt(np.sum(b))
         return rms
 
-    def _pack_kinematic_group(self):
+    def _pack_groups(self):
         pn = self.parameter_names
         amplitudes = self._get_parameter_indices('amplitude')
 
-        k_range = np.arange(1, self.parameters_per_feature).astype(int)
-        kinematic_parameters = np.array([], dtype=int)
-        kg_keys = list(self.kinematic_groups.keys())
-        for g in kg_keys:
-            ff = self.kinematic_groups[g][0]  # first feature name
-            k_idx = pn.index((ff, 'amplitude')) + k_range
-            kinematic_parameters = np.concatenate([kinematic_parameters, k_idx])
-        transform = np.concatenate([amplitudes, kinematic_parameters])
+        if self.kinematic_groups != {}:
+            k_range = np.arange(1, self.parameters_per_feature).astype(int)
+            kinematic_parameters = np.array([], dtype=int)
+            kg_keys = list(self.kinematic_groups.keys())
+            for g in kg_keys:
+                ff = self.kinematic_groups[g][0]  # first feature name
+                k_idx = pn.index((ff, 'amplitude')) + k_range
+                kinematic_parameters = np.concatenate([kinematic_parameters, k_idx])
+            transform = np.concatenate([amplitudes, kinematic_parameters])
 
-        inverse_transform = np.array([])
-        n_features = len(amplitudes)
-        for i in range(len(self.feature_names)):
-            feature_name = pn[int(i * self.parameters_per_feature)][0]
-            for j, k in enumerate(kg_keys):
-                if feature_name in self.kinematic_groups[k]:
-                    k_idx = n_features + (j * (self.parameters_per_feature - 1)) + k_range - 1
-                    inverse_transform = np.concatenate([inverse_transform, [i], k_idx])
+            inverse_transform = np.array([])
+            n_features = len(amplitudes)
+            for i in range(len(self.feature_names)):
+                feature_name = pn[int(i * self.parameters_per_feature)][0]
+                for j, k in enumerate(kg_keys):
+                    if feature_name in self.kinematic_groups[k]:
+                        k_idx = n_features + (j * (self.parameters_per_feature - 1)) + k_range - 1
+                        inverse_transform = np.concatenate([inverse_transform, [i], k_idx])
 
-        self.kinematic_group_transform = transform.astype(int)
-        self.kinematic_group_inverse_transform = inverse_transform.astype(int)
+            group_transform = transform.astype(int)
+            group_inverse_transform = inverse_transform.astype(int)
+
+        if self.kinematic_groups != {}:
+            def pack_parameters(x):
+                return x[group_transform]
+
+            def unpack_parameters(x):
+                return x[group_inverse_transform]
+        else:
+            def pack_parameters(x):
+                return x
+
+            def unpack_parameters(x):
+                return x
+
+        self._pack_parameters = pack_parameters
+        self._unpack_parameters = unpack_parameters
 
     def _get_parameter_indices(self, regular_expression: str):
         return np.array([self.parameter_names.index(_) for _ in self.parameter_names if regular_expression in _])
@@ -231,16 +253,9 @@ class LineFit:
         assert valid_fraction >= minimum_good_fraction, 'Minimum fraction of valid pixels not reached: ' \
                                                         f'{valid_fraction} < {minimum_good_fraction}.'
 
-        if self.kinematic_groups == {}:
-            p_0 = self.initial_guess
-            bounds = self.bounds
-            self.kinematic_group_inverse_transform = Ellipsis
-        else:
-            if self.kinematic_group_transform is None:
-                self._pack_kinematic_group()
-            p_0 = self.initial_guess[self.kinematic_group_transform]
-            bounds = [self.bounds[_] for _ in self.kinematic_group_transform]
-
+        self._pack_groups()
+        p_0 = self._pack_parameters(self.initial_guess)
+        bounds = self._pack_parameters(np.array(self.bounds))
         constraints = self._evaluate_constraints()
 
         s = self.data[~self.mask] - self.pseudo_continuum[~self.mask] - self.stellar[~self.mask]
@@ -248,12 +263,12 @@ class LineFit:
             # noinspection PyTypeChecker
             solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds, constraints=constraints,
                                 options=minimize_options)
-            self.solution = solution.x[self.kinematic_group_inverse_transform]
+            self.solution = self._unpack_parameters(solution.x)
         elif min_method == 'differential_evolution':
             assert not any([_ is None for _ in np.ravel(bounds)]), \
                 'Cannot have unbound parameters when using differential_evolution.'
-            self.solution = differential_evolution(
-                self.res, bounds=bounds, args=(s,)).x[self.kinematic_group_inverse_transform]
+            self.solution = self._unpack_parameters(
+                differential_evolution(self.res, bounds=bounds, args=(s,)).x)
         else:
             raise RuntimeError(f'Unknown minimization method {min_method}.')
 
