@@ -66,6 +66,7 @@ class LineFit:
         self.fixed_features = []
         self._pack_parameters = None
         self._unpack_parameters = None
+        self._packed_parameter_names = None
 
         self.fit_status = 1
         self.fit_arguments = None
@@ -119,12 +120,14 @@ class LineFit:
 
     def add_feature(self, name: str, rest_wavelength: float, amplitude: Union[float, str], velocity: float = None,
                     sigma: float = None, h_3: float = None, h_4: float = None, kinematic_group: int = None,
-                    fixed: bool = True):
+                    fixed: bool = False):
 
         if (rest_wavelength < self.fitting_window[0]) or (rest_wavelength > self.fitting_window[1]):
             warnings.warn(f'Spectral feature {name} outside of fitting window. Skipping.')
         else:
-            if kinematic_group is not None:
+            if fixed:
+                self.fixed_features.append(name)
+            elif kinematic_group is not None:
                 if kinematic_group in self.kinematic_groups.keys():
                     self.kinematic_groups[kinematic_group].append(name)
                     first_feature = self.kinematic_groups[kinematic_group][0]
@@ -135,8 +138,6 @@ class LineFit:
                         h_4 = self._get_feature_parameter(first_feature, 'h_4', 'initial_guess')
                 else:
                     self.kinematic_groups[kinematic_group] = [name]
-            elif fixed:
-                self.fixed_features.append(name)
             else:
                 assert self.kinematic_groups == {}, \
                     'If you plan on using k_group, please set it for every spectral feature. ' \
@@ -168,7 +169,7 @@ class LineFit:
         self.constraint_expressions.append([parameter, expression])
 
     def _evaluate_constraints(self):
-        pn = self._pack_parameters(np.array(self.parameter_names))
+        pn = self._packed_parameter_names
 
         pn = ['.'.join(_) for _ in pn]
         constraints = []
@@ -188,49 +189,78 @@ class LineFit:
         return rms
 
     def _pack_groups(self):
-        pn = self.parameter_names
-        amplitudes = self._get_parameter_indices('amplitude')
+        packed = []
+        first_in_group = [self.kinematic_groups[_][0] for _ in self.kinematic_groups.keys()]
+        inverse = []
+        fixed_factor = []
 
-        if self.kinematic_groups != {}:
-            k_range = np.arange(1, self.parameters_per_feature).astype(int)
-            kinematic_parameters = np.array([], dtype=int)
-            kg_keys = list(self.kinematic_groups.keys())
-            for g in kg_keys:
-                ff = self.kinematic_groups[g][0]  # first feature name
-                k_idx = pn.index((ff, 'amplitude')) + k_range
-                kinematic_parameters = np.concatenate([kinematic_parameters, k_idx])
-            transform = np.concatenate([amplitudes, kinematic_parameters])
+        for j, i in enumerate(self.parameter_names):
+            name, parameter = i
+            if name not in self.fixed_features:
+                if parameter == 'amplitude':
+                    packed.append(i)
+                    inverse.append(packed.index(i))
+                else:
+                    if self.kinematic_groups != {}:
+                        if name in first_in_group:
+                            packed.append(i)
+                            inverse.append(packed.index(i))
+                        else:
+                            for key in self.kinematic_groups.keys():
+                                group = self.kinematic_groups[key]
+                                if name in group:
+                                    inverse.append(packed.index((group[0], parameter)))
+                    else:
+                        packed.append(i)
+                        inverse.append(packed.index(i))
+            else:
+                if name == self.fixed_features[0]:
+                    if parameter == 'amplitude':
+                        packed.append(i)
+                        first_fixed_index = packed.index(i)
+                        inverse.append(first_fixed_index)
+                        fixed_factor.append(1.0)
+                    else:
+                        inverse.append(None)
+                else:
+                    if parameter == 'amplitude':
+                        fixed_factor.append(
+                            self.initial_guess[j]
+                            / self._get_feature_parameter(self.fixed_features[0], 'amplitude', 'initial_guess'))
+                    inverse.append(None)
 
-            inverse_transform = np.array([])
-            n_features = len(amplitudes)
-            for i in range(len(self.feature_names)):
-                feature_name = pn[int(i * self.parameters_per_feature)][0]
-                for j, k in enumerate(kg_keys):
-                    if feature_name in self.kinematic_groups[k]:
-                        k_idx = n_features + (j * (self.parameters_per_feature - 1)) + k_range - 1
-                        inverse_transform = np.concatenate([inverse_transform, [i], k_idx])
+        unfixed_inverse_transform = [i for i, j in enumerate(inverse) if j is not None]
+        inverse_transform = np.array([_ for _ in inverse if _ is not None])
 
-            group_transform = transform.astype(int)
-            group_inverse_transform = inverse_transform.astype(int)
+        fixed_factor = np.array(fixed_factor)
+        transform = np.array([self.parameter_names.index(_) for _ in packed])
+        fixed_amplitude_indices = np.array([self._get_parameter_indices('amplitude', _) for _ in self.fixed_features])
 
-        if self.kinematic_groups != {}:
+        if self.fixed_features:
             def pack_parameters(x):
-                return x[group_transform]
+                return x[transform]
 
             def unpack_parameters(x):
-                return x[group_inverse_transform]
+                new_x = np.copy(self.initial_guess)
+                new_x[unfixed_inverse_transform] = x[inverse_transform]
+                new_x[fixed_amplitude_indices] = [new_x[first_fixed_index] * _ for _ in fixed_factor]
+                return new_x
         else:
             def pack_parameters(x):
-                return x
+                return x[transform]
 
             def unpack_parameters(x):
-                return x
+                return x[inverse_transform]
 
         self._pack_parameters = pack_parameters
         self._unpack_parameters = unpack_parameters
+        self._packed_parameter_names = packed
 
-    def _get_parameter_indices(self, regular_expression: str):
-        return np.array([self.parameter_names.index(_) for _ in self.parameter_names if regular_expression in _])
+    def _get_parameter_indices(self, parameter: str, feature: str = None):
+        if feature is None:
+            return np.array([self.parameter_names.index(_) for _ in self.parameter_names if parameter in _])
+        else:
+            return self.parameter_names.index((feature, parameter))
 
     def optimize_fit(self, width: float = 5.0):
         sigma = self.initial_guess[self._get_parameter_indices('sigma')]
@@ -312,10 +342,26 @@ class LineFit:
             self.print_parameters('solution')
 
     def _get_feature_parameter(self, feature: str, parameter: str, attribute: str):
+        """
+        Access parameters by name and attribute.
+
+        Parameters
+        ----------
+        feature : str
+            Feature name
+        parameter : str
+            Parameter name (e.g. amplitude, velocity).
+        attribute : str
+            Attribute (e.g. solution, initial_guess).
+
+        Returns
+        -------
+
+        """
         x = getattr(self, attribute)
         if parameter == 'all':
             i = self.parameter_names.index((feature, 'amplitude'))
-            return self.solution[i:i + self.parameters_per_feature]
+            return x[i:i + self.parameters_per_feature]
         else:
             return x[self.parameter_names.index((feature, parameter))]
 
