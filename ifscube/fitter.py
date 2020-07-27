@@ -49,9 +49,13 @@ def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
         print('Not fitting! Returning initial guess.')
         fit.print_parameters('solution')
     else:
+        if line_fit_args['monte_carlo']:
+            print('\n' + (40 * '-') + '\n' + 'Initial fit.\n')
         fit.fit(min_method=line_fit_args['method'], minimize_options=line_fit_args['minopts'], verbose=True)
 
     if line_fit_args['monte_carlo']:
+        if line_fit_args['monte_carlo']:
+            print('\n' + (40 * '-') + '\n' + f'Monte carlo run with {line_fit_args["monte_carlo"]} iterations.\n')
         fit.monte_carlo(line_fit_args['monte_carlo'], verbose=True)
     return fit
 
@@ -150,8 +154,9 @@ def main(fit_type):
     ap = argparse.ArgumentParser()
     ap.add_argument('-o', '--overwrite', action='store_true', help='Overwrites previous fit with the same name.')
     ap.add_argument('-p', '--plot', action='store_true', help='Plots the resulting fit.')
-    ap.add_argument('-l', '--lock', action='store_true', default=False, help='Creates a lock file to prevent multiple '
-                                                                             'instances fromattempting to fit the same file at the same time.')
+    ap.add_argument('-l', '--lock', action='store_true', default=False,
+                    help='Creates a lock file to prevent multiple instances from attempting to fit the same file at '
+                         'the same time.')
     ap.add_argument('-b', '--cubetype', type=str, default=None, help='"gmos" or "manga".')
     ap.add_argument('-t', '--mklthreads', type=int, default=1, help='Number of threads for numpy routines.')
     ap.add_argument('-c', '--config', type=str, help='Config file.')
