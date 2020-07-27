@@ -14,7 +14,7 @@ from .onedspec import Spectrum
 
 class LineFit:
     def __init__(self, spectrum: Spectrum, function: str = 'gaussian', fitting_window: tuple = None,
-                 fit_continuum: bool = False, continuum_options: dict = None):
+                 fit_continuum: bool = False, continuum_options: dict = None, instrument_dispersion: float = 1.0):
         self.fitting_window = fitting_window
 
         self.data = spectrum.data
@@ -22,6 +22,7 @@ class LineFit:
         self.wavelength = spectrum.rest_wavelength
         self.variance = spectrum.variance
         self.flags = spectrum.flags
+        self.instrument_dispersion = instrument_dispersion
 
         self.mask = np.zeros_like(self.data, dtype=bool)
         if fitting_window is not None:
@@ -68,8 +69,9 @@ class LineFit:
         self._unpack_parameters = None
         self._packed_parameter_names = None
 
-        self.fit_status = 1
+        self.status = 1
         self.fit_arguments = None
+        self.reduced_chi_squared = None
 
         self.flux_model = np.array([])
         self.flux_direct = np.array([])
@@ -173,7 +175,8 @@ class LineFit:
         constraints = []
         for parameter, expression in self.constraint_expressions:
             warn_msg = f'Constraint on parameter "{parameter}" is being ignored because this feature is set to fixed.'
-            if parameter.split('.')[0] in self.fixed_features: warnings.warn(warn_msg)
+            if parameter.split('.')[0] in self.fixed_features:
+                warnings.warn(warn_msg)
             else:
                 cp = parser.ConstraintParser(expr=expression, parameter_names=pn)
                 cp.evaluate(parameter)
@@ -186,8 +189,8 @@ class LineFit:
         m = self.function(self.wavelength[~self.mask], self.feature_wavelengths, x)
         a = np.square((s - m) * self.weights[~self.mask])
         b = a / self.variance[~self.mask]
-        rms = np.sqrt(np.sum(b))
-        return rms
+        chi2 = np.sum(b)
+        return chi2
 
     def _pack_groups(self):
         packed = []
@@ -297,19 +300,31 @@ class LineFit:
             # noinspection PyTypeChecker
             solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds, constraints=constraints,
                                 options=minimize_options)
-            self.solution = self._unpack_parameters(solution.x)
+            self.status = solution.status
         elif min_method == 'differential_evolution':
             assert not any([_ is None for _ in np.ravel(bounds)]), \
                 'Cannot have unbound parameters when using differential_evolution.'
-            self.solution = self._unpack_parameters(
-                differential_evolution(self.res, bounds=bounds, args=(s,)).x)
+            solution = differential_evolution(self.res, bounds=bounds, args=(s,))
         else:
             raise RuntimeError(f'Unknown minimization method {min_method}.')
+        self.solution = self._unpack_parameters(solution.x)
+
+        self.reduced_chi_squared = self.res(solution.x, s) / self._degrees_of_freedom()
 
         if verbose:
             self.print_parameters('solution')
 
+    def _degrees_of_freedom(self):
+        dof = (np.sum(~self.mask) / self.instrument_dispersion) \
+            - len(self._packed_parameter_names) - len(self.constraints) - 1
+        return dof
+
     def print_parameters(self, attribute: str):
+        print(f'\nReduced Chi^2: {self.reduced_chi_squared}')
+        print(f'Initially free parameters: {len(self._packed_parameter_names)}')
+        print(f'Number of constraints: {len(self.constraints)}')
+        print(f'Valid data points: {np.sum(~self.mask)}')
+        print(f'Degrees of freedom: {self._degrees_of_freedom()}\n\n')
         p = getattr(self, attribute)
         u = getattr(self, 'uncertainties')
         for i, j in enumerate(self.parameter_names):
@@ -424,7 +439,17 @@ class LineFit:
         model = self.function(wavelength, self.feature_wavelengths, self.solution) * sf
 
         fig = plt.figure()
-        ax = fig.add_subplot(111)
+
+        if plot_all:
+            ax, ax_res = fig.subplots(nrows=2, ncols=1, sharex='all',
+                                      gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.0})
+            ax_res.plot(wavelength, observed - model - stellar - pseudo_continuum)
+            ax_res.set_xlabel('Wavelength')
+            ax_res.set_ylabel('Residuals')
+            ax_res.grid()
+        else:
+            ax = fig.add_subplot(111)
+            ax.set_xlabel('Wavelength')
 
         if self.uncertainties is not None:
             low = self.function(wavelength, self.feature_wavelengths, self.solution - self.uncertainties) * sf
@@ -437,19 +462,18 @@ class LineFit:
         ax.plot(wavelength, model + stellar + pseudo_continuum, color='C2')
 
         if plot_all:
-            ax.plot(wavelength, pseudo_continuum)
+            if np.any(pseudo_continuum):
+                ax.plot(wavelength, pseudo_continuum + stellar)
             if np.any(stellar):
                 ax.plot(wavelength, stellar)
-            ax.plot(wavelength, observed - model - stellar - pseudo_continuum)
 
             ppf = self.parameters_per_feature
             for i in range(0, len(self.parameter_names), ppf):
                 feature_wl = self.feature_wavelengths[int(i / ppf)]
                 parameters = self.solution[i:i + ppf]
-                line = self.function(wavelength, feature_wl, parameters) * self.flux_scale_factor
+                line = self.function(wavelength, feature_wl, parameters) * sf
                 ax.plot(wavelength, pseudo_continuum + stellar + line, 'k--')
 
-        ax.set_xlabel('Wavelength')
         ax.set_ylabel('Spectral flux density')
         ax.minorticks_on()
 
