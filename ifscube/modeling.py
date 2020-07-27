@@ -209,6 +209,9 @@ class LineFit:
                         else:
                             for key in self.kinematic_groups.keys():
                                 group = self.kinematic_groups[key]
+                                assert group[0] not in self.fixed_features,\
+                                    'The first feature in a kinematic group should not be set to fixed. '\
+                                    f'Check your definition of the "{group[0]}" feature.'
                                 if name in group:
                                     inverse.append(packed.index((group[0], parameter)))
                     else:
