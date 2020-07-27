@@ -122,10 +122,11 @@ def test_fixed_features():
     names = ['n2_6548', 'ha', 'n2_6583', 's2_6716', 's2_6731']
     r_wl = [6548.04, 6562.8, 6583.46, 6716.44, 6730.86]
 
-    for name, wl in zip(names, r_wl):
-        fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0e-14, velocity=0.0, sigma=100.0, fixed=True)
+    for name, wl, k in zip(names, r_wl, [0, 1, 0, 2, 2]):
+        fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
+                        fixed='n2' in name, kinematic_group=k)
 
-    fit.fit(verbose=1)
+    fit.fit(verbose=True)
     fit.plot()
 
     assert 1
