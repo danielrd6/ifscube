@@ -4,7 +4,7 @@ from typing import Union
 
 import matplotlib.pyplot as plt
 import numpy as np
-from astropy import constants
+from astropy import constants, units
 from scipy import integrate
 from scipy.optimize import minimize, differential_evolution
 
@@ -75,6 +75,9 @@ class LineFit:
 
         self.flux_model = np.array([])
         self.flux_direct = np.array([])
+
+        self.eqw_model = None
+        self.eqw_direct = None
 
     @property
     def weights(self):
@@ -181,8 +184,7 @@ class LineFit:
                 cp = parser.ConstraintParser(expr=expression, parameter_names=pn)
                 cp.evaluate(parameter)
                 constraints.append(cp.constraint)
-
-        return constraints
+        self.constraints = constraints
 
     def res(self, x, s):
         x = self._unpack_parameters(x)
@@ -212,8 +214,8 @@ class LineFit:
                         else:
                             for key in self.kinematic_groups.keys():
                                 group = self.kinematic_groups[key]
-                                assert group[0] not in self.fixed_features,\
-                                    'The first feature in a kinematic group should not be set to fixed. '\
+                                assert group[0] not in self.fixed_features, \
+                                    'The first feature in a kinematic group should not be set to fixed. ' \
                                     f'Check your definition of the "{group[0]}" feature.'
                                 if name in group:
                                     inverse.append(packed.index((group[0], parameter)))
@@ -293,22 +295,24 @@ class LineFit:
         self._pack_groups()
         p_0 = self._pack_parameters(self.initial_guess)
         bounds = self._pack_parameters(np.array(self.bounds))
-        constraints = self._evaluate_constraints()
+        self._evaluate_constraints()
 
         s = self.data[~self.mask] - self.pseudo_continuum[~self.mask] - self.stellar[~self.mask]
         if min_method == 'slsqp':
             # noinspection PyTypeChecker
-            solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds, constraints=constraints,
-                                options=minimize_options)
+            solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds,
+                                constraints=self.constraints, options=minimize_options)
             self.status = solution.status
         elif min_method == 'differential_evolution':
             assert not any([_ is None for _ in np.ravel(bounds)]), \
                 'Cannot have unbound parameters when using differential_evolution.'
+            if self.constraints:
+                warnings.warn('Constraints are not yet implemented for the "differential_evolution" method.',
+                              category=RuntimeWarning)
             solution = differential_evolution(self.res, bounds=bounds, args=(s,))
         else:
             raise RuntimeError(f'Unknown minimization method {min_method}.')
         self.solution = self._unpack_parameters(solution.x)
-
         self.reduced_chi_squared = self.res(solution.x, s) / self._degrees_of_freedom()
 
         if verbose:
@@ -316,7 +320,7 @@ class LineFit:
 
     def _degrees_of_freedom(self):
         dof = (np.sum(~self.mask) / self.instrument_dispersion) \
-            - len(self._packed_parameter_names) - len(self.constraints) - 1
+              - len(self._packed_parameter_names) - len(self.constraints) - 1
         return dof
 
     def print_parameters(self, attribute: str):
@@ -430,7 +434,97 @@ class LineFit:
             self.flux_model = flux_model * self.flux_scale_factor
             self.flux_direct = flux_direct * self.flux_scale_factor
 
-    def plot(self, plot_all: bool = False):
+    def _get_center_wavelength(self, feature):
+        velocity = self._get_feature_parameter(feature, 'velocity', 'solution')
+        f_wl = self.feature_wavelengths[self.feature_names.index(feature)]
+        lam = (velocity * units.km / units.s).to(
+            units.angstrom, equivalencies=units.doppler_relativistic(f_wl * units.angstrom))
+        return lam.value
+
+    def _cut_fit_spectrum(self, feature, sigma_factor):
+        sigma = self._get_feature_parameter(feature, 'sigma', 'solution')
+        index = self._get_parameter_indices('amplitude', feature)
+        feature_solution = self._get_feature_parameter(feature, 'all', 'solution')
+        sig = spectools.sigma_lambda(sigma, index)
+        low_wl, up_wl = [self._get_center_wavelength(feature) + (_ * sigma_factor * sig) for _ in [-1.0, 1.0]]
+        cond = (self.wavelength > low_wl) & (self.wavelength < up_wl)
+        fit = self.function(self.wavelength[cond], np.array([self.feature_wavelengths[index]]), feature_solution)
+
+        return cond, fit, self.stellar, self.pseudo_continuum, self.data
+
+    def equivalent_width(self, sigma_factor=5.0, continuum_windows=None):
+        """
+        Evaluates the equivalent width of a previous fit.
+
+        Parameters
+        ----------
+        sigma_factor: float
+            Radius of integration as a number of line sigmas.
+        continuum_windows: numpy.ndarray
+          Continuum fitting windows in the form
+          [blue0, blue1, red0, red1].
+
+        Returns
+        -------
+        eqw : numpy.ndarray
+          Equivalent widths measured on the emission line model and
+          directly on the observed spectrum, respectively.
+        """
+
+        eqw_model = np.zeros((len(self.feature_names),))
+        eqw_direct = np.zeros_like(eqw_model)
+
+        for component in self.feature_names:
+
+            component_index = self.feature_names.index(component)
+            nan_data = ~np.isfinite(self._get_feature_parameter(component, 'amplitude', 'solution'))
+            null_center_wavelength = ~np.isfinite(self._get_feature_parameter(component, 'velocity', 'solution'))
+
+            if nan_data or null_center_wavelength:
+                eqw_model[component_index] = np.nan
+                eqw_direct[component_index] = np.nan
+            else:
+                cond, fit, syn, fit_continuum, data = self._cut_fit_spectrum(component, sigma_factor)
+
+                # If the continuum fitting windows are set, use that
+                # to define the weights vector.
+                if continuum_windows is not None:
+                    if component in continuum_windows:
+                        cwin = continuum_windows[component]
+                    else:
+                        cwin = None
+                else:
+                    cwin = None
+
+                if cwin is not None:
+                    assert len(cwin) == 4, 'Windows must be an iterable of the form (blue0, blue1, red0, red1)'
+                    weights = np.zeros_like(self.wavelength)
+                    cwin_cond = (
+                            ((self.wavelength > cwin[0]) & (self.wavelength < cwin[1]))
+                            | ((self.wavelength > cwin[2]) & (self.wavelength < cwin[3])))
+                    weights[cwin_cond] = 1
+                    nite = 1
+                else:
+                    weights = np.ones_like(self.wavelength)
+                    nite = 3
+
+                cont = spectools.continuum(
+                    self.wavelength, syn + fit_continuum, weights=weights, degree=1, n_iterate=nite, lower_threshold=3,
+                    upper_threshold=3, output='function')[1][cond]
+
+                # Remember that 1 - (g + c)/c = -g/c, where g is the
+                # line profile and c is the local continuum level.
+                #
+                # That is why we can shorten the equivalent width
+                # definition in the eqw_model integration below.
+                ci = component_index
+                eqw_model[ci] = integrate.trapz(- fit / cont, x=self.wavelength[cond])
+                eqw_direct[ci] = integrate.trapz(1. - data[cond] / cont, x=self.wavelength[cond])
+
+            self.eqw_model = eqw_model
+            self.eqw_direct = eqw_direct
+
+    def plot(self, plot_all: bool = True):
         sf = self.flux_scale_factor
         wavelength = self.wavelength[~self.mask]
         observed = (self.data * self.flux_scale_factor)[~self.mask]
