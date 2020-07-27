@@ -482,6 +482,8 @@ class LineFitParser:
                 d.update({'kinematic_group': line_pars.getint(par)})
             elif par == 'rest_wavelength':
                 d.update({par: line_pars.getfloat(par)})
+            elif par == 'fixed':
+                d.update({par: line_pars.getboolean(par)})
             else:
                 props = line_pars[par].split(',')
                 if props[0] not in ['peak', 'mean', 'median']:

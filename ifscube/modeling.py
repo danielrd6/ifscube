@@ -127,7 +127,7 @@ class LineFit:
         else:
             if fixed:
                 self.fixed_features.append(name)
-            elif kinematic_group is not None:
+            if kinematic_group is not None:
                 if kinematic_group in self.kinematic_groups.keys():
                     self.kinematic_groups[kinematic_group].append(name)
                     first_feature = self.kinematic_groups[kinematic_group][0]
@@ -169,14 +169,15 @@ class LineFit:
         self.constraint_expressions.append([parameter, expression])
 
     def _evaluate_constraints(self):
-        pn = self._packed_parameter_names
-
-        pn = ['.'.join(_) for _ in pn]
+        pn = ['.'.join(_) for _ in self._packed_parameter_names]
         constraints = []
         for parameter, expression in self.constraint_expressions:
-            cp = parser.ConstraintParser(expr=expression, parameter_names=pn)
-            cp.evaluate(parameter)
-            constraints.append(cp.constraint)
+            warn_msg = f'Constraint on parameter "{parameter}" is being ignored because this feature is set to fixed.'
+            if parameter.split('.')[0] in self.fixed_features: warnings.warn(warn_msg)
+            else:
+                cp = parser.ConstraintParser(expr=expression, parameter_names=pn)
+                cp.evaluate(parameter)
+                constraints.append(cp.constraint)
 
         return constraints
 
