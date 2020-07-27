@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import argparse
-import ctypes
 import os
 
 from . import Cube
@@ -158,17 +157,10 @@ def main(fit_type):
                     help='Creates a lock file to prevent multiple instances from attempting to fit the same file at '
                          'the same time.')
     ap.add_argument('-b', '--cubetype', type=str, default=None, help='"gmos" or "manga".')
-    ap.add_argument('-t', '--mklthreads', type=int, default=1, help='Number of threads for numpy routines.')
     ap.add_argument('-c', '--config', type=str, help='Config file.')
     ap.add_argument('datafile', help='FITS data file to be fit.', nargs='*')
 
     args = ap.parse_args()
-
-    try:
-        mkl_rt = ctypes.CDLL('libmkl_rt.so')
-        mkl_rt.mkl_set_num_threads(ctypes.byref(ctypes.c_int(args.mklthreads)))
-    except OSError:
-        print('WARNING!: Not setting the number of threads.')
 
     for i in args.datafile:
         c = parser.LineFitParser(args.config)
