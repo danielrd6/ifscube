@@ -10,6 +10,7 @@ from . import modeling
 from . import onedspec
 from . import parser
 from . import spectools
+import ifscube.io.line_fit
 
 
 def make_lock(fname):
@@ -26,7 +27,7 @@ def clear_lock(lockname):
 
 
 def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
-    general_fit_args = {_: line_fit_args[_]for _ in ['function', 'fit_continuum', 'fitting_window']
+    general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fit_continuum', 'fitting_window']
                         if _ in line_fit_args.keys()}
     general_fit_args['continuum_options'] = line_fit_args['copts']
     fit = modeling.LineFit(data, **general_fit_args)
@@ -56,6 +57,11 @@ def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
         if line_fit_args['monte_carlo']:
             print('\n' + (40 * '-') + '\n' + f'Monte carlo run with {line_fit_args["monte_carlo"]} iterations.\n')
         fit.monte_carlo(line_fit_args['monte_carlo'], verbose=True)
+
+    if line_fit_args['write_fits']:
+        args = {_: line_fit_args[_] for _ in ['out_image', 'suffix', 'function', 'overwrite']}
+        ifscube.io.line_fit.write_spectrum_fit(data, fit, args)
+
     return fit
 
 
