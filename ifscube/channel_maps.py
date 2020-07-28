@@ -11,7 +11,7 @@ from . import cubetools
 def channelmaps(cube, lambda0, vel_min, vel_max, channels=6, continuum_width=300, continuum_options=None,
                 log_flux=False, angular_scale=None, scale_bar=None, north_arrow=None, lower_threshold=1e-16,
                 plot_opts={}, fig_opts={}, width_space=None, height_space=None, text_color='black',
-                stroke_color='white', color_bar=True, center_mark=True, screen=True):
+                stroke_color='white', color_bar=True, center_mark=True, screen=True, xy_coords=None):
     """
     Creates velocity channel maps from a data cube.
 
@@ -72,6 +72,10 @@ def channelmaps(cube, lambda0, vel_min, vel_max, channels=6, continuum_width=300
         similar color.
     screen: bool
         If screen is True the channel maps are shown on screen.
+    xy_coords : tuple
+        Tuple with (x, y) coordinates for the plots. If *None*
+        coordinates will be automatically calculated based on the
+        central pixel of the image.
 
     Returns
     -------
@@ -147,8 +151,12 @@ def channelmaps(cube, lambda0, vel_min, vel_max, channels=6, continuum_width=300
         if i == 0:
             coords = cube.peak_coords(
                 wl_center=lambda0, wl_width=cw, center_type='peak_cen')
-        y, x = pScale * (np.indices(np.array(f.shape) + 1) - 0.5)
-        y, x = y - coords[0] * pScale, x - coords[1] * pScale
+
+        if xy_coords is None:
+            y, x = pScale * (np.indices(np.array(f.shape) + 1) - 0.5)
+            y, x = y - coords[0] * pScale, x - coords[1] * pScale
+        else:
+            x, y = xy_coords
         if center_mark:
             mpl.pyplot.plot(0, 0, 'w+', lw=3)
             mpl.pyplot.plot(0, 0, 'k+', lw=2)
