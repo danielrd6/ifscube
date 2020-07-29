@@ -219,10 +219,13 @@ class LineFitParser:
         if args or kwargs:
             self._load(*args, **kwargs)
 
-    def _load(self, fname):
+    def _load(self, config_file):
 
-        self.cfg = configparser.ConfigParser()
-        self.cfg.read(fname)
+        if isinstance(config_file, str):
+            self.cfg = configparser.ConfigParser()
+            self.cfg.read(config_file)
+        else:
+            self.cfg = config_file
 
         par_names = {
             'gaussian': ('rest_wavelength', 'amplitude', 'velocity', 'sigma', 'k_group'),
