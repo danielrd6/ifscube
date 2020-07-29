@@ -177,7 +177,7 @@ class Cube:
         else:
             self.redshift = 0
 
-        self.rest_wavelength = onedspec.Spectrum.dopcor(self.redshift, self.wl)
+        self.data, self.rest_wavelength = onedspec.Spectrum.doppler_correction(self.redshift, self.data, self.wl)
 
         try:
             if self.header['VORBIN']:
