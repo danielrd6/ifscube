@@ -4,7 +4,7 @@ import pytest
 from ifscube import onedspec, modeling
 
 
-def setup_fit(function: str = 'gaussian'):
+def simple_fit(function: str = 'gaussian'):
     file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
     spec = onedspec.Spectrum(file_name)
     fit = modeling.LineFit(spec, function=function, fitting_window=(6400.0, 6700.0), fit_continuum=True)
@@ -14,7 +14,7 @@ def setup_fit(function: str = 'gaussian'):
     return fit
 
 
-def setup_full_fit(function: str = 'gaussian'):
+def full_fit(function: str = 'gaussian'):
     file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
     spec = onedspec.Spectrum(file_name)
     fit = modeling.LineFit(spec, function=function, fitting_window=(6400.0, 6800.0), fit_continuum=True)
@@ -41,29 +41,27 @@ def setup_full_fit(function: str = 'gaussian'):
 
 
 def test_simple_fit():
-    fit = setup_fit()
+    fit = simple_fit()
     fit.fit(verbose=True)
     assert 1
 
 
 def test_flux():
-    fit = setup_fit()
+    fit = simple_fit()
     fit.fit()
     fit.integrate_flux(sigma_factor=5.0)
-    print(fit.flux_model)
-    print(fit.flux_direct)
     assert 1
 
 
 def test_optimize_fit():
-    fit = setup_fit()
+    fit = simple_fit()
     fit.optimize_fit(width=5.0)
     fit.fit()
     assert 1
 
 
 def test_good_fraction():
-    fit = setup_fit()
+    fit = simple_fit()
     fit.flags[0:len(fit.flags):2] = True
     with pytest.raises(AssertionError) as err:
         fit.fit()
@@ -82,7 +80,7 @@ def test_skip_feature():
 
 
 def test_bounds():
-    fit = setup_fit()
+    fit = simple_fit()
     fit.set_bounds('ha', 'velocity', [-50, 50])
     fit.set_bounds('ha', 'amplitude', [None, 0.4e-14])
     fit.fit()
@@ -90,7 +88,7 @@ def test_bounds():
 
 
 def test_constraints():
-    fit = setup_fit()
+    fit = simple_fit()
     fit.add_minimize_constraint('n2_6548.sigma', 'n2_6583.sigma')
     fit.add_minimize_constraint('n2_6548.velocity', 'n2_6583.velocity')
     fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
@@ -100,7 +98,7 @@ def test_constraints():
 
 
 def test_gauss_hermite():
-    fit = setup_fit(function='gauss_hermite')
+    fit = simple_fit(function='gauss_hermite')
     fit.add_minimize_constraint(parameter='n2_6548.h_3', expression='n2_6583.h_3')
     fit.add_minimize_constraint(parameter='n2_6548.h_4', expression='n2_6583.h_4')
     fit.fit()
@@ -108,7 +106,7 @@ def test_gauss_hermite():
 
 
 def test_kinematic_groups():
-    fit = setup_full_fit()
+    fit = full_fit()
     fit.optimize_fit(width=5.0)
     fit.fit()
 
@@ -126,16 +124,13 @@ def test_fixed_features():
         fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
                         fixed='n2' in name, kinematic_group=k)
 
-    fit.fit(verbose=True)
-    fit.plot()
-
     assert 1
 
 
 def test_monte_carlo():
-    fit = setup_full_fit()
+    fit = full_fit()
     fit.optimize_fit(width=5.0)
     fit.fit()
-    fit.monte_carlo(10)
+    fit.monte_carlo(3)
 
     assert 1
