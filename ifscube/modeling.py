@@ -159,7 +159,6 @@ class LineFit:
         self.constraint_expressions.append([parameter, expression])
 
     def _evaluate_constraints(self):
-        # TODO: add support for the flux scale factor
         pn = ['.'.join(_) for _ in self._packed_parameter_names]
         constraints = []
         for parameter, expression in self.constraint_expressions:
@@ -169,7 +168,10 @@ class LineFit:
                     category=RuntimeWarning)
             else:
                 cp = parser.ConstraintParser(expr=expression, parameter_names=pn)
-                cp.evaluate(parameter)
+                if 'amplitude' in parameter:
+                    cp.evaluate(parameter, self.flux_scale_factor)
+                else:
+                    cp.evaluate(parameter)
                 constraints.append(cp.constraint)
         self.constraints = constraints
 

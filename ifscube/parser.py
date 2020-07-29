@@ -108,7 +108,7 @@ class ConstraintParser:
 
         self.type = t
 
-    def evaluate(self, parameter):
+    def evaluate(self, parameter, scale_factor: float = 1.0):
 
         idx = self._idx(parameter)
 
@@ -126,7 +126,7 @@ class ConstraintParser:
         if len(lis) == 1:
 
             if lis[0] in self.numbers:
-                a = float(lis[0])
+                a = float(lis[0]) / scale_factor
 
                 def func(x):
                     r = sign * (a - x[idx])
