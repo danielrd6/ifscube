@@ -124,17 +124,17 @@ class LineFit:
         if (rest_wavelength < self.fitting_window[0]) or (rest_wavelength > self.fitting_window[1]):
             warnings.warn(f'Spectral feature {name} outside of fitting window. Skipping.')
         else:
+            loc = locals()
+            parameter_names = ['amplitude', 'velocity', 'sigma', 'h_3', 'h_4'][:self.parameters_per_feature]
+            parameters = {_: loc[_] for _ in parameter_names}
             if fixed:
                 self.fixed_features.append(name)
             if kinematic_group is not None:
                 if kinematic_group in self.kinematic_groups.keys():
                     self.kinematic_groups[kinematic_group].append(name)
                     first_feature = self.kinematic_groups[kinematic_group][0]
-                    velocity = self._get_feature_parameter(first_feature, 'velocity', 'initial_guess')
-                    sigma = self._get_feature_parameter(first_feature, 'sigma', 'initial_guess')
-                    if self.parameters_per_feature == 5:
-                        h_3 = self._get_feature_parameter(first_feature, 'h_3', 'initial_guess')
-                        h_4 = self._get_feature_parameter(first_feature, 'h_4', 'initial_guess')
+                    for key in parameters.keys():
+                        parameters[key] = self._get_feature_parameter(first_feature, key, 'initial_guess')
                 else:
                     self.kinematic_groups[kinematic_group] = [name]
             else:
@@ -143,18 +143,13 @@ class LineFit:
                     'Groups can have a single spectral feature in them.'
 
             self.feature_names.append(name)
-            self.feature_wavelengths = np.concatenate([self.feature_wavelengths, [rest_wavelength]])
+            self.feature_wavelengths = np.append(self.feature_wavelengths, rest_wavelength)
 
-            if type(amplitude) == str:
-                amplitude = self.amplitude_parser(amplitude)
+            if type(parameters['amplitude']) == str:
+                parameters['amplitude'] = self.amplitude_parser(parameters['amplitude'])
 
-            if self.parameters_per_feature == 3:
-                self.initial_guess = np.concatenate([self.initial_guess, [amplitude, velocity, sigma]])
-            elif self.parameters_per_feature == 5:
-                self.initial_guess = np.concatenate([self.initial_guess, [amplitude, velocity, sigma, h_3, h_4]])
-
-            self.parameter_names += [
-                (name, _) for _ in ['amplitude', 'velocity', 'sigma', 'h_3', 'h_4'][:self.parameters_per_feature]]
+            self.initial_guess = np.append(self.initial_guess, [parameters[_] for _ in parameter_names])
+            self.parameter_names += [(name, _) for _ in parameter_names]
             self.bounds += [[None, None]] * self.parameters_per_feature
 
     def set_bounds(self, feature: str, parameter: str, bounds: list):
