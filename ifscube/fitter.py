@@ -27,7 +27,8 @@ def clear_lock(lockname):
 
 
 def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
-    general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fit_continuum', 'fitting_window']
+    general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fit_continuum', 'fitting_window',
+                                                      'instrument_dispersion']
                         if _ in line_fit_args.keys()}
     general_fit_args['continuum_options'] = line_fit_args['copts']
     fit = modeling.LineFit(data, **general_fit_args)
