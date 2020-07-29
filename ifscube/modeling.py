@@ -235,11 +235,6 @@ class LineFit:
         transform = np.array([self.parameter_names.index(_) for _ in packed])
         fixed_amplitude_indices = np.array([self._get_parameter_indices('amplitude', _) for _ in self.fixed_features])
 
-        debug = True
-        if debug:
-            for i, j in zip(free_parameter_loc, inverse_transform):
-                print(i, self.parameter_names[i], j, packed[j])
-
         if self.fixed_features:
             new_x = np.copy(self.initial_guess)
 
