@@ -1,4 +1,3 @@
-import copy
 import warnings
 from typing import Union
 
@@ -23,16 +22,11 @@ class LineFit:
         self.variance = spectrum.variance
         self.flags = spectrum.flags
         self.instrument_dispersion = instrument_dispersion
+        self.model_spectrum = None
 
-        self.mask = np.zeros_like(self.data, dtype=bool)
+        self.mask = np.copy(self.flags)
         if fitting_window is not None:
             self.mask[(self.wavelength < fitting_window[0]) | (self.wavelength > fitting_window[1])] = True
-
-        self.flux_scale_factor = np.nanmedian(self.data[~self.mask])
-        self.data /= self.flux_scale_factor
-        self.stellar /= self.flux_scale_factor
-        if not np.all(self.variance == 1.0):
-            self.variance /= self.flux_scale_factor ** 2
 
         if fit_continuum:
             if continuum_options is None:
@@ -155,31 +149,29 @@ class LineFit:
                 amplitude = self.amplitude_parser(amplitude)
 
             if self.parameters_per_feature == 3:
-                self.initial_guess = np.concatenate(
-                    [self.initial_guess, [amplitude / self.flux_scale_factor, velocity, sigma]])
+                self.initial_guess = np.concatenate([self.initial_guess, [amplitude, velocity, sigma]])
             elif self.parameters_per_feature == 5:
-                self.initial_guess = np.concatenate(
-                    [self.initial_guess, [amplitude / self.flux_scale_factor, velocity, sigma, h_3, h_4]])
+                self.initial_guess = np.concatenate([self.initial_guess, [amplitude, velocity, sigma, h_3, h_4]])
 
             self.parameter_names += [
                 (name, _) for _ in ['amplitude', 'velocity', 'sigma', 'h_3', 'h_4'][:self.parameters_per_feature]]
             self.bounds += [[None, None]] * self.parameters_per_feature
 
     def set_bounds(self, feature: str, parameter: str, bounds: list):
-        if parameter == 'amplitude':
-            bounds = [_ / self.flux_scale_factor if _ is not None else _ for _ in bounds]
         self.bounds[self.parameter_names.index((feature, parameter))] = bounds
 
     def add_minimize_constraint(self, parameter, expression):
         self.constraint_expressions.append([parameter, expression])
 
     def _evaluate_constraints(self):
+        # TODO: add support for the flux scale factor
         pn = ['.'.join(_) for _ in self._packed_parameter_names]
         constraints = []
         for parameter, expression in self.constraint_expressions:
-            warn_msg = f'Constraint on parameter "{parameter}" is being ignored because this feature is set to fixed.'
             if parameter.split('.')[0] in self.fixed_features:
-                warnings.warn(warn_msg)
+                warnings.warn(
+                    f'Constraint on parameter "{parameter}" is being ignored because this feature is set to fixed.',
+                    category=RuntimeWarning)
             else:
                 cp = parser.ConstraintParser(expr=expression, parameter_names=pn)
                 cp.evaluate(parameter)
@@ -196,33 +188,13 @@ class LineFit:
 
     def _pack_groups(self):
         packed = []
-        first_in_group = [self.kinematic_groups[_][0] for _ in self.kinematic_groups.keys()]
+        first_in_group = [_[0] for _ in self.kinematic_groups.values()]
         inverse = []
         fixed_factor = []
 
         for j, i in enumerate(self.parameter_names):
             name, parameter = i
-            if name not in self.fixed_features:
-                if parameter == 'amplitude':
-                    packed.append(i)
-                    inverse.append(packed.index(i))
-                else:
-                    if self.kinematic_groups != {}:
-                        if name in first_in_group:
-                            packed.append(i)
-                            inverse.append(packed.index(i))
-                        else:
-                            for key in self.kinematic_groups.keys():
-                                group = self.kinematic_groups[key]
-                                assert group[0] not in self.fixed_features, \
-                                    'The first feature in a kinematic group should not be set to fixed. ' \
-                                    f'Check your definition of the "{group[0]}" feature.'
-                                if name in group:
-                                    inverse.append(packed.index((group[0], parameter)))
-                    else:
-                        packed.append(i)
-                        inverse.append(packed.index(i))
-            else:
+            if name in self.fixed_features:
                 if name == self.fixed_features[0]:
                     if parameter == 'amplitude':
                         packed.append(i)
@@ -234,25 +206,49 @@ class LineFit:
                 else:
                     if parameter == 'amplitude':
                         fixed_factor.append(
-                            self.initial_guess[j]
-                            / self._get_feature_parameter(self.fixed_features[0], 'amplitude', 'initial_guess'))
+                            self.initial_guess[j] / self._get_feature_parameter(
+                                self.fixed_features[0], 'amplitude', 'initial_guess'))
                     inverse.append(None)
+            else:
+                if parameter == 'amplitude':
+                    packed.append(i)
+                    inverse.append(packed.index(i))
+                else:
+                    if self.kinematic_groups != {}:
+                        if name in first_in_group:
+                            packed.append(i)
+                            inverse.append(packed.index(i))
+                        else:
+                            group = [_ for _ in self.kinematic_groups.values() if name in _][0]
+                            assert group[0] not in self.fixed_features, \
+                                'The first feature in a kinematic group should not be set to fixed. ' \
+                                f'Check your definition of the "{group[0]}" feature.'
+                            inverse.append(packed.index((group[0], parameter)))
+                    else:
+                        packed.append(i)
+                        inverse.append(packed.index(i))
 
-        unfixed_inverse_transform = [i for i, j in enumerate(inverse) if j is not None]
-        inverse_transform = np.array([_ for _ in inverse if _ is not None])
+        free_parameter_loc = [i for i, j in enumerate(inverse) if j is not None]
+        inverse_transform = [_ for _ in inverse if _ is not None]
 
         fixed_factor = np.array(fixed_factor)
         transform = np.array([self.parameter_names.index(_) for _ in packed])
         fixed_amplitude_indices = np.array([self._get_parameter_indices('amplitude', _) for _ in self.fixed_features])
 
+        debug = True
+        if debug:
+            for i, j in zip(free_parameter_loc, inverse_transform):
+                print(i, self.parameter_names[i], j, packed[j])
+
         if self.fixed_features:
+            new_x = np.copy(self.initial_guess)
+
             def pack_parameters(x):
                 return x[transform]
 
             def unpack_parameters(x):
-                new_x = np.copy(self.initial_guess)
-                new_x[unfixed_inverse_transform] = x[inverse_transform]
-                new_x[fixed_amplitude_indices] = [new_x[first_fixed_index] * _ for _ in fixed_factor]
+                new_x[free_parameter_loc] = x[inverse_transform]
+                new_x[fixed_amplitude_indices] = [x[first_fixed_index] * _ for _ in fixed_factor]
                 return new_x
         else:
             def pack_parameters(x):
@@ -270,6 +266,22 @@ class LineFit:
             return np.array([self.parameter_names.index(_) for _ in self.parameter_names if parameter in _])
         else:
             return self.parameter_names.index((feature, parameter))
+
+    def _apply_flux_scale(self):
+        self.flux_scale_factor = np.percentile(np.abs(self.data[~self.mask]), 90)
+        for i in self._get_parameter_indices('amplitude'):
+            self.initial_guess[i] /= self.flux_scale_factor
+            self.bounds[i] = [_ / self.flux_scale_factor if _ is not None else _ for _ in self.bounds[i]]
+        for i in ['data', 'pseudo_continuum', 'stellar']:
+            setattr(self, i, getattr(self, i) / self.flux_scale_factor)
+
+    def _restore_flux_scale(self):
+        for i in self._get_parameter_indices('amplitude'):
+            self.initial_guess[i] *= self.flux_scale_factor
+            self.solution[i] *= self.flux_scale_factor
+            self.bounds[i] = [_ / self.flux_scale_factor if _ is not None else _ for _ in self.bounds[i]]
+        for i in ['data', 'pseudo_continuum', 'stellar']:
+            setattr(self, i, getattr(self, i) * self.flux_scale_factor)
 
     def optimize_fit(self, width: float = 5.0):
         sigma = self.initial_guess[self._get_parameter_indices('sigma')]
@@ -292,12 +304,14 @@ class LineFit:
         assert valid_fraction >= minimum_good_fraction, 'Minimum fraction of valid pixels not reached: ' \
                                                         f'{valid_fraction} < {minimum_good_fraction}.'
 
+        self._apply_flux_scale()
+
         self._pack_groups()
         p_0 = self._pack_parameters(self.initial_guess)
         bounds = self._pack_parameters(np.array(self.bounds))
         self._evaluate_constraints()
+        s = (self.data - self.pseudo_continuum - self.stellar)[~self.mask & ~self.flags]
 
-        s = self.data[~self.mask] - self.pseudo_continuum[~self.mask] - self.stellar[~self.mask]
         if min_method == 'slsqp':
             # noinspection PyTypeChecker
             solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds,
@@ -312,8 +326,13 @@ class LineFit:
             solution = differential_evolution(self.res, bounds=bounds, args=(s,))
         else:
             raise RuntimeError(f'Unknown minimization method {min_method}.')
-        self.solution = self._unpack_parameters(solution.x)
         self.reduced_chi_squared = self.res(solution.x, s) / self._degrees_of_freedom()
+
+        self.solution = self._unpack_parameters(solution.x)
+        self._restore_flux_scale()
+
+        self.model_spectrum = (self.function(self.wavelength, self.feature_wavelengths, self.solution)
+                               + self.pseudo_continuum + self.stellar)
 
         if verbose:
             self.print_parameters('solution')
@@ -328,16 +347,16 @@ class LineFit:
         print(f'Initially free parameters: {len(self._packed_parameter_names)}')
         print(f'Number of constraints: {len(self.constraints)}')
         print(f'Valid data points: {np.sum(~self.mask)}')
+        print(f'Instrument dispersion: {self.instrument_dispersion} pixels')
         print(f'Degrees of freedom: {self._degrees_of_freedom()}\n\n')
         p = getattr(self, attribute)
         u = getattr(self, 'uncertainties')
         for i, j in enumerate(self.parameter_names):
             if j[1] == 'amplitude':
                 if u is None:
-                    print(f'{j[0]}.{j[1]} = {p[i] * self.flux_scale_factor:8.2e}')
+                    print(f'{j[0]}.{j[1]} = {p[i]:8.2e}')
                 else:
-                    print(f'{j[0]}.{j[1]} = {p[i] * self.flux_scale_factor:8.2e} +- '
-                          f'{u[i] * self.flux_scale_factor:8.2e}')
+                    print(f'{j[0]}.{j[1]} = {p[i]:8.2e} +- {u[i]:8.2e}')
             else:
                 if u is None:
                     print(f'{j[0]}.{j[1]} = {p[i]:.2f}')
@@ -346,16 +365,15 @@ class LineFit:
 
     def monte_carlo(self, n_iterations: int = 10, verbose: bool = False):
         assert self.solution is not None, 'Monte carlo uncertainties can only be evaluated after a successful fit.'
-        p = self.solution
-        old_data = copy.deepcopy(self.data)
-        solution_matrix = np.zeros((n_iterations, p.size))
-        self.uncertainties = np.zeros_like(p)
+        old_data = np.copy(self.data)
+        solution_matrix = np.zeros((n_iterations, self.solution.size))
+        self.uncertainties = np.zeros_like(self.solution)
 
         c = 0
         while c < n_iterations:
             self.data = np.random.normal(old_data, np.sqrt(self.variance))
             self.fit(**self.fit_arguments, verbose=False)
-            solution_matrix[c] = copy.deepcopy(self.solution)
+            solution_matrix[c] = np.copy(self.solution)
             c += 1
         self.solution = solution_matrix.mean(axis=0)
         self.uncertainties = solution_matrix.std(axis=0)
@@ -431,8 +449,8 @@ class LineFit:
                 flux_model[idx] = integrate.trapz(fit, x=self.wavelength[~mask])
                 flux_direct[idx] = integrate.trapz(observed_feature, x=self.wavelength[~mask])
 
-            self.flux_model = flux_model * self.flux_scale_factor
-            self.flux_direct = flux_direct * self.flux_scale_factor
+            self.flux_model = flux_model
+            self.flux_direct = flux_direct
 
     def _get_center_wavelength(self, feature):
         velocity = self._get_feature_parameter(feature, 'velocity', 'solution')
@@ -525,19 +543,18 @@ class LineFit:
             self.eqw_direct = eqw_direct
 
     def plot(self, plot_all: bool = True):
-        sf = self.flux_scale_factor
         wavelength = self.wavelength[~self.mask]
-        observed = (self.data * self.flux_scale_factor)[~self.mask]
-        pseudo_continuum = self.pseudo_continuum[~self.mask] * sf
-        stellar = self.stellar[~self.mask] * sf
-        model = self.function(wavelength, self.feature_wavelengths, self.solution) * sf
+        observed = self.data[~self.mask]
+        pseudo_continuum = self.pseudo_continuum[~self.mask]
+        stellar = self.stellar[~self.mask]
+        model_lines = self.function(wavelength, self.feature_wavelengths, self.solution)
 
         fig = plt.figure()
 
         if plot_all:
             ax, ax_res = fig.subplots(nrows=2, ncols=1, sharex='all',
                                       gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.0})
-            ax_res.plot(wavelength, observed - model - stellar - pseudo_continuum)
+            ax_res.plot(wavelength, observed - model_lines - stellar - pseudo_continuum)
             ax_res.set_xlabel('Wavelength')
             ax_res.set_ylabel('Residuals')
             ax_res.grid()
@@ -546,14 +563,14 @@ class LineFit:
             ax.set_xlabel('Wavelength')
 
         if self.uncertainties is not None:
-            low = self.function(wavelength, self.feature_wavelengths, self.solution - self.uncertainties) * sf
-            high = self.function(wavelength, self.feature_wavelengths, self.solution + self.uncertainties) * sf
+            low = self.function(wavelength, self.feature_wavelengths, self.solution - self.uncertainties)
+            high = self.function(wavelength, self.feature_wavelengths, self.solution + self.uncertainties)
             low += stellar + pseudo_continuum
             high += stellar + pseudo_continuum
             ax.fill_between(wavelength, low, high, color='C2', alpha=0.5)
 
         ax.plot(wavelength, observed, color='C0')
-        ax.plot(wavelength, model + stellar + pseudo_continuum, color='C2')
+        ax.plot(wavelength, model_lines + stellar + pseudo_continuum, color='C2')
 
         if plot_all:
             if np.any(pseudo_continuum):
@@ -565,7 +582,7 @@ class LineFit:
             for i in range(0, len(self.parameter_names), ppf):
                 feature_wl = self.feature_wavelengths[int(i / ppf)]
                 parameters = self.solution[i:i + ppf]
-                line = self.function(wavelength, feature_wl, parameters) * sf
+                line = self.function(wavelength, feature_wl, parameters)
                 ax.plot(wavelength, pseudo_continuum + stellar + line, 'k--')
 
         ax.set_ylabel('Spectral flux density')
