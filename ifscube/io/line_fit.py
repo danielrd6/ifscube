@@ -1,6 +1,29 @@
+import configparser
+
 import numpy as np
 from astropy import table
 from astropy.io import fits
+
+from ifscube import onedspec, parser, modeling
+
+
+def setup_fit(data: onedspec.Spectrum, **line_fit_args):
+    general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fit_continuum', 'fitting_window',
+                                                      'instrument_dispersion']
+                        if _ in line_fit_args.keys()}
+    general_fit_args['continuum_options'] = line_fit_args['copts']
+    fit = modeling.LineFit(data, **general_fit_args)
+
+    for feature in line_fit_args['features']:
+        fit.add_feature(**feature)
+    for bounds in line_fit_args['bounds']:
+        fit.set_bounds(*bounds)
+    for constraint in line_fit_args['constraints']:
+        fit.add_minimize_constraint(*constraint)
+    if line_fit_args['optimize_fit']:
+        fit.optimize_fit(width=line_fit_args['optimization_window'])
+
+    return fit
 
 
 def write_spectrum_fit(spectrum, fit, args):
@@ -32,11 +55,16 @@ def write_spectrum_fit(spectrum, fit, args):
 
     d_wl = np.diff(fit.wavelength)
     avg_d_wl = np.average(d_wl)
-    assert np.all(np.abs((d_wl / avg_d_wl) - 1)) < 1e-6, 'Wavelength vector is not linearly sampled.'
+    assert np.all(np.abs((d_wl / avg_d_wl) - 1) < 1e-6), 'Wavelength vector is not linearly sampled.'
 
     hdr['CD1_1'] = (avg_d_wl, 'CD1_1')
     hdu = fits.ImageHDU(data=fit.data, header=hdr)
     hdu.name = 'FITSPEC'
+    h.append(hdu)
+
+    hdu = fits.ImageHDU(data=fit.variance, header=hdr)
+    hdr['object'] = ('variance', 'Data in this extension')
+    hdu.name = 'VAR'
     h.append(hdu)
 
     # Creates the fitted continuum extension.
@@ -53,7 +81,7 @@ def write_spectrum_fit(spectrum, fit, args):
 
     # Creates the fitted function extension.
     hdr['object'] = 'modeled_spec'
-    hdu = fits.ImageHDU(data=spectrum.resultspec, header=hdr)
+    hdu = fits.ImageHDU(data=fit.model_spectrum, header=hdr)
     hdu.name = 'MODEL'
     h.append(hdu)
 
@@ -70,7 +98,7 @@ def write_spectrum_fit(spectrum, fit, args):
     hdu.name = 'SOLUTION'
     h.append(hdu)
 
-    if spectrum.fit_dispersion is not None:
+    if fit.uncertainties is not None:
         hdr['object'] = 'dispersion'
         hdr['function'] = (function, 'Fitted function')
         hdr['nfunc'] = (int(total_pars / spectrum.npars), 'Number of functions')
@@ -91,20 +119,14 @@ def write_spectrum_fit(spectrum, fit, args):
 
     # Equivalent width extensions
     hdr['object'] = 'eqw_model'
-    hdu = fits.ImageHDU(data=spectrum.eqw_model, header=hdr)
+    hdu = fits.ImageHDU(data=fit.eqw_model, header=hdr)
     hdu.name = 'EQW_M'
     h.append(hdu)
 
     hdr['object'] = 'eqw_direct'
-    hdu = fits.ImageHDU(data=spectrum.eqw_direct, header=hdr)
+    hdu = fits.ImageHDU(data=fit.eqw_direct, header=hdr)
     hdu.name = 'EQW_D'
     h.append(hdu)
-
-    # # Creates the minimize's exit status extension
-    # hdr['object'] = 'status'
-    # hdu = fits.ImageHDU(data=spectrum.fit_status, header=hdr)
-    # hdu.name = 'STATUS'
-    # h.append(hdu)
 
     # Creates component and parameter names table.
     fit_table = table.Table(np.array(fit.parameter_names), names=('component', 'parameter'))
@@ -113,4 +135,45 @@ def write_spectrum_fit(spectrum, fit, args):
     hdu.name = 'PARNAMES'
     h.append(hdu)
 
-    h.writeto(out_image, overwrite=args['overwrite'])
+    h.writeto(out_image, overwrite=args['overwrite'], checksum=True)
+
+
+def table_to_config(t: table.Table):
+    cfg = configparser.ConfigParser()
+    previous_section = None
+    for line in t:
+        section, option = line['parameters'].split('.')
+        value = line['values']
+        if section != previous_section:
+            cfg.add_section(section)
+            previous_section = section
+        sec = cfg[section]
+        sec[option] = value
+    return cfg
+
+
+def load_fit(file_name):
+    """
+    Loads the result of a previous fit, and put it in the
+    appropriate variables for the plotfit function.
+
+    Parameters
+    ----------
+    file_name : string
+        Name of the FITS file containing the fit results.
+
+    Returns
+    -------
+    Nothing.
+    """
+    spectrum = onedspec.Spectrum(file_name, scidata='FITSPEC', variance='VAR', stellar='STELLAR')
+    with fits.open(file_name, mode='readonly') as h:
+        config = table_to_config(table.Table(h['FITCONFIG'].data))
+        fit = setup_fit(spectrum, **parser.LineFitParser(config).get_vars())
+        fit.status = h['SOLUTION'].header['fitstat']
+        translate_extensions = {'pseudo_continuum': 'fitcont', 'model': 'model', 'solution': 'solution',
+                                'eqw_model': 'eqw_m', 'eqw_direct': 'eqw_d', 'flux_model': 'flux_m',
+                                'flux_direct': 'flux_d'}
+        for key in translate_extensions:
+            setattr(fit, key, h[translate_extensions[key]].data)
+    return fit
