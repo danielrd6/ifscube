@@ -1,49 +1,31 @@
-#!/usr/bin/env python
 import argparse
 import os
 
+import ifscube.io.line_fit
 from . import Cube
 from . import cubetools
 from . import gmos
 from . import manga
-from . import modeling
 from . import onedspec
 from . import parser
 from . import spectools
-import ifscube.io.line_fit
 
 
-def make_lock(fname):
-    with open(fname + '.lock', 'w') as f:
+def make_lock(file_name):
+    with open(file_name + '.lock', 'w') as f:
         f.write('This one is taken, go to the next.\n')
     return
 
 
-def clear_lock(lockname):
-    if os.path.isfile(lockname):
-        os.remove(lockname)
+def clear_lock(lock_name):
+    if os.path.isfile(lock_name):
+        os.remove(lock_name)
 
     return
 
 
 def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
-    general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fit_continuum', 'fitting_window',
-                                                      'instrument_dispersion']
-                        if _ in line_fit_args.keys()}
-    general_fit_args['continuum_options'] = line_fit_args['copts']
-    fit = modeling.LineFit(data, **general_fit_args)
-
-    for feature in line_fit_args['features']:
-        fit.add_feature(**feature)
-
-    for bounds in line_fit_args['bounds']:
-        fit.set_bounds(*bounds)
-
-    for constraint in line_fit_args['constraints']:
-        fit.add_minimize_constraint(*constraint)
-
-    if line_fit_args['optimize_fit']:
-        fit.optimize_fit(width=line_fit_args['optimization_window'])
+    fit = ifscube.io.line_fit.setup_fit(data, **line_fit_args)
 
     if line_fit_args['fixed']:
         fit.solution = fit.initial_guess
@@ -70,88 +52,88 @@ def cube_fit(data: Cube, **line_fit_args):
     assert 1 == 0, 'NOT IMPLEMENTED YET!'
 
 
-def dofit(fname, linefit_args, overwrite, cubetype, loading, fit_type, config_file_name, plot=False, lock=False):
-    galname = fname.split('/')[-1]
+def dofit(file_name, line_fit_args, overwrite, cube_type, loading, fit_type, config_file_name, plot=False, lock=False):
+    galname = file_name.split('/')[-1]
 
     try:
-        suffix = linefit_args['suffix']
+        suffix = line_fit_args['suffix']
     except KeyError:
         suffix = None
 
     try:
-        outname = linefit_args['out_image']
+        output_name = line_fit_args['out_image']
     except KeyError:
-        outname = None
+        output_name = None
 
-    if outname is None:
+    if output_name is None:
         if suffix is None:
             suffix = '_linefit'
-        outname = galname.replace('.fits', suffix + '.fits')
+        output_name = galname.replace('.fits', suffix + '.fits')
 
     if not overwrite:
-        if os.path.isfile(outname):
-            print('ERROR! File {:s} already exists.'.format(outname))
+        if os.path.isfile(output_name):
+            print('ERROR! File {:s} already exists.'.format(output_name))
             return
 
-    lockname = outname + '.lock'
+    lock_name = output_name + '.lock'
     if lock:
-        if os.path.isfile(lockname):
-            print('ERROR! Lock file {:s} is present.'.format(lockname))
+        if os.path.isfile(lock_name):
+            print('ERROR! Lock file {:s} is present.'.format(lock_name))
             return
         else:
-            make_lock(outname)
+            make_lock(output_name)
 
     if overwrite:
-        if os.path.isfile(outname):
-            os.remove(outname)
+        if os.path.isfile(output_name):
+            os.remove(output_name)
     else:
-        if os.path.isfile(outname):
+        if os.path.isfile(output_name):
             if lock:
-                clear_lock(lockname)
+                clear_lock(lock_name)
             return
 
     if fit_type == 'cube':
 
-        if cubetype is None:
-            a = Cube(fname, **loading)
-        elif cubetype == 'manga':
-            a = manga.cube(fname, **loading)
-        elif cubetype == 'gmos':
-            a = gmos.Cube(fname, **loading)
+        if cube_type is None:
+            a = Cube(file_name, **loading)
+        elif cube_type == 'manga':
+            a = manga.cube(file_name, **loading)
+        elif cube_type == 'gmos':
+            a = gmos.Cube(file_name, **loading)
         else:
-            raise RuntimeError('cubetype "{:s}" not understood.'.format(cubetype))
+            raise RuntimeError('cubetype "{:s}" not understood.'.format(cube_type))
         fit_function = cube_fit
 
     elif fit_type == 'spec':
 
-        if cubetype is None:
-            a = onedspec.Spectrum(fname, **loading)
-        elif cubetype == 'intmanga':
-            a = manga.IntegratedSpectrum(fname, **loading)
+        if cube_type is None:
+            a = onedspec.Spectrum(file_name, **loading)
+        elif cube_type == 'intmanga':
+            a = manga.IntegratedSpectrum(file_name, **loading)
         else:
-            raise RuntimeError('cubetype "{:s}" not understood.'.format(cubetype))
+            raise RuntimeError('cubetype "{:s}" not understood.'.format(cube_type))
         fit_function = spectrum_fit
 
     else:
         raise RuntimeError('fit_type "{:s}" not understood.'.format(fit_type))
 
-    linefit_args['out_image'] = outname
+    line_fit_args['out_image'] = output_name
 
-    if 'weights' in linefit_args['copts']:
-        linefit_args['copts']['weights'] = spectools.read_weights(a.rest_wavelength, linefit_args['copts']['weights'])
+    if 'weights' in line_fit_args['copts']:
+        line_fit_args['copts']['weights'] = spectools.read_weights(a.rest_wavelength, line_fit_args['copts']['weights'])
 
-    fit = fit_function(data=a, **linefit_args)
+    fit = fit_function(data=a, **line_fit_args)
     try:
-        cubetools.append_config(config_file_name, outname)
+        cubetools.append_config(config_file_name, output_name)
     except IOError:
         if lock:
-            clear_lock(lockname)
+            clear_lock(lock_name)
 
     if plot:
         fit.plot()
 
     if lock:
-        clear_lock(lockname)
+        clear_lock(lock_name)
 
     return
 
@@ -172,6 +154,5 @@ def main(fit_type):
     for i in args.datafile:
         c = parser.LineFitParser(args.config)
         line_fit_args = c.get_vars()
-        dofit(i, line_fit_args, overwrite=args.overwrite, cubetype=args.cubetype, plot=args.plot,
+        dofit(i, line_fit_args, overwrite=args.overwrite, cube_type=args.cubetype, plot=args.plot,
               loading=c.loading_opts, lock=args.lock, fit_type=fit_type, config_file_name=args.config)
-        del c
