@@ -93,8 +93,9 @@ def test_constraints():
     fit.add_minimize_constraint('n2_6548.velocity', 'n2_6583.velocity')
     fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
     fit.add_minimize_constraint('n2_6548.amplitude', '< ha.amplitude')
+    fit.add_minimize_constraint('ha.amplitude', '< 3.5e-15')
     fit.fit()
-    assert 1
+    assert fit._get_feature_parameter('ha', 'amplitude', 'solution') < 3.5e-15
 
 
 def test_gauss_hermite():
