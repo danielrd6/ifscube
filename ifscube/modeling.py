@@ -277,7 +277,7 @@ class LineFit:
         for i in ['data', 'pseudo_continuum', 'stellar']:
             setattr(self, i, getattr(self, i) * self.flux_scale_factor)
         if not np.all(self.variance == 1.0):
-            self.variance /= np.square(self.flux_scale_factor)
+            self.variance *= np.square(self.flux_scale_factor)
 
     def optimize_fit(self, width: float = 5.0):
         sigma = self.initial_guess[self._get_parameter_indices('sigma')]
@@ -388,16 +388,16 @@ class LineFit:
 
     def monte_carlo(self, n_iterations: int = 10, verbose: bool = False):
         assert self.solution is not None, 'Monte carlo uncertainties can only be evaluated after a successful fit.'
+        assert not np.all(self.variance == 1.0),\
+            'Cannot estimate uncertainties via Monte Carlo. The variance was not given.'
         old_data = np.copy(self.data)
-        solution_matrix = np.zeros((n_iterations, self.solution.size))
+        solution_matrix = np.zeros((n_iterations,) + self.solution.shape)
         self.uncertainties = np.zeros_like(self.solution)
 
-        c = 0
-        while c < n_iterations:
+        for c in range(n_iterations):
             self.data = np.random.normal(old_data, np.sqrt(self.variance))
-            self.fit(**self.fit_arguments, verbose=False)
+            self.fit(**self.fit_arguments)
             solution_matrix[c] = np.copy(self.solution)
-            c += 1
         self.solution = solution_matrix.mean(axis=0)
         self.uncertainties = solution_matrix.std(axis=0)
         self.data = old_data
@@ -666,16 +666,19 @@ class LineFit3D(LineFit):
             attributes.append('reduced_chi_squared')
         cube_data = {_: np.copy(getattr(self, _)) for _ in attributes}
         solution = np.zeros((len(self.initial_guess),) + self.data.shape[1:])
+        reduced_chi_squared = np.zeros(self.data.shape[1:])
         for xy in tqdm.tqdm(self.spaxel_indices):
             s = (Ellipsis, *xy)
             for i in attributes:
                 setattr(self, i, cube_data[i][s])
             super().fit(min_method, minimize_options, minimum_good_fraction, verbose, fit_continuum, continuum_options)
             solution[s] = np.copy(self.solution)
+            reduced_chi_squared[s[1:]] = np.copy(self.reduced_chi_squared)
             cube_data['pseudo_continuum'][s] = np.copy(self.pseudo_continuum)
         for i in attributes:
             setattr(self, i, cube_data[i])
         self.solution = solution
+        self.reduced_chi_squared = reduced_chi_squared
 
     def _select_spaxel(self, x: int, y: int, function: Callable, *args, **kwargs):
         attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'solution']
