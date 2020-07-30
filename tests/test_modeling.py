@@ -4,20 +4,20 @@ import pytest
 from ifscube import onedspec, modeling, datacube
 
 
-def simple_fit(function: str = 'gaussian', fit_type: str = 'spectrum'):
+def simple_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
     if fit_type == 'spectrum':
         file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
         spec = onedspec.Spectrum(file_name)
-        fit = modeling.LineFit(spec, function=function, fitting_window=(6400.0, 6700.0))
+        fit = modeling.LineFit(spec, function=function, fitting_window=(6400.0, 6700.0), **kwargs)
     elif fit_type == 'cube':
         file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc3081_cube.fits')
         cube = datacube.Cube(file_name)
-        fit = modeling.LineFit3D(cube, function=function, fitting_window=(6400.0, 6700.0))
+        fit = modeling.LineFit3D(cube, function=function, fitting_window=(6400.0, 6700.0), **kwargs)
     else:
         raise RuntimeError(f'fit_type "{fit_type}" not understood.')
-    fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
-    fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
-    fit.add_feature(name='n2_6583', rest_wavelength=6583.46, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
+    fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude='mean', velocity=0.0, sigma=100.0)
+    fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude='mean', velocity=0.0, sigma=100.0)
+    fit.add_feature(name='n2_6583', rest_wavelength=6583.46, amplitude='mean', velocity=0.0, sigma=100.0)
     return fit
 
 
@@ -145,6 +145,13 @@ def test_monte_carlo():
 
 
 def test_simple_cube_fit():
-    fit = simple_fit(fit_type='cube')
+    fit = simple_fit(fit_type='cube', individual_spec=(3, 4))
+    fit.fit(fit_continuum=True)
+    fit.plot(x_0=3, y_0=4)
+    assert True
+
+
+def test_spiral_fit():
+    fit = simple_fit(fit_type='cube', spiral_fitting=True, spiral_center=(3, 4))
     fit.fit(fit_continuum=True)
     assert True

@@ -9,12 +9,16 @@ from ifscube import onedspec, parser, modeling, datacube
 
 
 def setup_fit(data: Union[onedspec.Spectrum, datacube.Cube], **line_fit_args):
-    general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fitting_window', 'instrument_dispersion']
-                        if _ in line_fit_args.keys()}
-    if isinstance(data, onedspec.Spectrum):
-        fit = modeling.LineFit(data, **general_fit_args)
-    elif isinstance(data, datacube.Cube):
+
+    if isinstance(data, datacube.Cube):
+        general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fitting_window', 'instrument_dispersion',
+                                                          'individual_spec', 'spiral_fitting', 'spiral_center']
+                            if _ in line_fit_args.keys()}
         fit = modeling.LineFit3D(data, **general_fit_args)
+    elif isinstance(data, onedspec.Spectrum):
+        general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fitting_window', 'instrument_dispersion']
+                            if _ in line_fit_args.keys()}
+        fit = modeling.LineFit(data, **general_fit_args)
 
     for feature in line_fit_args['features']:
         fit.add_feature(**feature)
