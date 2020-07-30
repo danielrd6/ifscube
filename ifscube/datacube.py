@@ -16,168 +16,32 @@ from . import elprofile as lprof
 from . import plots as ifsplots
 
 
-class Cube:
+class Cube(onedspec.Spectrum):
     """
     A class for dealing with IFS data cubes.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, fname: str = None, scidata: Union[str, int] = 'SCI', variance: Union[str, int] = None,
+                 flags: Union[str, int] = None, stellar: Union[str, int] = None, primary: Union[str, int] = 'PRIMARY',
+                 redshift: float = None, wcs_axis: int = 3, spatial_mask: Union[np.ndarray, str] = None,
+                 nan_spaxels: str = 'all'):
         """
         Instantiates the class. If any arguments are given they will be
         passed to the _load method.
         """
+        super().__init__(fname, scidata, variance, flags, stellar, primary, redshift, wcs_axis)
 
-        self.binned = False
-        self.binned_cube = None
-        self.component_names = None
-        self.cont = None
-        self.data = None
-        self.em_model = None
-        self.eqw_direct = None
-        self.eqw_model = None
-        self.feature_wl = None
-        self.fit_func = None
-        self.fit_info = None
-        self.fit_status = None
-        self.fit_wavelength = None
-        self.fit_x0 = None
-        self.fit_y0 = None
-        self.fitbounds = None
-        self.fit_dispersion = None
-        self.fitcont = None
-        self.fitspec = None
-        self.fitstellar = None
-        self.fitweights = None
-        self.flux_direct = None
-        self.flux_model = None
-        self.flags = None
-        self.header = None
-        self.initial_guess = None
-        self.ncubes = None
-        self.noise = None
-        self.noise_cube = None
-        self.npars = None
-        self.parnames = None
-        self.ppxf_sol = None
-        self.resultspec = None
-        self.signal = None
-        self.spatial_mask = None
-        self.spec_indices = None
-        self.variance = None
-
-        if len(args) > 0:
-            self._load(*args, **kwargs)
-
-    def _accessory_data(self, hdu, variance, flags, stellar, weights, spatial_mask):
-
-        def shmess(name):
-            s = '{:s} spectrum must have the same shape of the spectrum itself'
-            return s.format(name)
-
-        self.variance = np.ones_like(self.data)
-        self.flags = np.zeros_like(self.data)
-        self.stellar = np.zeros_like(self.data)
-        self.weights = np.ones_like(self.data)
-
-        if spatial_mask is not None:
-            assert hdu[spatial_mask].data.shape == self.data.shape[1:], \
-                'Spatial mask must match the last two dimensions of the data cube.'
-            self.spatial_mask = hdu[spatial_mask].data.astype('bool')
+        if spatial_mask is None:
+            self.spatial_mask = np.zeros(self.data.shape[1:]).astype(bool)
         else:
-            self.spatial_mask = np.zeros(self.data.shape[1:]).astype('bool')
-
-        acc_data = [self.variance, self.flags, self.stellar, self.weights]
-        ext_names = [variance, flags, stellar, weights]
-        labels = ['Variance', 'Flags', 'Synthetic', 'Weights']
-
-        for i, j, lab in zip(acc_data, ext_names, labels):
-
-            if j is not None:
-                if isinstance(j, str):
-                    if j in hdu:
-                        assert hdu[j].data.shape == self.data.shape, shmess(lab)
-                        i[:] = hdu[j].data
-                elif isinstance(j, np.ndarray):
-                    i[:] = j
-
-        self.flags = self.flags.astype(bool)
-
-    def _load(self, fname, scidata='SCI', primary='PRIMARY', variance=None, flags=None, stellar=None, weights=None,
-              redshift=None, vortab=None, nan_spaxels='all', spatial_mask=None, spectral_dimension=3):
-        """
-        and loads basic information onto the
-        object.
-
-        Parameters
-        ----------
-        fname : string
-            Name of the FITS file containing the GMOS datacube. This
-            should be the standard output from the GFCUBE task of the
-            GEMINI-GMOS IRAF package.
-        scidata: integer or string
-            Extension of the FITS file containing the scientific data.
-        primary: integer or string
-            Extension of the FITS file containing the basic header.
-        flags: integer or string
-            Extension of the FITS file containing the flags. If the
-            pixel value evaluates to True, such as any number other
-            than 0, than it is considered a flagged pixel. Good pixels
-            should be marked by zeros, meaning that they are not
-            flagged.
-        vortab : integer or string
-            Extension containing the voronoi binning table.
-        variance: integer or string
-            Extension of the FITS file containing the variance cube.
-        redshift : float
-            Value of redshift (z) of the source, if no Doppler
-            correction has been applied to the spectra yet.
-        nan_spaxels: None, 'any', 'all'
-            Mark spaxels as NaN if any or all pixels are equal to
-            zero.
-
-        Returns
-        -------
-        Nothing.
-        """
-
-        self.fitsfile = fname
-
-        exts = ['scidata', 'primary', 'variance', 'flags', 'stellar', 'weights', 'vortab', 'spatial_mask']
-        self.extension_names = {}
-        for key in exts:
-            self.extension_names[key] = locals()[key]
-
-        with fits.open(fname) as hdu:
-            self.data = hdu[scidata].data
-            self.header = hdu[primary].header
-            self.header_data = hdu[scidata].header
-            self.wcs = wcs.WCS(self.header_data)
-
-            self._accessory_data(hdu, variance, flags, stellar, weights, spatial_mask)
-            self.noise_cube = np.sqrt(self.variance)
-            self.noise_cube[self.flags] = 0.0
-
-        if nan_spaxels == 'all':
-            self.nan_mask = np.isnan(self.data).all(axis=0) | np.isnan(self.stellar).all(axis=0)
-        elif nan_spaxels == 'any':
-            self.nan_mask = np.isnan(self.data).any(axis=0) | np.isnan(self.stellar).any(axis=0)
-        else:
-            self.nan_mask = np.zeros(self.data.shape[1:]).astype('bool')
-        self.spatial_mask |= self.nan_mask
-
-        self.wl = self.wcs.sub((spectral_dimension,)).wcs_pix2world(np.arange(len(self.data)), 0)[0]
-
-        if self.wcs.wcs.cunit[2] == units.m:
-            self.wl *= 1e+10
-
-        if redshift is not None:
-            self.redshift = redshift
-        elif 'redshift' in self.header:
-            self.redshift = self.header['REDSHIFT']
-        else:
-            self.redshift = 0
-
-        self.data, self.rest_wavelength = onedspec.Spectrum.doppler_correction(self.redshift, self.data, self.wl)
+            self.spatial_mask = spatial_mask
+            if nan_spaxels == 'all':
+                self.nan_mask = np.isnan(self.data).all(axis=0) | np.isnan(self.stellar).all(axis=0)
+            elif nan_spaxels == 'any':
+                self.nan_mask = np.isnan(self.data).any(axis=0) | np.isnan(self.stellar).any(axis=0)
+            else:
+                self.nan_mask = np.zeros(self.data.shape[1:]).astype('bool')
+            self.spatial_mask |= self.nan_mask
 
         try:
             if self.header['VORBIN']:
@@ -187,8 +51,31 @@ class Cube:
         except KeyError:
             self.binned = False
 
-        self._set_spec_indices()
-        self.cont = None
+        self.binned_cube = None
+        self.noise = None
+        self.signal = None
+
+        if fname is not None:
+            self._set_spec_indices()
+
+    @property
+    def spatial_mask(self):
+        return self._spatial_mask
+
+    @spatial_mask.setter
+    def spatial_mask(self, value: Union[np.ndarray, str]):
+        if isinstance(value, str):
+            if ',' in value:
+                ext_name = value.split(',')[0].strip()
+                ext_version = int(value.split(',')[1])
+            else:
+                ext_name = value.strip()
+                ext_version = None
+            self._spatial_mask = fits.getdata(self.fitsfile, ext_name, ext_version)
+        else:
+            self._spatial_mask = value.astype('bool')
+        assert self._spatial_mask.shape == self.data.shape[1:],\
+            'Spatial mask must match the last two dimensions of the data cube.'
 
     def _set_spec_indices(self):
         self.spec_indices = np.column_stack([
