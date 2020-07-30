@@ -7,7 +7,8 @@ from ifscube import onedspec, modeling
 def simple_fit(function: str = 'gaussian'):
     file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
     spec = onedspec.Spectrum(file_name)
-    fit = modeling.LineFit(spec, function=function, fitting_window=(6400.0, 6700.0), fit_continuum=True)
+    fit = modeling.LineFit(spec, function=function, fitting_window=(6400.0, 6700.0))
+    fit.fit_continuum()
     fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
     fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
     fit.add_feature(name='n2_6583', rest_wavelength=6583.46, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
@@ -17,7 +18,8 @@ def simple_fit(function: str = 'gaussian'):
 def full_fit(function: str = 'gaussian'):
     file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
     spec = onedspec.Spectrum(file_name)
-    fit = modeling.LineFit(spec, function=function, fitting_window=(6400.0, 6800.0), fit_continuum=True)
+    fit = modeling.LineFit(spec, function=function, fitting_window=(6400.0, 6800.0))
+    fit.fit_continuum()
     names = ['n2_6548', 'ha', 'n2_6583', 's2_6716', 's2_6731']
     r_wl = [6548.04, 6562.8, 6583.46, 6716.44, 6730.86]
 
@@ -71,7 +73,8 @@ def test_good_fraction():
 def test_skip_feature():
     file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
     spec = onedspec.Spectrum(file_name)
-    fit = modeling.LineFit(spec, fitting_window=(6400.0, 6700.0), fit_continuum=True)
+    fit = modeling.LineFit(spec, fitting_window=(6400.0, 6700.0))
+    fit.fit_continuum()
     with pytest.warns(UserWarning):
         fit.add_feature(name='hb', rest_wavelength=4861.0, amplitude=0, velocity=0, sigma=10)
     fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
@@ -117,7 +120,8 @@ def test_kinematic_groups():
 def test_fixed_features():
     file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
     spec = onedspec.Spectrum(file_name)
-    fit = modeling.LineFit(spec, function='gaussian', fitting_window=(6400.0, 6800.0), fit_continuum=True)
+    fit = modeling.LineFit(spec, function='gaussian', fitting_window=(6400.0, 6800.0))
+    fit.fit_continuum()
     names = ['n2_6548', 'ha', 'n2_6583', 's2_6716', 's2_6731']
     r_wl = [6548.04, 6562.8, 6583.46, 6716.44, 6730.86]
 
