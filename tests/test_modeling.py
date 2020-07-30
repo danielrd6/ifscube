@@ -4,27 +4,30 @@ import pytest
 from ifscube import onedspec, modeling, datacube
 
 
-def simple_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
+def fit_select(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
     if fit_type == 'spectrum':
         file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
         spec = onedspec.Spectrum(file_name)
-        fit = modeling.LineFit(spec, function=function, fitting_window=(6400.0, 6700.0), **kwargs)
+        fit = modeling.LineFit(spec, function=function, fitting_window=(6400.0, 6800.0), **kwargs)
     elif fit_type == 'cube':
         file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc3081_cube.fits')
         cube = datacube.Cube(file_name)
-        fit = modeling.LineFit3D(cube, function=function, fitting_window=(6400.0, 6700.0), **kwargs)
+        fit = modeling.LineFit3D(cube, function=function, fitting_window=(6400.0, 6800.0), **kwargs)
     else:
         raise RuntimeError(f'fit_type "{fit_type}" not understood.')
+    return fit
+
+
+def simple_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
+    fit = fit_select(function, fit_type, **kwargs)
     fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude='mean', velocity=0.0, sigma=100.0)
     fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude='mean', velocity=0.0, sigma=100.0)
     fit.add_feature(name='n2_6583', rest_wavelength=6583.46, amplitude='mean', velocity=0.0, sigma=100.0)
     return fit
 
 
-def full_fit(function: str = 'gaussian'):
-    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
-    spec = onedspec.Spectrum(file_name)
-    fit = modeling.LineFit(spec, function=function, fitting_window=(6400.0, 6800.0))
+def full_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
+    fit = fit_select(function, fit_type, **kwargs)
     names = ['n2_6548', 'ha', 'n2_6583', 's2_6716', 's2_6731']
     r_wl = [6548.04, 6562.8, 6583.46, 6716.44, 6730.86]
 
@@ -147,7 +150,13 @@ def test_monte_carlo():
 def test_simple_cube_fit():
     fit = simple_fit(fit_type='cube', individual_spec=(3, 4))
     fit.fit(fit_continuum=True)
-    fit.plot(x_0=3, y_0=4)
+    assert True
+
+
+def test_full_cube_fit():
+    fit = full_fit(fit_type='cube')
+    fit.optimize_fit()
+    fit.fit(fit_continuum=True)
     assert True
 
 
