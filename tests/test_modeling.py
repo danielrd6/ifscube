@@ -4,14 +4,16 @@ import pytest
 from ifscube import onedspec, modeling, datacube
 
 
-def fit_select(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
+def fit_select(function: str = 'gaussian', fit_type: str = 'spectrum', loading_options: dict = None, **kwargs):
+    if loading_options is None:
+        loading_options = {}
     if fit_type == 'spectrum':
         file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
-        spec = onedspec.Spectrum(file_name)
+        spec = onedspec.Spectrum(file_name, **loading_options)
         fit = modeling.LineFit(spec, function=function, fitting_window=(6400.0, 6800.0), **kwargs)
     elif fit_type == 'cube':
         file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc3081_cube.fits')
-        cube = datacube.Cube(file_name)
+        cube = datacube.Cube(file_name, **loading_options)
         fit = modeling.LineFit3D(cube, function=function, fitting_window=(6400.0, 6800.0), **kwargs)
     else:
         raise RuntimeError(f'fit_type "{fit_type}" not understood.')
@@ -120,7 +122,6 @@ def test_kinematic_groups():
     fit = full_fit()
     fit.optimize_fit(width=5.0)
     fit.fit(fit_continuum=True)
-
     assert 1
 
 
@@ -143,7 +144,6 @@ def test_monte_carlo():
     fit.optimize_fit(width=5.0)
     fit.fit(fit_continuum=True)
     fit.monte_carlo(3)
-
     assert 1
 
 
@@ -163,4 +163,19 @@ def test_full_cube_fit():
 def test_spiral_fit():
     fit = simple_fit(fit_type='cube', spiral_fitting=True, spiral_center=(3, 4))
     fit.fit(fit_continuum=True)
+    assert True
+
+
+def test_cube_monte_carlo():
+    fit = fit_select(function='gaussian', fit_type='cube', loading_options={'variance': 'ERR'})
+    names = ['n2_6548', 'ha', 'n2_6583']
+    r_wl = [6548.04, 6562.8, 6583.46]
+
+    for name, wl in zip(names, r_wl):
+        fit.add_feature(name=name, rest_wavelength=wl, amplitude='peak', velocity=0.0, sigma=100.0,
+                        kinematic_group=0)
+
+    fit.optimize_fit()
+    fit.fit(fit_continuum=True)
+    fit.monte_carlo(3)
     assert True
