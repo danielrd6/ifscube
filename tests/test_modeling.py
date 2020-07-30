@@ -1,7 +1,7 @@
 import pkg_resources
 import pytest
 
-from ifscube import onedspec, modeling
+from ifscube import onedspec, modeling, datacube
 
 
 def simple_fit(function: str = 'gaussian'):
@@ -139,3 +139,14 @@ def test_monte_carlo():
     fit.monte_carlo(3)
 
     assert 1
+
+
+def test_simple_cube_fit():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc3081_cube.fits')
+    cube = datacube.Cube(file_name)
+    fit = modeling.LineFit3D(cube, function='gaussian', fitting_window=(6400.0, 6700.0))
+    fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
+    fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
+    fit.add_feature(name='n2_6583', rest_wavelength=6583.46, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
+    fit.fit()
+    assert True
