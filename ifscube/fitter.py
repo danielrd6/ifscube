@@ -10,7 +10,6 @@ from . import manga
 from . import onedspec
 from . import parser
 from . import spectools
-from . import modeling
 
 
 def make_lock(file_name):

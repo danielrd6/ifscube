@@ -266,7 +266,8 @@ class LineFit:
             self.bounds[i] = [_ / self.flux_scale_factor if _ is not None else _ for _ in self.bounds[i]]
         for i in ['data', 'pseudo_continuum', 'stellar']:
             setattr(self, i, getattr(self, i) / self.flux_scale_factor)
-        self.variance /= np.square(self.flux_scale_factor)
+        if not np.all(self.variance == 1.0):
+            self.variance /= np.square(self.flux_scale_factor)
 
     def _restore_flux_scale(self):
         for i in self._get_parameter_indices('amplitude'):
@@ -275,7 +276,8 @@ class LineFit:
             self.bounds[i] = [_ / self.flux_scale_factor if _ is not None else _ for _ in self.bounds[i]]
         for i in ['data', 'pseudo_continuum', 'stellar']:
             setattr(self, i, getattr(self, i) * self.flux_scale_factor)
-        self.variance *= np.square(self.flux_scale_factor)
+        if not np.all(self.variance == 1.0):
+            self.variance /= np.square(self.flux_scale_factor)
 
     def optimize_fit(self, width: float = 5.0):
         sigma = self.initial_guess[self._get_parameter_indices('sigma')]
@@ -314,7 +316,7 @@ class LineFit:
 
         self.fit_arguments = {'min_method': min_method, 'minimize_options': minimize_options}
         if minimize_options is None:
-            minimize_options = {'eps': 1.0e-3}
+            minimize_options = {'eps': 1e-3, 'ftol': 1e-8}
 
         valid_fraction = np.sum(~self.mask & ~self.flags) / np.sum(~self.mask)
         assert valid_fraction >= minimum_good_fraction, 'Minimum fraction of valid pixels not reached: ' \
@@ -618,13 +620,34 @@ class LineFit:
 
 class LineFit3D(LineFit):
     def __init__(self, data: Cube, function: str = 'gaussian', fitting_window: tuple = None,
-                 instrument_dispersion: float = 1.0, spiral_fitting: bool = False, spiral_center: tuple = None):
-        self.spaxel_indices = data.spec_indices
-        super().__init__(data, function, fitting_window, instrument_dispersion)
+                 instrument_dispersion: float = 1.0, individual_spec: tuple = None, spiral_fitting: bool = False,
+                 spiral_center: tuple = None):
+
+        if individual_spec is not None:
+            self.spaxel_indices = np.array([individual_spec[::-1]])
+            self.x_0, self.y_0 = individual_spec
+        elif spiral_fitting:
+            self.spaxel_indices = data.spec_indices
 
         if spiral_fitting:
-            assert spiral_center
-            pass
+            self._spiral(spiral_center)
+
+        super().__init__(data, function, fitting_window, instrument_dispersion)
+
+        self.status = np.ones(self.data.data.shape[1:])
+
+    def _spiral(self, spiral_center: tuple = None):
+        y, x = self.spaxel_indices[:, 0], self.spaxel_indices[:, 1]
+        if spiral_center is None:
+            spiral_center = (x.max() / 2., y.max() / 2.)
+        self.x_0, self.y_0 = spiral_center
+        radius = np.sqrt(np.square((x - spiral_center[0])) + np.square((y - spiral_center[1])))
+        angle = np.arctan2(y - spiral_center[1], x - spiral_center[0])
+        angle[angle < 0] += 2 * np.pi
+        b = np.array([(np.ravel(radius)[i], np.ravel(angle)[i]) for i in range(len(np.ravel(radius)))],
+                     dtype=[('radius', 'f8'), ('angle', 'f8')])
+        s = np.argsort(b, axis=0, order=['radius', 'angle'])
+        self.spaxel_indices = np.column_stack([np.ravel(y)[s], np.ravel(x)[s]])
 
     def optimize_fit(self, width: float = 5.0):
         sigma = self.initial_guess[self._get_parameter_indices('sigma')]
@@ -634,8 +657,9 @@ class LineFit3D(LineFit):
         self.mask |= optimized_mask[:, np.newaxis, np.newaxis]
 
     def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, minimum_good_fraction: float = 0.8,
-            verbose: bool = False, fit_continuum: bool = False, continuum_options: dict = None):
-        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights']
+            verbose: bool = False, fit_continuum: bool = False, continuum_options: dict = None, refit: bool = False,
+            refit_radius: float = 3.0):
+        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status']
         if self.solution is not None:
             attributes.append('solution')
         if self.reduced_chi_squared is not None:
@@ -653,12 +677,15 @@ class LineFit3D(LineFit):
             setattr(self, i, cube_data[i])
         self.solution = solution
 
-    def plot(self, plot_all: bool = True, x_0: int = 3, y_0: int = 4):
+    def _select_spaxel(self, x: int, y: int, function: Callable, *args):
         attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'solution']
-        s = (Ellipsis, y_0, x_0)
+        s = (Ellipsis, y, x)
         cube_data = {_: np.copy(getattr(self, _)) for _ in attributes}
         for i in attributes:
             setattr(self, i, cube_data[i][s])
-        super().plot()
+        function(*args)
         for i in attributes:
             setattr(self, i, cube_data[i])
+
+    def plot(self, plot_all: bool = True, x_0: int = None, y_0: int = None):
+        self._select_spaxel(x_0, y_0, super().plot, plot_all)
