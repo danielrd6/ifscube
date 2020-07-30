@@ -51,18 +51,7 @@ def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
 
 
 def cube_fit(data: Cube, **line_fit_args):
-    general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fitting_window', 'instrument_dispersion']
-                        if _ in line_fit_args.keys()}
-    fit = modeling.LineFit3D(data, **general_fit_args)
-
-    for feature in line_fit_args['features']:
-        fit.add_feature(**feature)
-    for bounds in line_fit_args['bounds']:
-        fit.set_bounds(*bounds)
-    for constraint in line_fit_args['constraints']:
-        fit.add_minimize_constraint(*constraint)
-    if line_fit_args['optimize_fit']:
-        fit.optimize_fit(width=line_fit_args['optimization_window'])
+    fit = ifscube.io.line_fit.setup_fit(data, **line_fit_args)
 
     if line_fit_args['fixed']:
         fit.solution = fit.initial_guess

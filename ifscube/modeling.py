@@ -288,7 +288,7 @@ class LineFit:
         continuum_options.update({'output': 'polynomial'})
         new_options = continuum_options.copy()
         wl = self.wavelength
-        if 'weights' not in continuum_options:
+        if ('weights' not in continuum_options) and ('line_weight' in continuum_options):
             cw = np.ones_like(self.data)
 
             def continuum_weights(sigmas):
@@ -301,7 +301,7 @@ class LineFit:
             sigma_velocities = self._get_feature_parameter(feature='all', parameter='sigma', attribute='initial_guess')
             new_options.update(
                 {'weights': continuum_weights(spectools.sigma_lambda(sigma_velocities, self.feature_wavelengths))})
-        new_options.pop('line_weight')
+            new_options.pop('line_weight')
 
         pc: Union[Iterable, Callable] = spectools.continuum(wl, self.data - self.stellar, **new_options)
         self.pseudo_continuum = pc(wl)
@@ -323,6 +323,8 @@ class LineFit:
         self._apply_flux_scale()
 
         if fit_continuum:
+            if continuum_options is None:
+                continuum_options = {}
             self.fit_pseudo_continuum(**continuum_options)
 
         self._pack_groups()

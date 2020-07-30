@@ -1,19 +1,21 @@
 import configparser
+from typing import Union
 
 import numpy as np
 from astropy import table
 from astropy.io import fits
 
-from ifscube import onedspec, parser, modeling
+from ifscube import onedspec, parser, modeling, datacube
 
 
-def setup_fit(data: onedspec.Spectrum, **line_fit_args):
+def setup_fit(data: Union[onedspec.Spectrum, datacube.Cube], **line_fit_args):
     general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fitting_window', 'instrument_dispersion']
                         if _ in line_fit_args.keys()}
-    fit = modeling.LineFit(data, **general_fit_args)
+    if isinstance(data, onedspec.Spectrum):
+        fit = modeling.LineFit(data, **general_fit_args)
+    elif isinstance(data, datacube.Cube):
+        fit = modeling.LineFit3D(data, **general_fit_args)
 
-    if line_fit_args['fit_continuum']:
-        fit.fit_continuum(**line_fit_args['copts'])
     for feature in line_fit_args['features']:
         fit.add_feature(**feature)
     for bounds in line_fit_args['bounds']:
