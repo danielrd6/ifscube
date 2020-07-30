@@ -626,7 +626,7 @@ class LineFit3D(LineFit):
         if individual_spec is not None:
             self.spaxel_indices = np.array([individual_spec[::-1]])
             self.x_0, self.y_0 = individual_spec
-        elif spiral_fitting:
+        else:
             self.spaxel_indices = data.spec_indices
 
         if spiral_fitting:
@@ -677,15 +677,15 @@ class LineFit3D(LineFit):
             setattr(self, i, cube_data[i])
         self.solution = solution
 
-    def _select_spaxel(self, x: int, y: int, function: Callable, *args):
+    def _select_spaxel(self, x: int, y: int, function: Callable, *args, **kwargs):
         attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'solution']
         s = (Ellipsis, y, x)
         cube_data = {_: np.copy(getattr(self, _)) for _ in attributes}
         for i in attributes:
             setattr(self, i, cube_data[i][s])
-        function(*args)
+        function(*args, **kwargs)
         for i in attributes:
             setattr(self, i, cube_data[i])
 
     def plot(self, plot_all: bool = True, x_0: int = None, y_0: int = None):
-        self._select_spaxel(x_0, y_0, super().plot, plot_all)
+        self._select_spaxel(x_0, y_0, super().plot, plot_all=plot_all)

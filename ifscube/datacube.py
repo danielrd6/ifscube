@@ -287,30 +287,6 @@ class Cube(onedspec.Spectrum):
             if j:
                 self.em_model[:, c[0], c[1]] = np.nan
 
-    def _spiral(self, xy, spiral_center=None):
-
-        if self.binned:
-            y, x = xy[:, 0], xy[:, 1]
-        else:
-            y, x = self.spec_indices[:, 0], self.spec_indices[:, 1]
-
-        if spiral_center is None:
-            spiral_center = (x.max() / 2., y.max() / 2.)
-
-        r = np.sqrt((x - spiral_center[0]) ** 2 + (y - spiral_center[1]) ** 2)
-
-        t = np.arctan2(y - spiral_center[1], x - spiral_center[0])
-        t[t < 0] += 2 * np.pi
-
-        b = np.array([
-            (np.ravel(r)[i], np.ravel(t)[i]) for i in range(len(np.ravel(r)))],
-            dtype=[('radius', 'f8'), ('angle', 'f8')])
-
-        s = np.argsort(b, axis=0, order=['radius', 'angle'])
-        xy = np.column_stack([np.ravel(y)[s], np.ravel(x)[s]])
-
-        return xy
-
     def write(self, file_name: str, overwrite=False):
 
         hdr = deepcopy(self.header_data)
