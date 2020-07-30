@@ -13,7 +13,7 @@ from .onedspec import Spectrum
 
 class LineFit:
     def __init__(self, spectrum: Spectrum, function: str = 'gaussian', fitting_window: tuple = None,
-                 fit_continuum: bool = False, continuum_options: dict = None, instrument_dispersion: float = 1.0):
+                 instrument_dispersion: float = 1.0):
         self.fitting_window = fitting_window
 
         self.data = spectrum.data
@@ -28,14 +28,7 @@ class LineFit:
         if fitting_window is not None:
             self.mask[(self.wavelength < fitting_window[0]) | (self.wavelength > fitting_window[1])] = True
 
-        if fit_continuum:
-            if continuum_options is None:
-                continuum_options = {}
-            self.pseudo_continuum = spectools.continuum(
-                self.wavelength, (self.data - self.stellar), output='function', **continuum_options)[1]
-        else:
-            self.pseudo_continuum = np.zeros_like(self.data)
-
+        self.pseudo_continuum = np.zeros_like(self.data)
         self.weights = np.ones_like(self.data)
 
         self.bounds = []
@@ -101,6 +94,10 @@ class LineFit:
         assert value.size == self.data.size, 'Mask must be of the same size as data.'
         assert value.dtype == bool, 'Mask must be an array of boolean type.'
         self._mask = value
+
+    def fit_continuum(self, **continuum_options):
+        self.pseudo_continuum = spectools.continuum(
+            self.wavelength, (self.data - self.stellar), output='function', **continuum_options)[1]
 
     def amplitude_parser(self, amplitude):
         try:

@@ -8,12 +8,12 @@ from ifscube import onedspec, parser, modeling
 
 
 def setup_fit(data: onedspec.Spectrum, **line_fit_args):
-    general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fit_continuum', 'fitting_window',
-                                                      'instrument_dispersion']
+    general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fitting_window', 'instrument_dispersion']
                         if _ in line_fit_args.keys()}
-    general_fit_args['continuum_options'] = line_fit_args['copts']
     fit = modeling.LineFit(data, **general_fit_args)
 
+    if line_fit_args['fit_continuum']:
+        fit.fit_continuum(**line_fit_args['copts'])
     for feature in line_fit_args['features']:
         fit.add_feature(**feature)
     for bounds in line_fit_args['bounds']:
