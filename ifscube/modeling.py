@@ -1,26 +1,28 @@
 import warnings
-from typing import Union
+from typing import Union, Iterable, Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
+import tqdm
 from astropy import constants, units
 from scipy import integrate
 from scipy.optimize import minimize, differential_evolution
 
 from ifscube import elprofile, parser, spectools
+from .datacube import Cube
 from .onedspec import Spectrum
 
 
 class LineFit:
-    def __init__(self, spectrum: Spectrum, function: str = 'gaussian', fitting_window: tuple = None,
+    def __init__(self, data: Union[Spectrum, Cube], function: str = 'gaussian', fitting_window: tuple = None,
                  instrument_dispersion: float = 1.0):
         self.fitting_window = fitting_window
 
-        self.data = spectrum.data
-        self.stellar = spectrum.stellar
-        self.wavelength = spectrum.rest_wavelength
-        self.variance = spectrum.variance
-        self.flags = spectrum.flags
+        self.data = np.copy(data.data)
+        self.stellar = np.copy(data.stellar)
+        self.wavelength = np.copy(data.rest_wavelength)
+        self.variance = np.copy(data.variance)
+        self.flags = np.copy(data.flags)
         self.instrument_dispersion = instrument_dispersion
         self.model_spectrum = None
 
@@ -95,10 +97,6 @@ class LineFit:
         assert value.dtype == bool, 'Mask must be an array of boolean type.'
         self._mask = value
 
-    def fit_continuum(self, **continuum_options):
-        self.pseudo_continuum = spectools.continuum(
-            self.wavelength, (self.data - self.stellar), output='function', **continuum_options)[1]
-
     def amplitude_parser(self, amplitude):
         try:
             if amplitude == 'peak':
@@ -134,6 +132,11 @@ class LineFit:
                         parameters[key] = self._get_feature_parameter(first_feature, key, 'initial_guess')
                 else:
                     self.kinematic_groups[kinematic_group] = [name]
+                    for i in parameter_names[1:]:
+                        assert parameters[i] is not None, \
+                            f'Parameter "{i}" for feature "{name}" is undefined. Since this is the first feature ' \
+                            f'of kinematic group "{kinematic_group}", all of its kinematic parameters should be ' \
+                            'defined.'
             else:
                 assert self.kinematic_groups == {}, \
                     'If you plan on using k_group, please set it for every spectral feature. ' \
@@ -263,6 +266,7 @@ class LineFit:
             self.bounds[i] = [_ / self.flux_scale_factor if _ is not None else _ for _ in self.bounds[i]]
         for i in ['data', 'pseudo_continuum', 'stellar']:
             setattr(self, i, getattr(self, i) / self.flux_scale_factor)
+        self.variance /= np.square(self.flux_scale_factor)
 
     def _restore_flux_scale(self):
         for i in self._get_parameter_indices('amplitude'):
@@ -271,6 +275,7 @@ class LineFit:
             self.bounds[i] = [_ / self.flux_scale_factor if _ is not None else _ for _ in self.bounds[i]]
         for i in ['data', 'pseudo_continuum', 'stellar']:
             setattr(self, i, getattr(self, i) * self.flux_scale_factor)
+        self.variance *= np.square(self.flux_scale_factor)
 
     def optimize_fit(self, width: float = 5.0):
         sigma = self.initial_guess[self._get_parameter_indices('sigma')]
@@ -279,8 +284,30 @@ class LineFit:
                                                 sigma=sigma_lam, width=width)
         self.mask |= optimized_mask
 
+    def fit_pseudo_continuum(self, **continuum_options):
+        continuum_options.update({'output': 'polynomial'})
+        new_options = continuum_options.copy()
+        wl = self.wavelength
+        if 'weights' not in continuum_options:
+            cw = np.ones_like(self.data)
+
+            def continuum_weights(sigmas):
+                for i, j in enumerate(self.feature_wavelengths):
+                    low_lambda = j - (3.0 * sigmas[i])
+                    up_lambda = j + (3.0 * sigmas[i])
+                    cw[(wl > low_lambda) & (wl < up_lambda)] = continuum_options['line_weight']
+                return cw
+
+            sigma_velocities = self._get_feature_parameter(feature='all', parameter='sigma', attribute='initial_guess')
+            new_options.update(
+                {'weights': continuum_weights(spectools.sigma_lambda(sigma_velocities, self.feature_wavelengths))})
+        new_options.pop('line_weight')
+
+        pc: Union[Iterable, Callable] = spectools.continuum(wl, self.data - self.stellar, **new_options)
+        self.pseudo_continuum = pc(wl)
+
     def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, minimum_good_fraction: float = 0.8,
-            verbose: bool = False):
+            verbose: bool = False, fit_continuum: bool = False, continuum_options: dict = None):
         assert self.initial_guess.size > 0, 'There are no spectral features to fit. Aborting'
         assert self.initial_guess.size == (len(self.feature_names) * self.parameters_per_feature), \
             'There is a problem with the initial guess. Check the spectral feature definitions.'
@@ -294,6 +321,9 @@ class LineFit:
                                                         f'{valid_fraction} < {minimum_good_fraction}.'
 
         self._apply_flux_scale()
+
+        if fit_continuum:
+            self.fit_pseudo_continuum(**continuum_options)
 
         self._pack_groups()
         p_0 = self._pack_parameters(self.initial_guess)
@@ -392,6 +422,9 @@ class LineFit:
         if parameter == 'all':
             i = self.parameter_names.index((feature, 'amplitude'))
             return x[i:i + self.parameters_per_feature]
+        elif feature == 'all':
+            idx = self._get_parameter_indices(parameter=parameter)
+            return x[idx]
         else:
             return x[self.parameter_names.index((feature, parameter))]
 
@@ -579,3 +612,51 @@ class LineFit:
 
         ax.grid()
         plt.show()
+
+
+class LineFit3D(LineFit):
+    def __init__(self, data: Cube, function: str = 'gaussian', fitting_window: tuple = None,
+                 instrument_dispersion: float = 1.0, spiral_fitting: bool = False, spiral_center: tuple = None):
+        self.spaxel_indices = data.spec_indices
+        super().__init__(data, function, fitting_window, instrument_dispersion)
+
+        if spiral_fitting:
+            assert spiral_center
+            pass
+
+    def optimize_fit(self, width: float = 5.0):
+        sigma = self.initial_guess[self._get_parameter_indices('sigma')]
+        sigma_lam = spectools.sigma_lambda(sigma_vel=sigma, rest_wl=self.feature_wavelengths)
+        optimized_mask = spectools.feature_mask(wavelength=self.wavelength, feature_wavelength=self.feature_wavelengths,
+                                                sigma=sigma_lam, width=width)
+        self.mask |= optimized_mask[:, np.newaxis, np.newaxis]
+
+    def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, minimum_good_fraction: float = 0.8,
+            verbose: bool = False, fit_continuum: bool = False, continuum_options: dict = None):
+        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights']
+        if self.solution is not None:
+            attributes.append('solution')
+        if self.reduced_chi_squared is not None:
+            attributes.append('reduced_chi_squared')
+        cube_data = {_: np.copy(getattr(self, _)) for _ in attributes}
+        solution = np.zeros((len(self.initial_guess),) + self.data.shape[1:])
+        for xy in tqdm.tqdm(self.spaxel_indices):
+            s = (Ellipsis, *xy)
+            for i in attributes:
+                setattr(self, i, cube_data[i][s])
+            super().fit(min_method, minimize_options, minimum_good_fraction, verbose, fit_continuum, continuum_options)
+            solution[s] = np.copy(self.solution)
+            cube_data['pseudo_continuum'][s] = np.copy(self.pseudo_continuum)
+        for i in attributes:
+            setattr(self, i, cube_data[i])
+        self.solution = solution
+
+    def plot(self, plot_all: bool = True, x_0: int = 3, y_0: int = 4):
+        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'solution']
+        s = (Ellipsis, y_0, x_0)
+        cube_data = {_: np.copy(getattr(self, _)) for _ in attributes}
+        for i in attributes:
+            setattr(self, i, cube_data[i][s])
+        super().plot()
+        for i in attributes:
+            setattr(self, i, cube_data[i])

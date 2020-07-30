@@ -337,8 +337,7 @@ class LineFitParser:
 
         float_args = [
             'refit_radius', 'sig_threshold', 'instrument_dispersion',
-            'optimization_window', 'good_minfraction', 'continuum_line_weight',
-            'instrument_dispersion_angstrom', ]
+            'optimization_window', 'good_minfraction', 'instrument_dispersion_angstrom']
         for i in float_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getfloat('fit', i)
@@ -393,7 +392,7 @@ class LineFitParser:
         if 'continuum' in self.cfg.sections():
             self.copts = self._parse_dict(
                 section='continuum',
-                float_args=['lower_threshold', 'upper_threshold'],
+                float_args=['lower_threshold', 'upper_threshold', 'line_weight'],
                 int_args=['degree', 'n_iterate'],
                 bool_args=[],
             )

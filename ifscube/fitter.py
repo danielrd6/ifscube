@@ -1,3 +1,4 @@
+import warnings
 import argparse
 import os
 
@@ -9,6 +10,7 @@ from . import manga
 from . import onedspec
 from . import parser
 from . import spectools
+from . import modeling
 
 
 def make_lock(file_name):
@@ -49,7 +51,40 @@ def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
 
 
 def cube_fit(data: Cube, **line_fit_args):
-    assert 1 == 0, 'NOT IMPLEMENTED YET!'
+    general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fitting_window', 'instrument_dispersion']
+                        if _ in line_fit_args.keys()}
+    fit = modeling.LineFit3D(data, **general_fit_args)
+
+    for feature in line_fit_args['features']:
+        fit.add_feature(**feature)
+    for bounds in line_fit_args['bounds']:
+        fit.set_bounds(*bounds)
+    for constraint in line_fit_args['constraints']:
+        fit.add_minimize_constraint(*constraint)
+    if line_fit_args['optimize_fit']:
+        fit.optimize_fit(width=line_fit_args['optimization_window'])
+
+    if line_fit_args['fixed']:
+        fit.solution = fit.initial_guess
+        print('Not fitting! Returning initial guess.')
+        fit.print_parameters('solution')
+    else:
+        if line_fit_args['monte_carlo']:
+            print('\n' + (40 * '-') + '\n' + 'Initial fit.\n')
+        fit.fit(min_method=line_fit_args['method'], minimize_options=line_fit_args['minopts'], verbose=False,
+                fit_continuum=line_fit_args['fit_continuum'], continuum_options=line_fit_args['copts'])
+
+    if line_fit_args['monte_carlo']:
+        warnings.warn('Monte carlo not implemented yet!')
+        # if line_fit_args['monte_carlo']:
+        #     print('\n' + (40 * '-') + '\n' + f'Monte carlo run with {line_fit_args["monte_carlo"]} iterations.\n')
+        # fit.monte_carlo(line_fit_args['monte_carlo'], verbose=True)
+
+    if line_fit_args['write_fits']:
+        args = {_: line_fit_args[_] for _ in ['out_image', 'suffix', 'function', 'overwrite']}
+        ifscube.io.line_fit.write_spectrum_fit(data, fit, args)
+
+    return fit
 
 
 def dofit(file_name, line_fit_args, overwrite, cube_type, loading, fit_type, config_file_name, plot=False, lock=False):

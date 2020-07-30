@@ -34,9 +34,7 @@ class Spectrum:
             Number of the WCS axis which represents the wavelength.
         """
 
-        self.component_names = None
         self.header = None
-        self.valid_pixels = None
         self.ppxf_sol = np.ndarray([])
 
         if fname is not None:
@@ -64,8 +62,7 @@ class Spectrum:
             if j is not None:
                 if isinstance(j, str):
                     if j in hdu:
-                        assert hdu[j].data.shape == self.data.shape, \
-                            shape_error(lab)
+                        assert hdu[j].data.shape == self.data.shape, shape_error(lab)
                         i[:] = hdu[j].data
                 elif isinstance(j, np.ndarray):
                     i[:] = j
