@@ -3,6 +3,7 @@ import configparser
 import copy
 
 import numpy as np
+from scipy.optimize import NonlinearConstraint
 
 # LOCAL
 from . import spectools
@@ -108,7 +109,7 @@ class ConstraintParser:
 
         self.type = t
 
-    def evaluate(self, parameter, scale_factor: float = 1.0):
+    def evaluate(self, parameter, scale_factor: float = 1.0, method: str = 'slsqp'):
 
         idx = self._idx(parameter)
 
@@ -183,7 +184,17 @@ class ConstraintParser:
         else:
             raise Exception('Failed to interpret constraint expression.')
 
-        self.constraint = dict(type=self.type, fun=func)
+        if method == 'slsqp':
+            self.constraint = dict(type=self.type, fun=func)
+        elif method in ['differential_evolution', 'trust-constr']:
+            if self.type == 'eq':
+                self.constraint = NonlinearConstraint(func, 0.0, 0.0)
+            elif self.type == 'ineq':
+                self.constraint = NonlinearConstraint(func, 0.0, np.inf)
+            else:
+                raise RuntimeError(f'Unknown constraint type "{self.type}".')
+        else:
+            raise RuntimeError(f'Unknown method "{method}".')
 
     def tolist(self):
 

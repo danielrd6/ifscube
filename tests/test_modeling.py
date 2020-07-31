@@ -109,6 +109,18 @@ def test_constraints():
     assert fit._get_feature_parameter('ha', 'amplitude', 'solution') < 1.6
 
 
+def test_constraints_differential_evolution():
+    fit = simple_fit()
+    fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
+    fit.add_minimize_constraint('ha.amplitude', '< 1.5')
+    bounds = {'amplitude': [0, 10], 'velocity': [-300, 300], 'sigma': [40, 300]}
+    for i, j in fit.parameter_names:
+        fit.set_bounds(i, j, bounds[j])
+    fit.fit(min_method='differential_evolution', fit_continuum=True, verbose=True)
+    fit.plot()
+    assert True
+
+
 def test_gauss_hermite():
     fit = simple_fit(function='gauss_hermite')
     fit.add_minimize_constraint(parameter='n2_6548.h_3', expression='n2_6583.h_3')
