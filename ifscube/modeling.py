@@ -311,7 +311,7 @@ class LineFit:
         self.pseudo_continuum = pc(wl)
 
     def fit(self, min_method: str = 'slsqp', minimum_good_fraction: float = 0.8, verbose: bool = False,
-            fit_continuum: bool = False, continuum_options: dict = None, **kwargs):
+            fit_continuum: bool = True, continuum_options: dict = None, **kwargs):
         assert self.initial_guess.size > 0, 'There are no spectral features to fit. Aborting'
         assert self.initial_guess.size == (len(self.feature_names) * self.parameters_per_feature), \
             'There is a problem with the initial guess. Check the spectral feature definitions.'
@@ -622,6 +622,8 @@ class LineFit:
 
 
 class LineFit3D(LineFit):
+    two_d_attributes = ['reduced_chi_squared', 'status']
+
     def __init__(self, data: Cube, function: str = 'gaussian', fitting_window: tuple = None,
                  instrument_dispersion: float = 1.0, individual_spec: tuple = None, spiral_fitting: bool = False,
                  spiral_center: tuple = None):
@@ -633,7 +635,7 @@ class LineFit3D(LineFit):
             self._spiral(spiral_center)
         else:
             self.spaxel_indices = data.spec_indices
-        self.x_0, self.y_0 = self.spaxel_indices[0]
+        self.y_0, self.x_0 = self.spaxel_indices[0]
         self.status = np.ones(self.data.data.shape[1:])
 
     def _spiral(self, spiral_center: tuple = None):
@@ -658,40 +660,61 @@ class LineFit3D(LineFit):
     def fit(self, min_method: str = 'slsqp', minimum_good_fraction: float = 0.8, verbose: bool = False,
             fit_continuum: bool = False, continuum_options: dict = None, refit: bool = False,
             refit_radius: float = 3.0, **kwargs):
-        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status']
-        if self.solution is not None:
-            attributes.append('solution')
-        if self.reduced_chi_squared is not None:
-            attributes.append('reduced_chi_squared')
-        cube_data = {_: np.copy(getattr(self, _)) for _ in attributes}
-        solution = np.zeros((len(self.initial_guess),) + self.data.shape[1:])
-        reduced_chi_squared = np.zeros(self.data.shape[1:])
-        for xy in tqdm.tqdm(self.spaxel_indices):
-            s = (Ellipsis, *xy)
-            for i in attributes:
-                setattr(self, i, cube_data[i][s])
-            super().fit(min_method, minimum_good_fraction, verbose, fit_continuum, continuum_options, **kwargs)
-            solution[s] = np.copy(self.solution)
-            reduced_chi_squared[s[1:]] = np.copy(self.reduced_chi_squared)
-            cube_data['pseudo_continuum'][s] = np.copy(self.pseudo_continuum)
-        for i in attributes:
-            setattr(self, i, cube_data[i])
-        self.solution = solution
-        self.reduced_chi_squared = reduced_chi_squared
+        if self.solution is None:
+            self.solution = np.zeros((len(self.initial_guess),) + self.data.shape[1:])
+        if self.reduced_chi_squared is None:
+            self.reduced_chi_squared = np.zeros(self.data.shape[1:])
+        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status',
+                      'solution', 'reduced_chi_squared']
+        in_attr = ['solution', 'reduced_chi_squared', 'status', 'pseudo_continuum']
+        fit_args = (min_method, minimum_good_fraction, verbose, fit_continuum, continuum_options)
+        x = self.spaxel_indices[:, 1]
+        y = self.spaxel_indices[:, 0]
+        self._select_spaxel(x, y, super().fit, used_attr=attributes, in_attr=in_attr, args=fit_args, kwargs=kwargs)
 
-    def _select_spaxel(self, x: int, y: int, function: Callable, *args, **kwargs):
-        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'solution']
-        s = (Ellipsis, y, x)
-        cube_data = {_: np.copy(getattr(self, _)) for _ in attributes}
-        for i in attributes:
-            setattr(self, i, cube_data[i][s])
-        function(*args, **kwargs)
-        for i in attributes:
+    def _select_spaxel(self, x: Union[int, Iterable], y: Union[int, Iterable], function: Callable,
+                       used_attr: list = None, in_attr: list = None, out_attr: list = None, args: tuple = None,
+                       kwargs: dict = None):
+        if args is None:
+            args = ()
+        if kwargs is None:
+            kwargs = {}
+
+        if in_attr is None:
+            in_attr = []
+        if out_attr is None:
+            out_attr = in_attr
+
+        cube_data = {_: np.copy(getattr(self, _)) for _ in used_attr}
+
+        if isinstance(x, int):
+            iterator = [[x, y]]
+        else:
+            iterator = tqdm.tqdm(zip(x, y))
+
+        for xx, yy in iterator:
+            s = (Ellipsis, yy, xx)
+            for i in used_attr:
+                if i in self.two_d_attributes:
+                    setattr(self, i, cube_data[i][s[1:]])
+                else:
+                    setattr(self, i, cube_data[i][s])
+
+            function(*args, **kwargs)
+
+            for i, o in zip(in_attr, out_attr):
+                if i in self.two_d_attributes:
+                    cube_data[i][s[1:]] = getattr(self, o)
+                else:
+                    cube_data[i][s] = getattr(self, o)
+
+        for i in used_attr:
             setattr(self, i, cube_data[i])
 
     def plot(self, plot_all: bool = True, x_0: int = None, y_0: int = None):
+        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'solution']
         if x_0 is None:
             x_0 = self.x_0
         if y_0 is None:
             y_0 = self.y_0
-        self._select_spaxel(x_0, y_0, super().plot, plot_all=plot_all)
+        self._select_spaxel(x_0, y_0, super().plot, used_attr=attributes, kwargs={'plot_all': plot_all})
