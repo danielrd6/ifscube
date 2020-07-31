@@ -922,8 +922,6 @@ class Cube(onedspec.Spectrum):
         individual_spec : bool or tuple
             If not *False* performs the evaluation for a single
             spaxel specfied by a tuple (x, y).
-        width : float
-            Percentile velocity width. For instance width=80 for the W_80 index.
         verbose : bool
             Prints messages about the processing.
         smooth : float
@@ -1010,7 +1008,7 @@ class Cube(onedspec.Spectrum):
 
                 # Evaluates the W80 over the modeled emission line.
                 # noinspection PyTupleAssignmentBalance
-                w80_model[i, j], m0, m1, mv, ms = spectools.w80eval(fwl[cond], fit, cwl, width=width)
+                w80_model[i, j], m0, m1, mv, ms = spectools.w80eval(fwl[cond], fit, cwl)
 
                 # Evaluating the W80 over the observed spectrum
                 # directly is a bit more complicated due to the overlap
@@ -1026,8 +1024,8 @@ class Cube(onedspec.Spectrum):
                             fwl[cond], self.feature_wl[k], self.em_model[ci:ci + npars, i, j])
                 # And now for the actual W80 evaluation.
                 # noinspection PyTupleAssignmentBalance
-                w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(
-                    fwl[cond], obs_spec, cwl, width=width, smooth=smooth, clip_negative_flux=clip_negative_flux)
+                w80_direct[i, j], d0, d1, dv, ds = spectools.w80eval(fwl[cond], obs_spec, cwl, smooth=smooth,
+                                                                     clip_negative_flux=clip_negative_flux)
 
                 # Plots the fit when evaluating only one spectrum.
                 if len(xy) == 1:
@@ -1092,13 +1090,13 @@ class Cube(onedspec.Spectrum):
             flags = np.zeros_like(self.fit_wavelength)
 
         assert np.any(s), 'Spectrum is null.'
+        median_spec = np.median(s)
 
-        if np.percentile(s, 97) > 0:
-            norm_factor_d = np.int(np.log10(np.percentile(s, 97))) - 1
+        if median_spec > 0:
+            norm_factor_d = np.int(np.log10(median_spec))
             norm_factor = 10.0 ** norm_factor_d
         else:
-            print('Too many negative values. Skipping normalization.')
-            norm_factor = 1.0
+            return ax
 
         mask = spectools.flags_to_mask(wl, flags)
         for i in mask:
