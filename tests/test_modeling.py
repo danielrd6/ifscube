@@ -53,13 +53,13 @@ def full_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
 
 def test_simple_fit():
     fit = simple_fit()
-    fit.fit(verbose=True, fit_continuum=True)
+    fit.fit(verbose=True, )
     assert 1
 
 
 def test_flux():
     fit = simple_fit()
-    fit.fit(fit_continuum=True)
+    fit.fit()
     fit.integrate_flux(sigma_factor=5.0)
     assert 1
 
@@ -67,7 +67,7 @@ def test_flux():
 def test_optimize_fit():
     fit = simple_fit()
     fit.optimize_fit(width=5.0)
-    fit.fit(fit_continuum=True)
+    fit.fit()
     assert 1
 
 
@@ -86,7 +86,7 @@ def test_skip_feature():
     with pytest.warns(UserWarning):
         fit.add_feature(name='hb', rest_wavelength=4861.0, amplitude=0, velocity=0, sigma=10)
     fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude=1.0e-14, velocity=0.0, sigma=100.0)
-    fit.fit(fit_continuum=True)
+    fit.fit()
     assert 1
 
 
@@ -94,7 +94,7 @@ def test_bounds():
     fit = simple_fit()
     fit.set_bounds('ha', 'velocity', [-50, 50])
     fit.set_bounds('ha', 'amplitude', [None, 0.4e-14])
-    fit.fit(fit_continuum=True)
+    fit.fit()
     assert 1
 
 
@@ -105,7 +105,7 @@ def test_constraints():
     fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
     fit.add_minimize_constraint('n2_6548.amplitude', '< ha.amplitude')
     fit.add_minimize_constraint('ha.amplitude', '< 1.5')
-    fit.fit(fit_continuum=True)
+    fit.fit()
     assert fit._get_feature_parameter('ha', 'amplitude', 'solution') < 1.6
 
 
@@ -116,7 +116,7 @@ def test_constraints_differential_evolution():
     bounds = {'amplitude': [0, 10], 'velocity': [-300, 300], 'sigma': [40, 300]}
     for i, j in fit.parameter_names:
         fit.set_bounds(i, j, bounds[j])
-    fit.fit(min_method='differential_evolution', fit_continuum=True, verbose=True)
+    fit.fit(min_method='differential_evolution', verbose=True)
     assert True
 
 
@@ -124,14 +124,14 @@ def test_gauss_hermite():
     fit = simple_fit(function='gauss_hermite')
     fit.add_minimize_constraint(parameter='n2_6548.h_3', expression='n2_6583.h_3')
     fit.add_minimize_constraint(parameter='n2_6548.h_4', expression='n2_6583.h_4')
-    fit.fit(fit_continuum=True)
+    fit.fit()
     assert 1
 
 
 def test_kinematic_groups():
     fit = full_fit()
     fit.optimize_fit(width=5.0)
-    fit.fit(fit_continuum=True)
+    fit.fit()
     assert 1
 
 
@@ -145,34 +145,34 @@ def test_fixed_features():
     for name, wl, k in zip(names, r_wl, [0, 1, 0, 2, 2]):
         fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
                         fixed='n2' in name, kinematic_group=k)
-    fit.fit(fit_continuum=True)
+    fit.fit()
     assert 1
 
 
 def test_monte_carlo():
     fit = full_fit()
     fit.optimize_fit(width=5.0)
-    fit.fit(fit_continuum=True)
+    fit.fit()
     fit.monte_carlo(3)
     assert 1
 
 
 def test_simple_cube_fit():
-    fit = simple_fit(fit_type='cube', individual_spec=(3, 4))
-    fit.fit(fit_continuum=True)
+    fit = simple_fit(fit_type='cube')
+    fit.fit()
     assert True
 
 
 def test_full_cube_fit():
     fit = full_fit(fit_type='cube')
     fit.optimize_fit()
-    fit.fit(fit_continuum=True)
+    fit.fit()
     assert True
 
 
 def test_spiral_fit():
     fit = simple_fit(fit_type='cube', spiral_fitting=True, spiral_center=(3, 4))
-    fit.fit(fit_continuum=True)
+    fit.fit()
     assert True
 
 
@@ -186,6 +186,6 @@ def test_cube_monte_carlo():
                         kinematic_group=0)
 
     fit.optimize_fit()
-    fit.fit(fit_continuum=True)
+    fit.fit()
     fit.monte_carlo(3)
     assert True
