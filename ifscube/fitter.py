@@ -1,6 +1,6 @@
-import warnings
 import argparse
 import os
+from typing import Union
 
 import ifscube.io.line_fit
 from . import Cube
@@ -25,7 +25,7 @@ def clear_lock(lock_name):
     return
 
 
-def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
+def spectrum_fit(data: Union[Cube, onedspec.Spectrum], **line_fit_args):
     fit = ifscube.io.line_fit.setup_fit(data, **line_fit_args)
 
     if line_fit_args['fixed']:
@@ -35,7 +35,8 @@ def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
     else:
         if line_fit_args['monte_carlo']:
             print('\n' + (40 * '-') + '\n' + 'Initial fit.\n')
-        fit.fit(min_method=line_fit_args['method'], minimize_options=line_fit_args['minopts'], verbose=True)
+        fit.fit(min_method=line_fit_args['method'], verbose=False, fit_continuum=line_fit_args['fit_continuum'],
+                continuum_options=line_fit_args['copts'])
 
     if line_fit_args['monte_carlo']:
         if line_fit_args['monte_carlo']:
@@ -43,34 +44,8 @@ def spectrum_fit(data: onedspec.Spectrum, **line_fit_args):
         fit.monte_carlo(line_fit_args['monte_carlo'], verbose=True)
 
     if line_fit_args['write_fits']:
-        args = {_: line_fit_args[_] for _ in ['out_image', 'suffix', 'function', 'overwrite']}
-        ifscube.io.line_fit.write_spectrum_fit(data, fit, args)
-
-    return fit
-
-
-def cube_fit(data: Cube, **line_fit_args):
-    fit = ifscube.io.line_fit.setup_fit(data, **line_fit_args)
-
-    if line_fit_args['fixed']:
-        fit.solution = fit.initial_guess
-        print('Not fitting! Returning initial guess.')
-        fit.print_parameters('solution')
-    else:
-        if line_fit_args['monte_carlo']:
-            print('\n' + (40 * '-') + '\n' + 'Initial fit.\n')
-        fit.fit(min_method=line_fit_args['method'], minimize_options=line_fit_args['minopts'], verbose=False,
-                fit_continuum=line_fit_args['fit_continuum'], continuum_options=line_fit_args['copts'])
-
-    if line_fit_args['monte_carlo']:
-        warnings.warn('Monte carlo not implemented yet!')
-        # if line_fit_args['monte_carlo']:
-        #     print('\n' + (40 * '-') + '\n' + f'Monte carlo run with {line_fit_args["monte_carlo"]} iterations.\n')
-        # fit.monte_carlo(line_fit_args['monte_carlo'], verbose=True)
-
-    if line_fit_args['write_fits']:
-        args = {_: line_fit_args[_] for _ in ['out_image', 'suffix', 'function', 'overwrite']}
-        ifscube.io.line_fit.write_spectrum_fit(data, fit, args)
+        kwargs = {_: line_fit_args[_] for _ in ['out_image', 'suffix', 'function', 'overwrite']}
+        ifscube.io.line_fit.write_spectrum_fit(fit, **kwargs)
 
     return fit
 
@@ -125,7 +100,6 @@ def dofit(file_name, line_fit_args, overwrite, cube_type, loading, fit_type, con
             a = gmos.Cube(file_name, **loading)
         else:
             raise RuntimeError('cubetype "{:s}" not understood.'.format(cube_type))
-        fit_function = cube_fit
 
     elif fit_type == 'spec':
 
@@ -135,7 +109,6 @@ def dofit(file_name, line_fit_args, overwrite, cube_type, loading, fit_type, con
             a = manga.IntegratedSpectrum(file_name, **loading)
         else:
             raise RuntimeError('cubetype "{:s}" not understood.'.format(cube_type))
-        fit_function = spectrum_fit
 
     else:
         raise RuntimeError('fit_type "{:s}" not understood.'.format(fit_type))
@@ -145,7 +118,7 @@ def dofit(file_name, line_fit_args, overwrite, cube_type, loading, fit_type, con
     if 'weights' in line_fit_args['copts']:
         line_fit_args['copts']['weights'] = spectools.read_weights(a.rest_wavelength, line_fit_args['copts']['weights'])
 
-    fit = fit_function(data=a, **line_fit_args)
+    fit = spectrum_fit(data=a, **line_fit_args)
     try:
         cubetools.append_config(config_file_name, output_name)
     except IOError:
