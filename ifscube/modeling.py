@@ -18,6 +18,7 @@ class LineFit:
                  instrument_dispersion: float = 1.0):
         self.fitting_window = fitting_window
 
+        self.input_data = data
         self.data = np.copy(data.data)
         self.stellar = np.copy(data.stellar)
         self.wavelength = np.copy(data.rest_wavelength)
@@ -657,9 +658,9 @@ class LineFit3D(LineFit):
                                                 sigma=sigma_lam, width=width)
         self.mask |= optimized_mask[:, np.newaxis, np.newaxis]
 
-    def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, minimum_good_fraction: float = 0.8,
-            verbose: bool = False, fit_continuum: bool = False, continuum_options: dict = None, refit: bool = False,
-            refit_radius: float = 3.0):
+    def fit(self, min_method: str = 'slsqp', minimum_good_fraction: float = 0.8, verbose: bool = False,
+            fit_continuum: bool = False, continuum_options: dict = None, refit: bool = False,
+            refit_radius: float = 3.0, **kwargs):
         attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status']
         if self.solution is not None:
             attributes.append('solution')
@@ -672,7 +673,7 @@ class LineFit3D(LineFit):
             s = (Ellipsis, *xy)
             for i in attributes:
                 setattr(self, i, cube_data[i][s])
-            super().fit(min_method, minimize_options, minimum_good_fraction, verbose, fit_continuum, continuum_options)
+            super().fit(min_method, minimum_good_fraction, verbose, fit_continuum, continuum_options, **kwargs)
             solution[s] = np.copy(self.solution)
             reduced_chi_squared[s[1:]] = np.copy(self.reduced_chi_squared)
             cube_data['pseudo_continuum'][s] = np.copy(self.pseudo_continuum)
