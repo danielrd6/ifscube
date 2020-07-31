@@ -280,16 +280,14 @@ def load_fit(file_name):
     with fits.open(file_name, mode='readonly') as h:
         if len(h['FITSPEC'].data.shape) == 3:
             data = datacube.Cube(file_name, scidata='FITSPEC', variance='VAR', flags='FLAGS', stellar='STELLAR',
-                                 primary='PRIMARY', spatial_mask='MASK2D')
+                                 primary='PRIMARY', spatial_mask='MASK2D', redshift=0.0)
+        # Redshift is set to zero because LineFit already puts everything in the rest frame.
         elif len(h['FITSPEC'].data.shape) == 1:
             data = onedspec.Spectrum(file_name, scidata='FITSPEC', variance='VAR', flags='FLAGS', stellar='STELLAR',
-                                     primary='PRIMARY')
+                                     primary='PRIMARY', redshift=0.0)
         else:
             raise RuntimeError(
                 f'Data dimensions are expected to be either 1 or 3, got "{len(h["FITSPEC"].data.shape)}".')
-        # if 'FITCONFIG' in h:
-        #     config = table_to_config(table.Table(h['FITCONFIG'].data))
-        #     fit = setup_fit(data, **parser.LineFitParser(config).get_vars())
         if len(h['FITSPEC'].data.shape) == 3:
             fit = modeling.LineFit3D(data)
         elif len(h['FITSPEC'].data.shape) == 1:
