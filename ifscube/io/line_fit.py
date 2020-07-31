@@ -5,7 +5,7 @@ import numpy as np
 from astropy import table
 from astropy.io import fits
 
-from ifscube import onedspec, parser, modeling, datacube
+from ifscube import onedspec, modeling, datacube
 
 
 def setup_fit(data: Union[onedspec.Spectrum, datacube.Cube], **line_fit_args):
@@ -19,6 +19,8 @@ def setup_fit(data: Union[onedspec.Spectrum, datacube.Cube], **line_fit_args):
         general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fitting_window', 'instrument_dispersion']
                             if _ in line_fit_args.keys()}
         fit = modeling.LineFit(data, **general_fit_args)
+    else:
+        raise RuntimeError(f'Data instance "{str(data)}" not recognized.')
 
     for feature in line_fit_args['features']:
         fit.add_feature(**feature)
@@ -143,8 +145,6 @@ def write_spectrum_fit(fit: Union[modeling.LineFit, modeling.LineFit3D], suffix:
     if is_cube:
         hdr['fit_x0'] = fit.x_0
         hdr['fit_y0'] = fit.y_0
-    else:
-        hdr['fitstat'] = fit.status
     total_pars = fit.solution.shape[0]
 
     hdr['object'] = 'parameters'
@@ -187,16 +187,20 @@ def write_spectrum_fit(fit: Union[modeling.LineFit, modeling.LineFit3D], suffix:
     hdu.name = 'EQW_D'
     h.append(hdu)
 
-    if is_cube:
-        # Creates the minimize's exit status extension
-        hdr['object'] = 'status'
+    # Creates the minimize's exit status extension
+    hdr['object'] = 'status'
+    if isinstance(fit.status, int):
+        # noinspection PyTypeChecker
+        hdu = fits.ImageHDU(data=np.array([fit.status]), header=hdr)
+    else:
         hdu = fits.ImageHDU(data=fit.status, header=hdr)
-        hdu.name = 'STATUS'
-        h.append(hdu)
+    hdu.name = 'STATUS'
+    h.append(hdu)
 
+    if is_cube:
         # Creates the spatial mask extension
         hdr['object'] = 'spatial mask'
-        hdu = fits.ImageHDU(data=fit.spatial_mask.astype(int), header=hdr)
+        hdu = fits.ImageHDU(data=fit.input_data.spatial_mask.astype(int), header=hdr)
         hdu.name = 'MASK2D'
         h.append(hdu)
 
@@ -212,6 +216,13 @@ def write_spectrum_fit(fit: Union[modeling.LineFit, modeling.LineFit3D], suffix:
     hdr['object'] = 'parameter names'
     hdu = fits.table_to_hdu(fit_table)
     hdu.name = 'PARNAMES'
+    h.append(hdu)
+
+    fit_table = table.Table([table.Column(data=np.array(fit.feature_names), name='feature'),
+                             table.Column(data=np.array(fit.feature_wavelengths), name='rest_wavelength')])
+    hdr['object'] = 'features rest wavelength'
+    hdu = fits.table_to_hdu(fit_table)
+    hdu.name = 'FEATWL'
     h.append(hdu)
 
     if is_cube:
@@ -238,10 +249,24 @@ def table_to_config(t: table.Table):
     return cfg
 
 
+def features_from_table(fit, parameter_names, solution, rest_wavelength):
+    features = {}
+    feature_wavelength = dict(rest_wavelength)
+    for i, j in enumerate(parameter_names):
+        name, parameter = j
+        if name in features:
+            features[name][parameter] = solution[i]
+        else:
+            features[name] = {'name': name, 'rest_wavelength': feature_wavelength[name], parameter: solution[i]}
+    for name in features:
+        fit.add_feature(**features[name])
+    return fit
+
+
 def load_fit(file_name):
     """
     Loads the result of a previous fit, and put it in the
-    appropriate variables for the plotfit function.
+    appropriate variables for the plot function.
 
     Parameters
     ----------
@@ -252,14 +277,29 @@ def load_fit(file_name):
     -------
     Nothing.
     """
-    spectrum = onedspec.Spectrum(file_name, scidata='FITSPEC', variance='VAR', stellar='STELLAR')
     with fits.open(file_name, mode='readonly') as h:
-        config = table_to_config(table.Table(h['FITCONFIG'].data))
-        fit = setup_fit(spectrum, **parser.LineFitParser(config).get_vars())
-        fit.status = h['SOLUTION'].header['fitstat']
+        if len(h['FITSPEC'].data.shape) == 3:
+            data = datacube.Cube(file_name, scidata='FITSPEC', variance='VAR', flags='FLAGS', stellar='STELLAR',
+                                 primary='PRIMARY', spatial_mask='MASK2D')
+        elif len(h['FITSPEC'].data.shape) == 1:
+            data = onedspec.Spectrum(file_name, scidata='FITSPEC', variance='VAR', flags='FLAGS', stellar='STELLAR',
+                                     primary='PRIMARY')
+        else:
+            raise RuntimeError(
+                f'Data dimensions are expected to be either 1 or 3, got "{len(h["FITSPEC"].data.shape)}".')
+        # if 'FITCONFIG' in h:
+        #     config = table_to_config(table.Table(h['FITCONFIG'].data))
+        #     fit = setup_fit(data, **parser.LineFitParser(config).get_vars())
+        if len(h['FITSPEC'].data.shape) == 3:
+            fit = modeling.LineFit3D(data)
+        elif len(h['FITSPEC'].data.shape) == 1:
+            fit = modeling.LineFit(data)
+
+        fit = features_from_table(fit, parameter_names=h['parnames'].data, solution=h['solution'].data,
+                                  rest_wavelength=h['featwl'].data)
         translate_extensions = {'pseudo_continuum': 'fitcont', 'model': 'model', 'solution': 'solution',
                                 'eqw_model': 'eqw_m', 'eqw_direct': 'eqw_d', 'flux_model': 'flux_m',
-                                'flux_direct': 'flux_d'}
+                                'flux_direct': 'flux_d', 'status': 'status'}
         for key in translate_extensions:
             setattr(fit, key, h[translate_extensions[key]].data)
     return fit

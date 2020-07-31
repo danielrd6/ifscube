@@ -16,8 +16,6 @@ from .onedspec import Spectrum
 class LineFit:
     def __init__(self, data: Union[Spectrum, Cube], function: str = 'gaussian', fitting_window: tuple = None,
                  instrument_dispersion: float = 1.0):
-        self.fitting_window = fitting_window
-
         self.input_data = data
         self.data = np.copy(data.data)
         self.stellar = np.copy(data.stellar)
@@ -28,8 +26,11 @@ class LineFit:
         self.model_spectrum = None
 
         self.mask = np.copy(self.flags)
-        if fitting_window is not None:
-            self.mask[(self.wavelength < fitting_window[0]) | (self.wavelength > fitting_window[1])] = True
+        if fitting_window is None:
+            fitting_window = self.wavelength[[0, -1]]
+        self.fitting_window = fitting_window
+
+        self.mask[(self.wavelength < fitting_window[0]) | (self.wavelength > fitting_window[1])] = True
 
         self.pseudo_continuum = np.zeros_like(self.data)
         self.weights = np.ones_like(self.data)
