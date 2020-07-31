@@ -307,7 +307,8 @@ class LineFit:
                 {'weights': continuum_weights(spectools.sigma_lambda(sigma_velocities, self.feature_wavelengths))})
             new_options.pop('line_weight')
 
-        pc: Union[Iterable, Callable] = spectools.continuum(wl, self.data - self.stellar, **new_options)
+        fw = (wl >= self.fitting_window[0]) & (wl <= self.fitting_window[1])
+        pc: Union[Iterable, Callable] = spectools.continuum(wl[fw], (self.data - self.stellar)[fw], **new_options)
         self.pseudo_continuum = pc(wl)
 
     def fit(self, min_method: str = 'slsqp', minimum_good_fraction: float = 0.8, verbose: bool = False,
@@ -389,7 +390,7 @@ class LineFit:
                 else:
                     print(f'{j[0]}.{j[1]} = {p[i]:.2f} +- {u[i]:.2f}')
 
-    def monte_carlo(self, n_iterations: int = 10, verbose: bool = False):
+    def monte_carlo(self, n_iterations: int = 10):
         assert self.solution is not None, 'Monte carlo uncertainties can only be evaluated after a successful fit.'
         assert not np.all(self.variance == 1.0), \
             'Cannot estimate uncertainties via Monte Carlo. The variance was not given.'
@@ -404,9 +405,6 @@ class LineFit:
         self.solution = solution_matrix.mean(axis=0)
         self.uncertainties = solution_matrix.std(axis=0)
         self.data = old_data
-
-        if verbose:
-            self.print_parameters('solution')
 
     def _get_feature_parameter(self, feature: str, parameter: str, attribute: str):
         """
@@ -571,21 +569,22 @@ class LineFit:
             self.eqw_model = eqw_model
             self.eqw_direct = eqw_direct
 
-    def plot(self, plot_all: bool = True):
+    def plot(self, plot_all: bool = True, verbose: bool = False):
         wavelength = self.wavelength[~self.mask]
         observed = self.data[~self.mask]
         pseudo_continuum = self.pseudo_continuum[~self.mask]
         stellar = self.stellar[~self.mask]
         model_lines = self.function(wavelength, self.feature_wavelengths, self.solution)
+        err = np.sqrt(self.variance[~self.mask])
 
         fig = plt.figure()
 
         if plot_all:
             ax, ax_res = fig.subplots(nrows=2, ncols=1, sharex='all',
                                       gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.0})
-            ax_res.plot(wavelength, observed - model_lines - stellar - pseudo_continuum)
+            ax_res.plot(wavelength, (observed - model_lines - stellar - pseudo_continuum) / err)
             ax_res.set_xlabel('Wavelength')
-            ax_res.set_ylabel('Residuals')
+            ax_res.set_ylabel('Residuals / sigma')
             ax_res.grid()
         else:
             ax = fig.add_subplot(111)
@@ -620,18 +619,21 @@ class LineFit:
         ax.grid()
         plt.show()
 
+        if verbose:
+            self.print_parameters('solution')
+
 
 class LineFit3D(LineFit):
     two_d_attributes = ['reduced_chi_squared', 'status']
 
     def __init__(self, data: Cube, function: str = 'gaussian', fitting_window: tuple = None,
-                 instrument_dispersion: float = 1.0, individual_spec: tuple = None, spiral_fitting: bool = False,
+                 instrument_dispersion: float = 1.0, individual_spec: tuple = None, spiral_loop: bool = False,
                  spiral_center: tuple = None):
         super().__init__(data, function, fitting_window, instrument_dispersion)
 
         if individual_spec is not None:
             self.spaxel_indices = np.array([individual_spec[::-1]])
-        elif spiral_fitting:
+        elif spiral_loop:
             self._spiral(spiral_center)
         else:
             self.spaxel_indices = data.spec_indices
@@ -658,7 +660,7 @@ class LineFit3D(LineFit):
         self.mask |= optimized_mask[:, np.newaxis, np.newaxis]
 
     def fit(self, min_method: str = 'slsqp', minimum_good_fraction: float = 0.8, verbose: bool = False,
-            fit_continuum: bool = False, continuum_options: dict = None, refit: bool = False,
+            fit_continuum: bool = True, continuum_options: dict = None, refit: bool = False,
             refit_radius: float = 3.0, **kwargs):
         if self.solution is None:
             self.solution = np.zeros((len(self.initial_guess),) + self.data.shape[1:])
@@ -668,11 +670,29 @@ class LineFit3D(LineFit):
                       'solution', 'reduced_chi_squared']
         in_attr = ['solution', 'reduced_chi_squared', 'status', 'pseudo_continuum']
         fit_args = (min_method, minimum_good_fraction, verbose, fit_continuum, continuum_options)
-        x = self.spaxel_indices[:, 1]
-        y = self.spaxel_indices[:, 0]
-        self._select_spaxel(x, y, super().fit, used_attr=attributes, in_attr=in_attr, args=fit_args, kwargs=kwargs)
+        self._select_spaxel(function=super().fit, used_attr=attributes, in_attr=in_attr, args=fit_args, kwargs=kwargs)
 
-    def _select_spaxel(self, x: Union[int, Iterable], y: Union[int, Iterable], function: Callable,
+    def integrate_flux(self, sigma_factor: float = 5.0):
+        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status',
+                      'solution', 'reduced_chi_squared', 'flux_model', 'flux_direct']
+        in_attr = ['flux_model', 'flux_direct']
+        dims = (len(self.feature_names),) + self.data.shape[1:]
+        self.flux_direct = np.zeros(dims)
+        self.flux_model = np.zeros(dims)
+        self._select_spaxel(function=super().integrate_flux, used_attr=attributes, in_attr=in_attr,
+                            args=(sigma_factor,))
+
+    def equivalent_width(self, sigma_factor=5.0, continuum_windows=None):
+        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status',
+                      'solution', 'reduced_chi_squared', 'eqw_model', 'eqw_direct']
+        in_attr = ['eqw_model', 'eqw_direct']
+        dims = (len(self.feature_names),) + self.data.shape[1:]
+        self.eqw_direct = np.zeros(dims)
+        self.eqw_model = np.zeros(dims)
+        self._select_spaxel(function=super().equivalent_width, used_attr=attributes, in_attr=in_attr,
+                            args=(sigma_factor, continuum_windows))
+
+    def _select_spaxel(self, function: Callable, x: Union[int, Iterable] = None, y: Union[int, Iterable] = None,
                        used_attr: list = None, in_attr: list = None, out_attr: list = None, args: tuple = None,
                        kwargs: dict = None):
         if args is None:
@@ -687,7 +707,10 @@ class LineFit3D(LineFit):
 
         cube_data = {_: np.copy(getattr(self, _)) for _ in used_attr}
 
-        if isinstance(x, int):
+        if (x is None) and (y is None):
+            x = self.spaxel_indices[:, 1]
+            y = self.spaxel_indices[:, 0]
+        if isinstance(x, (int, np.int64)):
             iterator = [[x, y]]
         else:
             iterator = tqdm.tqdm(zip(x, y))
@@ -711,10 +734,13 @@ class LineFit3D(LineFit):
         for i in used_attr:
             setattr(self, i, cube_data[i])
 
-    def plot(self, plot_all: bool = True, x_0: int = None, y_0: int = None):
-        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'solution']
+    def plot(self, plot_all: bool = True, verbose: bool = False, x_0: int = None, y_0: int = None):
+        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'solution',
+                      'reduced_chi_squared']
+        if self.uncertainties is not None:
+            attributes.append('uncertainties')
         if x_0 is None:
             x_0 = self.x_0
         if y_0 is None:
             y_0 = self.y_0
-        self._select_spaxel(x_0, y_0, super().plot, used_attr=attributes, kwargs={'plot_all': plot_all})
+        self._select_spaxel(function=super().plot, x=x_0, y=y_0, used_attr=attributes, args=(plot_all, verbose))

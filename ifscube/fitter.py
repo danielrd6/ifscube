@@ -35,13 +35,13 @@ def spectrum_fit(data: Union[Cube, onedspec.Spectrum], **line_fit_args):
     else:
         if line_fit_args['monte_carlo']:
             print('\n' + (40 * '-') + '\n' + 'Initial fit.\n')
-        fit.fit(min_method=line_fit_args['method'], verbose=False, fit_continuum=line_fit_args['fit_continuum'],
-                continuum_options=line_fit_args['copts'])
+        fit.fit(min_method=line_fit_args['method'], verbose=line_fit_args['verbose'],
+                fit_continuum=line_fit_args['fit_continuum'], continuum_options=line_fit_args['copts'])
 
     if line_fit_args['monte_carlo']:
         if line_fit_args['monte_carlo']:
             print('\n' + (40 * '-') + '\n' + f'Monte carlo run with {line_fit_args["monte_carlo"]} iterations.\n')
-        fit.monte_carlo(line_fit_args['monte_carlo'], verbose=True)
+        fit.monte_carlo(line_fit_args['monte_carlo'])
 
     if line_fit_args['write_fits']:
         kwargs = {_: line_fit_args[_] for _ in ['out_image', 'suffix', 'function', 'overwrite']}

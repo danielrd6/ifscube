@@ -20,10 +20,19 @@ def fit_select(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs)
 
 
 def simple_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
+    names = ['n2_6548', 'ha', 'n2_6583']
+    r_wl = [6548.04, 6562.8, 6583.46]
+
     fit = fit_select(function, fit_type, **kwargs)
-    fit.add_feature(name='n2_6548', rest_wavelength=6548.04, amplitude='mean', velocity=0.0, sigma=100.0)
-    fit.add_feature(name='ha', rest_wavelength=6562.8, amplitude='mean', velocity=0.0, sigma=100.0)
-    fit.add_feature(name='n2_6583', rest_wavelength=6583.46, amplitude='mean', velocity=0.0, sigma=100.0)
+    for name, wl in zip(names, r_wl):
+        fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
+                        kinematic_group=0)
+
+    for name in names:
+        fit.set_bounds(feature=name, parameter='amplitude', bounds=[0.0, 1e-13])
+        fit.set_bounds(feature=name, parameter='sigma', bounds=[40.0, 300])
+        fit.set_bounds(feature=name, parameter='velocity', bounds=[-300, 300])
+
     return fit
 
 
@@ -42,6 +51,8 @@ def full_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
 
     for name in names:
         fit.set_bounds(feature=name, parameter='amplitude', bounds=[0.0, None])
+        fit.set_bounds(feature=name, parameter='sigma', bounds=[40.0, 300])
+        fit.set_bounds(feature=name, parameter='velocity', bounds=[-300, 300])
         fit.set_bounds(feature=name + '_b', parameter='amplitude', bounds=[0.0, None])
 
     fit.add_minimize_constraint('n2_6548_b.sigma', '> n2_6548.sigma')
@@ -171,7 +182,7 @@ def test_full_cube_fit():
 
 
 def test_spiral_fit():
-    fit = simple_fit(fit_type='cube', spiral_fitting=True, spiral_center=(3, 4))
+    fit = simple_fit(fit_type='cube', spiral_loop=True, spiral_center=(3, 4))
     fit.fit()
     assert True
 
@@ -188,4 +199,12 @@ def test_cube_monte_carlo():
     fit.optimize_fit()
     fit.fit()
     fit.monte_carlo(3)
+    assert True
+
+
+def test_cube_flux():
+    fit = simple_fit(fit_type='cube', spiral_loop=True)
+    fit.optimize_fit(width=5.0)
+    fit.fit()
+    fit.integrate_flux()
     assert True
