@@ -158,7 +158,7 @@ class LineFit:
     def add_minimize_constraint(self, parameter, expression):
         self.constraint_expressions.append([parameter, expression])
 
-    def _evaluate_constraints(self):
+    def _evaluate_constraints(self, method):
         pn = ['.'.join(_) for _ in self._packed_parameter_names]
         constraints = []
         for parameter, expression in self.constraint_expressions:
@@ -169,9 +169,9 @@ class LineFit:
             else:
                 cp = parser.ConstraintParser(expr=expression, parameter_names=pn)
                 if 'amplitude' in parameter:
-                    cp.evaluate(parameter, self.flux_scale_factor)
+                    cp.evaluate(parameter, scale_factor=self.flux_scale_factor, method=method)
                 else:
-                    cp.evaluate(parameter)
+                    cp.evaluate(parameter, method=method)
                 constraints.append(cp.constraint)
         self.constraints = constraints
 
@@ -308,15 +308,14 @@ class LineFit:
         pc: Union[Iterable, Callable] = spectools.continuum(wl, self.data - self.stellar, **new_options)
         self.pseudo_continuum = pc(wl)
 
-    def fit(self, min_method: str = 'slsqp', minimize_options: dict = None, minimum_good_fraction: float = 0.8,
-            verbose: bool = False, fit_continuum: bool = False, continuum_options: dict = None):
+    def fit(self, min_method: str = 'slsqp', minimum_good_fraction: float = 0.8, verbose: bool = False,
+            fit_continuum: bool = False, continuum_options: dict = None, **kwargs):
         assert self.initial_guess.size > 0, 'There are no spectral features to fit. Aborting'
         assert self.initial_guess.size == (len(self.feature_names) * self.parameters_per_feature), \
             'There is a problem with the initial guess. Check the spectral feature definitions.'
 
-        self.fit_arguments = {'min_method': min_method, 'minimize_options': minimize_options}
-        if minimize_options is None:
-            minimize_options = {'eps': 1e-3, 'ftol': 1e-8}
+        self.fit_arguments = {'min_method': min_method}
+        self.fit_arguments.update(**kwargs)
 
         valid_fraction = np.sum(~self.mask & ~self.flags) / np.sum(~self.mask)
         assert valid_fraction >= minimum_good_fraction, 'Minimum fraction of valid pixels not reached: ' \
@@ -332,21 +331,23 @@ class LineFit:
         self._pack_groups()
         p_0 = self._pack_parameters(self.initial_guess)
         bounds = self._pack_parameters(np.array(self.bounds))
-        self._evaluate_constraints()
+        self._evaluate_constraints(min_method)
         s = (self.data - self.pseudo_continuum - self.stellar)[~self.mask & ~self.flags]
 
-        if min_method == 'slsqp':
+        if min_method in ['slsqp', 'trust-constr']:
+            if ('options' not in kwargs) and (min_method == 'slsqp'):
+                kwargs['options'] = {'eps': 1.e-3, 'ftol': 1e-8}
             # noinspection PyTypeChecker
             solution = minimize(self.res, x0=p_0, args=(s,), method=min_method, bounds=bounds,
-                                constraints=self.constraints, options=minimize_options)
+                                constraints=self.constraints, **kwargs)
             self.status = solution.status
         elif min_method == 'differential_evolution':
             assert not any([_ is None for _ in np.ravel(bounds)]), \
                 'Cannot have unbound parameters when using differential_evolution.'
-            if self.constraints:
-                warnings.warn('Constraints are not yet implemented for the "differential_evolution" method.',
-                              category=RuntimeWarning)
-            solution = differential_evolution(self.res, bounds=bounds, args=(s,))
+            # noinspection PyTypeChecker
+            solution = differential_evolution(
+                self.res, bounds=bounds, args=(s,), constraints=self.constraints, **kwargs)
+            self.status = 0
         else:
             raise RuntimeError(f'Unknown minimization method {min_method}.')
         self.reduced_chi_squared = self.res(solution.x, s) / self._degrees_of_freedom()
@@ -388,7 +389,7 @@ class LineFit:
 
     def monte_carlo(self, n_iterations: int = 10, verbose: bool = False):
         assert self.solution is not None, 'Monte carlo uncertainties can only be evaluated after a successful fit.'
-        assert not np.all(self.variance == 1.0),\
+        assert not np.all(self.variance == 1.0), \
             'Cannot estimate uncertainties via Monte Carlo. The variance was not given.'
         old_data = np.copy(self.data)
         solution_matrix = np.zeros((n_iterations,) + self.solution.shape)
