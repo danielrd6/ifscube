@@ -32,38 +32,85 @@ def setup_fit(data: Union[onedspec.Spectrum, datacube.Cube], **line_fit_args):
     return fit
 
 
-def write_spectrum_fit(spectrum, fit, args):
-    suffix = args['suffix']
-    out_image = args['out_image']
+def check_dimensions(data: np.ndarray):
+    """
+    Checks if data represents a 3D data cube.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Input data.
+
+    Returns
+    -------
+    is_cube : bool
+        True if data is 3D.
+    """
+    n_dimensions = len(data.data.shape)
+    is_cube = n_dimensions == 3
+    if not is_cube:
+        assert len(data.data.shape) == 1, f'Data dimensions are expected to be either 1 or 3, got "{n_dimensions}.'
+    return is_cube
+
+
+def write_spectrum_fit(fit: Union[modeling.LineFit, modeling.LineFit3D], suffix: str = None, out_image: str = None,
+                       function: str = None, overwrite: bool = False):
+    """
+    Writes the results in a LineFit instance to a FITS file.
+
+    Parameters
+    ----------
+    fit : Union[modeling.LineFit, modeling.LineFit3D]
+        LineFit instance.
+    suffix : str
+        Suffix to append to the end of the input FITS file if
+        *out_image* is not given.
+    out_image : str
+        Name of the output FITS file. If *out_image* is given,
+        then suffix is ignored.
+    function : str
+        Name of the function used to describe the spectral feature
+        profiles.
+    overwrite : bool
+        Overwrites file with the same name.
+
+    Returns
+    -------
+    None
+
+    """
+    is_cube = check_dimensions(fit.input_data.data)
     if out_image is None:
         if suffix is None:
             suffix = '_linefit'
-        out_image = spectrum.fitsfile.replace('.fits', suffix + '.fits')
+        out_image = fit.input_data.fitsfile.replace('.fits', suffix + '.fits')
 
-    hdr = spectrum.header
+    hdr = fit.input_data.header
     try:
-        hdr['REDSHIFT'] = spectrum.redshift
+        hdr['REDSHIFT'] = fit.input_data.redshift
     except KeyError:
-        hdr['REDSHIFT'] = (spectrum.redshift,
-                           'Redshift used in IFSCUBE')
+        hdr['REDSHIFT'] = (fit.input_data.redshift, 'Redshift used in IFSCUBE')
 
     # Creates MEF output.
     h = fits.HDUList()
-    hdu = fits.PrimaryHDU(header=spectrum.header)
+    hdu = fits.PrimaryHDU(header=fit.input_data.header)
     hdu.name = 'PRIMARY'
     h.append(hdu)
 
     # Creates the fitted spectrum extension
     hdr = fits.Header()
     hdr['object'] = ('spectrum', 'Data in this extension')
-    hdr['CRPIX1'] = (1, 'Reference pixel for wavelength')
-    hdr['CRVAL1'] = (fit.wavelength[0], 'Reference value for wavelength')
-
     d_wl = np.diff(fit.wavelength)
     avg_d_wl = np.average(d_wl)
     assert np.all(np.abs((d_wl / avg_d_wl) - 1) < 1e-6), 'Wavelength vector is not linearly sampled.'
-
-    hdr['CD1_1'] = (avg_d_wl, 'CD1_1')
+    if is_cube:
+        hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
+        hdr['CRVAL3'] = (fit.wavelength[0], 'Reference value for wavelength')
+        hdr['CD3_3'] = (np.average(np.diff(fit.wavelength)), 'CD3_3')
+    else:
+        hdr['CRPIX1'] = (1, 'Reference pixel for wavelength')
+        hdr['CRVAL1'] = (fit.wavelength[0], 'Reference value for wavelength')
+        hdr['CD1_1'] = (avg_d_wl, 'CD1_1')
     hdu = fits.ImageHDU(data=fit.data, header=hdr)
     hdu.name = 'FITSPEC'
     h.append(hdu)
@@ -93,8 +140,11 @@ def write_spectrum_fit(spectrum, fit, args):
 
     # Creates the solution extension.
     hdr = fits.Header()
-    function = args['function']
-    hdr['fitstat'] = fit.status
+    if is_cube:
+        hdr['fit_x0'] = fit.x_0
+        hdr['fit_y0'] = fit.y_0
+    else:
+        hdr['fitstat'] = fit.status
     total_pars = fit.solution.shape[0]
 
     hdr['object'] = 'parameters'
@@ -106,11 +156,14 @@ def write_spectrum_fit(spectrum, fit, args):
 
     if fit.uncertainties is not None:
         hdr['object'] = 'dispersion'
-        hdr['function'] = (function, 'Fitted function')
-        hdr['nfunc'] = (int(total_pars / spectrum.npars), 'Number of functions')
         hdu = fits.ImageHDU(data=fit.uncertainties, header=hdr)
         hdu.name = 'DISP'
         h.append(hdu)
+
+    # Creates the initial guess extension.
+    hdu = fits.ImageHDU(data=fit.initial_guess, header=hdr)
+    hdu.name = 'INIGUESS'
+    h.append(hdu)
 
     # Integrated flux extensions
     hdr['object'] = 'flux_model'
@@ -134,6 +187,26 @@ def write_spectrum_fit(spectrum, fit, args):
     hdu.name = 'EQW_D'
     h.append(hdu)
 
+    if is_cube:
+        # Creates the minimize's exit status extension
+        hdr['object'] = 'status'
+        hdu = fits.ImageHDU(data=fit.status, header=hdr)
+        hdu.name = 'STATUS'
+        h.append(hdu)
+
+        # Creates the spatial mask extension
+        hdr['object'] = 'spatial mask'
+        hdu = fits.ImageHDU(data=fit.spatial_mask.astype(int), header=hdr)
+        hdu.name = 'MASK2D'
+        h.append(hdu)
+
+        # Creates the spaxel indices extension as fits.BinTableHDU.
+        hdr['object'] = 'spaxel_coords'
+        t = table.Table(fit.spaxel_indices, names=('row', 'column'))
+        hdu = fits.table_to_hdu(t)
+        hdu.name = 'SPECIDX'
+        h.append(hdu)
+
     # Creates component and parameter names table.
     fit_table = table.Table(np.array(fit.parameter_names), names=('component', 'parameter'))
     hdr['object'] = 'parameter names'
@@ -141,7 +214,14 @@ def write_spectrum_fit(spectrum, fit, args):
     hdu.name = 'PARNAMES'
     h.append(hdu)
 
-    h.writeto(out_image, overwrite=args['overwrite'], checksum=True)
+    if is_cube:
+        with fits.open(fit.input_data.fitsfile) as original_cube:
+            for ext_name in ['vor', 'vorplus']:
+                if ext_name in original_cube:
+                    h.append(original_cube[ext_name])
+            h.writeto(out_image, overwrite=overwrite, checksum=True)
+    else:
+        h.writeto(out_image, overwrite=overwrite, checksum=True)
 
 
 def table_to_config(t: table.Table):
