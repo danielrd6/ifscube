@@ -625,25 +625,21 @@ class LineFit3D(LineFit):
     def __init__(self, data: Cube, function: str = 'gaussian', fitting_window: tuple = None,
                  instrument_dispersion: float = 1.0, individual_spec: tuple = None, spiral_fitting: bool = False,
                  spiral_center: tuple = None):
+        super().__init__(data, function, fitting_window, instrument_dispersion)
 
         if individual_spec is not None:
             self.spaxel_indices = np.array([individual_spec[::-1]])
-            self.x_0, self.y_0 = individual_spec
+        elif spiral_fitting:
+            self._spiral(spiral_center)
         else:
             self.spaxel_indices = data.spec_indices
-
-        if spiral_fitting:
-            self._spiral(spiral_center)
-
-        super().__init__(data, function, fitting_window, instrument_dispersion)
-
+        self.x_0, self.y_0 = self.spaxel_indices[0]
         self.status = np.ones(self.data.data.shape[1:])
 
     def _spiral(self, spiral_center: tuple = None):
-        y, x = self.spaxel_indices[:, 0], self.spaxel_indices[:, 1]
+        y, x = self.input_data.spec_indices[:, 0], self.input_data.spec_indices[:, 1]
         if spiral_center is None:
             spiral_center = (x.max() / 2., y.max() / 2.)
-        self.x_0, self.y_0 = spiral_center
         radius = np.sqrt(np.square((x - spiral_center[0])) + np.square((y - spiral_center[1])))
         angle = np.arctan2(y - spiral_center[1], x - spiral_center[0])
         angle[angle < 0] += 2 * np.pi
@@ -694,4 +690,8 @@ class LineFit3D(LineFit):
             setattr(self, i, cube_data[i])
 
     def plot(self, plot_all: bool = True, x_0: int = None, y_0: int = None):
+        if x_0 is None:
+            x_0 = self.x_0
+        if y_0 is None:
+            y_0 = self.y_0
         self._select_spaxel(x_0, y_0, super().plot, plot_all=plot_all)
