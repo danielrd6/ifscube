@@ -4,16 +4,15 @@ import pytest
 from ifscube import onedspec, modeling, datacube
 
 
-def fit_select(function: str = 'gaussian', fit_type: str = 'spectrum', loading_options: dict = None, **kwargs):
-    if loading_options is None:
-        loading_options = {}
+def fit_select(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
     if fit_type == 'spectrum':
-        file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc6300_nuc.fits')
-        spec = onedspec.Spectrum(file_name, **loading_options)
+        file_name = pkg_resources.resource_filename('ifscube', 'examples/manga_onedspec.fits')
+        spec = onedspec.Spectrum(file_name, primary='PRIMARY', scidata='F_OBS', variance='F_VAR', flags='F_FLAG',
+                                 stellar='F_SYN')
         fit = modeling.LineFit(spec, function=function, fitting_window=(6400.0, 6800.0), **kwargs)
     elif fit_type == 'cube':
         file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc3081_cube.fits')
-        cube = datacube.Cube(file_name, **loading_options)
+        cube = datacube.Cube(file_name, variance='ERR')
         fit = modeling.LineFit3D(cube, function=function, fitting_window=(6400.0, 6800.0), **kwargs)
     else:
         raise RuntimeError(f'fit_type "{fit_type}" not understood.')
@@ -105,9 +104,9 @@ def test_constraints():
     fit.add_minimize_constraint('n2_6548.velocity', 'n2_6583.velocity')
     fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
     fit.add_minimize_constraint('n2_6548.amplitude', '< ha.amplitude')
-    fit.add_minimize_constraint('ha.amplitude', '< 3.5e-15')
+    fit.add_minimize_constraint('ha.amplitude', '< 1.5')
     fit.fit(fit_continuum=True)
-    assert fit._get_feature_parameter('ha', 'amplitude', 'solution') < 3.6e-15
+    assert fit._get_feature_parameter('ha', 'amplitude', 'solution') < 1.6
 
 
 def test_gauss_hermite():
@@ -167,7 +166,7 @@ def test_spiral_fit():
 
 
 def test_cube_monte_carlo():
-    fit = fit_select(function='gaussian', fit_type='cube', loading_options={'variance': 'ERR'})
+    fit = fit_select(function='gaussian', fit_type='cube')
     names = ['n2_6548', 'ha', 'n2_6583']
     r_wl = [6548.04, 6562.8, 6583.46]
 
