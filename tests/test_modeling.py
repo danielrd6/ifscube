@@ -24,14 +24,21 @@ def simple_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs)
     r_wl = [6548.04, 6562.8, 6583.46]
 
     fit = fit_select(function, fit_type, **kwargs)
+    if function == 'gauss_hermite':
+        gh_moments = {'h_3': 0.0, 'h_4': 0.0}
+    else:
+        gh_moments = {}
+
     for name, wl in zip(names, r_wl):
         fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
-                        kinematic_group=0)
+                        kinematic_group=0, **gh_moments)
 
     for name in names:
         fit.set_bounds(feature=name, parameter='amplitude', bounds=[0.0, 1e-13])
         fit.set_bounds(feature=name, parameter='sigma', bounds=[40.0, 300])
         fit.set_bounds(feature=name, parameter='velocity', bounds=[-300, 300])
+        if function == 'gauss_hermite':
+            fit.set_bounds(feature=name, parameter='h_3', bounds=[-0.2, 0.2])
 
     return fit
 
@@ -55,9 +62,9 @@ def full_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
         fit.set_bounds(feature=name, parameter='velocity', bounds=[-300, 300])
         fit.set_bounds(feature=name + '_b', parameter='amplitude', bounds=[0.0, None])
 
-    fit.add_minimize_constraint('n2_6548_b.sigma', '> n2_6548.sigma')
-    fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
-    fit.add_minimize_constraint('n2_6548_b.amplitude', 'n2_6583_b.amplitude / 3.06')
+    fit.add_constraint('n2_6548_b.sigma', '> n2_6548.sigma')
+    fit.add_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
+    fit.add_constraint('n2_6548_b.amplitude', 'n2_6583_b.amplitude / 3.06')
 
     return fit
 
@@ -111,19 +118,17 @@ def test_bounds():
 
 def test_constraints():
     fit = simple_fit()
-    fit.add_minimize_constraint('n2_6548.sigma', 'n2_6583.sigma')
-    fit.add_minimize_constraint('n2_6548.velocity', 'n2_6583.velocity')
-    fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
-    fit.add_minimize_constraint('n2_6548.amplitude', '< ha.amplitude')
-    fit.add_minimize_constraint('ha.amplitude', '< 1.5')
+    fit.add_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
+    fit.add_constraint('n2_6548.amplitude', '< ha.amplitude')
+    fit.add_constraint('ha.amplitude', '< 1.5')
     fit.fit()
     assert fit._get_feature_parameter('ha', 'amplitude', 'solution') < 1.6
 
 
 def test_constraints_differential_evolution():
     fit = simple_fit()
-    fit.add_minimize_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
-    fit.add_minimize_constraint('ha.amplitude', '< 1.5')
+    fit.add_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
+    fit.add_constraint('ha.amplitude', '< 1.5')
     bounds = {'amplitude': [0, 10], 'velocity': [-300, 300], 'sigma': [40, 300]}
     for i, j in fit.parameter_names:
         fit.set_bounds(i, j, bounds[j])
@@ -133,8 +138,7 @@ def test_constraints_differential_evolution():
 
 def test_gauss_hermite():
     fit = simple_fit(function='gauss_hermite')
-    fit.add_minimize_constraint(parameter='n2_6548.h_3', expression='n2_6583.h_3')
-    fit.add_minimize_constraint(parameter='n2_6548.h_4', expression='n2_6583.h_4')
+    fit.add_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
     fit.fit()
     assert 1
 
@@ -181,7 +185,7 @@ def test_full_cube_fit():
     assert True
 
 
-def test_spiral_fit():
+def test_spiral_loop():
     fit = simple_fit(fit_type='cube', spiral_loop=True, spiral_center=(3, 4))
     fit.fit()
     assert True

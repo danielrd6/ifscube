@@ -25,7 +25,7 @@ def test_load_fit_1d():
 
 
 def test_write_fit_3d():
-    fit = simple_fit(function='gaussian', fit_type='cube', spiral_fitting=True, spiral_center=(3, 4))
+    fit = simple_fit(function='gaussian', fit_type='cube', spiral_loop=True, spiral_center=(3, 4))
     fit.fit(verbose=False, fit_continuum=True)
     line_fit.write_spectrum_fit(fit, out_image='tests/test_write_fit_3d.fits', function='gaussian', overwrite=True)
     assert 1

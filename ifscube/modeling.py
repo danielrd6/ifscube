@@ -157,7 +157,7 @@ class LineFit:
     def set_bounds(self, feature: str, parameter: str, bounds: list):
         self.bounds[self.parameter_names.index((feature, parameter))] = bounds
 
-    def add_minimize_constraint(self, parameter, expression):
+    def add_constraint(self, parameter, expression):
         self.constraint_expressions.append([parameter, expression])
 
     def _evaluate_constraints(self, method):
@@ -275,7 +275,7 @@ class LineFit:
         for i in self._get_parameter_indices('amplitude'):
             self.initial_guess[i] *= self.flux_scale_factor
             self.solution[i] *= self.flux_scale_factor
-            self.bounds[i] = [_ / self.flux_scale_factor if _ is not None else _ for _ in self.bounds[i]]
+            self.bounds[i] = [_ * self.flux_scale_factor if _ is not None else _ for _ in self.bounds[i]]
         for i in ['data', 'pseudo_continuum', 'stellar']:
             setattr(self, i, getattr(self, i) * self.flux_scale_factor)
         if not np.all(self.variance == 1.0):
@@ -292,6 +292,7 @@ class LineFit:
         continuum_options.update({'output': 'polynomial'})
         new_options = continuum_options.copy()
         wl = self.wavelength
+        fw = (wl >= self.fitting_window[0]) & (wl <= self.fitting_window[1])
         if ('weights' not in continuum_options) and ('line_weight' in continuum_options):
             cw = np.ones_like(self.data)
 
@@ -304,10 +305,9 @@ class LineFit:
 
             sigma_velocities = self._get_feature_parameter(feature='all', parameter='sigma', attribute='initial_guess')
             new_options.update(
-                {'weights': continuum_weights(spectools.sigma_lambda(sigma_velocities, self.feature_wavelengths))})
+                {'weights': continuum_weights(spectools.sigma_lambda(sigma_velocities, self.feature_wavelengths))[fw]})
             new_options.pop('line_weight')
 
-        fw = (wl >= self.fitting_window[0]) & (wl <= self.fitting_window[1])
         pc: Union[Iterable, Callable] = spectools.continuum(wl[fw], (self.data - self.stellar)[fw], **new_options)
         self.pseudo_continuum = pc(wl)
 
