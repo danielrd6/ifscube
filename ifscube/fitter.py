@@ -38,6 +38,9 @@ def spectrum_fit(data: Union[Cube, onedspec.Spectrum], **line_fit_args):
         fit.fit(min_method=line_fit_args['method'], verbose=line_fit_args['verbose'],
                 fit_continuum=line_fit_args['fit_continuum'], continuum_options=line_fit_args['copts'])
 
+    fit.integrate_flux()
+    fit.equivalent_width()
+
     if line_fit_args['monte_carlo']:
         if line_fit_args['monte_carlo']:
             print('\n' + (40 * '-') + '\n' + f'Monte carlo run with {line_fit_args["monte_carlo"]} iterations.\n')
