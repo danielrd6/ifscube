@@ -185,7 +185,7 @@ class LineFit:
         chi2 = np.sum(b)
         return chi2
 
-    def _pack_groups(self):
+    def pack_groups(self):
         packed = []
         first_in_group = [_[0] for _ in self.kinematic_groups.values()]
         inverse = []
@@ -331,7 +331,7 @@ class LineFit:
                 continuum_options = {}
             self.fit_pseudo_continuum(**continuum_options)
 
-        self._pack_groups()
+        self.pack_groups()
         p_0 = self._pack_parameters(self.initial_guess)
         bounds = self._pack_parameters(np.array(self.bounds))
         self._evaluate_constraints(min_method)
@@ -362,7 +362,7 @@ class LineFit:
                                + self.pseudo_continuum + self.stellar)
 
         if verbose:
-            self.print_parameters('solution')
+            print(self.print_parameters('solution'))
 
     def _degrees_of_freedom(self):
         dof = (np.sum(~self.mask) / self.instrument_dispersion) \
@@ -370,25 +370,29 @@ class LineFit:
         return dof
 
     def print_parameters(self, attribute: str):
-        print(f'\nReduced Chi^2: {self.reduced_chi_squared}')
-        print(f'Initially free parameters: {len(self._packed_parameter_names)}')
-        print(f'Number of constraints: {len(self.constraints)}')
-        print(f'Valid data points: {np.sum(~self.mask)}')
-        print(f'Instrument dispersion: {self.instrument_dispersion} pixels')
-        print(f'Degrees of freedom: {self._degrees_of_freedom()}\n\n')
+        if self._packed_parameter_names is None:
+            s = []
+        else:
+            s = [f'\nReduced Chi^2: {self.reduced_chi_squared}',
+                 f'Initially free parameters: {len(self._packed_parameter_names)}',
+                 f'Number of constraints: {len(self.constraints)}', f'Valid data points: {np.sum(~self.mask)}',
+                 f'Instrument dispersion: {self.instrument_dispersion} pixels',
+                 f'Degrees of freedom: {self._degrees_of_freedom()}\n']
         p = getattr(self, attribute)
         u = getattr(self, 'uncertainties')
         for i, j in enumerate(self.parameter_names):
             if j[1] == 'amplitude':
                 if u is None:
-                    print(f'{j[0]}.{j[1]} = {p[i]:8.2e}')
+                    s.append(f'{j[0]}.{j[1]} = {p[i]:8.2e}')
                 else:
-                    print(f'{j[0]}.{j[1]} = {p[i]:8.2e} +- {u[i]:8.2e}')
+                    s.append(f'{j[0]}.{j[1]} = {p[i]:8.2e} +- {u[i]:8.2e}')
             else:
                 if u is None:
-                    print(f'{j[0]}.{j[1]} = {p[i]:.2f}')
+                    s.append(f'{j[0]}.{j[1]} = {p[i]:.2f}')
                 else:
-                    print(f'{j[0]}.{j[1]} = {p[i]:.2f} +- {u[i]:.2f}')
+                    s.append(f'{j[0]}.{j[1]} = {p[i]:.2f} +- {u[i]:.2f}')
+        s = '\n'.join(s)
+        return s
 
     def monte_carlo(self, n_iterations: int = 10):
         assert self.solution is not None, 'Monte carlo uncertainties can only be evaluated after a successful fit.'
@@ -570,26 +574,31 @@ class LineFit:
             self.eqw_model = eqw_model
             self.eqw_direct = eqw_direct
 
-    def plot(self, plot_all: bool = True, verbose: bool = False):
-        wavelength = self.wavelength[~self.mask]
-        observed = self.data[~self.mask]
-        pseudo_continuum = self.pseudo_continuum[~self.mask]
-        stellar = self.stellar[~self.mask]
-        model_lines = self.function(wavelength, self.feature_wavelengths, self.solution)
-        err = np.sqrt(self.variance[~self.mask])
-
-        fig = plt.figure()
-
+    def plot(self, figure: plt.Figure = None, plot_all: bool = False, verbose: bool = False,
+             return_results: bool = False):
         if plot_all:
-            ax, ax_res = fig.subplots(nrows=2, ncols=1, sharex='all',
-                                      gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.0})
-            ax_res.plot(wavelength, (observed - model_lines - stellar - pseudo_continuum) / err)
-            ax_res.set_xlabel('Wavelength')
-            ax_res.set_ylabel('Residuals / sigma')
-            ax_res.grid()
+            m = Ellipsis
         else:
-            ax = fig.add_subplot(111)
-            ax.set_xlabel('Wavelength')
+            m = ~self.mask
+        wavelength = self.wavelength[m]
+        observed = self.data[m]
+        pseudo_continuum = self.pseudo_continuum[m]
+        stellar = self.stellar[m]
+        model_lines = self.function(wavelength, self.feature_wavelengths, self.solution)
+        err = np.sqrt(self.variance[m])
+
+        if figure is None:
+            fig = plt.figure()
+        else:
+            fig = figure
+            fig.clf()
+
+        ax, ax_res = fig.subplots(nrows=2, ncols=1, sharex='all',
+                                  gridspec_kw={'height_ratios': [4, 1], 'hspace': 0.0})
+        ax_res.plot(wavelength, (observed - model_lines - stellar - pseudo_continuum) / err)
+        ax_res.set_xlabel('Wavelength')
+        ax_res.set_ylabel('Residuals / sigma')
+        ax_res.grid()
 
         if self.uncertainties is not None:
             low = self.function(wavelength, self.feature_wavelengths, self.solution - self.uncertainties)
@@ -621,7 +630,9 @@ class LineFit:
         plt.show()
 
         if verbose:
-            self.print_parameters('solution')
+            print(self.print_parameters('solution'))
+        elif return_results:
+            return self.print_parameters('solution')
 
 
 class LineFit3D(LineFit):
@@ -711,7 +722,7 @@ class LineFit3D(LineFit):
 
     def _select_spaxel(self, function: Callable, x: Union[int, Iterable] = None, y: Union[int, Iterable] = None,
                        used_attributes: list = None, modified_attributes: list = None, description: str = None,
-                       args: tuple = None, kwargs: dict = None,):
+                       args: tuple = None, kwargs: dict = None, ):
         if args is None:
             args = ()
         if kwargs is None:
@@ -720,6 +731,7 @@ class LineFit3D(LineFit):
         if modified_attributes is None:
             modified_attributes = []
 
+        r = None
         cube_data = {_: np.copy(getattr(self, _)) for _ in used_attributes}
 
         if (x is None) and (y is None):
@@ -729,7 +741,6 @@ class LineFit3D(LineFit):
             iterator = [[x, y]]
         else:
             iterator = tqdm.tqdm(zip(x, y), desc=description, unit='spaxels')
-
         for xx, yy in iterator:
             s = (Ellipsis, yy, xx)
             for i in used_attributes:
@@ -738,7 +749,7 @@ class LineFit3D(LineFit):
                 else:
                     setattr(self, i, cube_data[i][s])
 
-            function(*args, **kwargs)
+            r = function(*args, **kwargs)
 
             for i in modified_attributes:
                 if i in self.two_d_attributes:
@@ -749,7 +760,10 @@ class LineFit3D(LineFit):
         for i in used_attributes:
             setattr(self, i, cube_data[i])
 
-    def plot(self, plot_all: bool = True, verbose: bool = False, x_0: int = None, y_0: int = None):
+        return r
+
+    def plot(self, figure: plt.Figure = None, plot_all: bool = True, verbose: bool = False,
+             return_results: bool = False, x_0: int = None, y_0: int = None):
         attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'solution',
                       'reduced_chi_squared']
         if self.uncertainties is not None:
@@ -758,4 +772,6 @@ class LineFit3D(LineFit):
             x_0 = self.x_0
         if y_0 is None:
             y_0 = self.y_0
-        self._select_spaxel(function=super().plot, x=x_0, y=y_0, used_attributes=attributes, args=(plot_all, verbose))
+        r = self._select_spaxel(function=super().plot, x=x_0, y=y_0, used_attributes=attributes,
+                                args=(figure, plot_all, verbose, return_results))
+        return r

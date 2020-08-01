@@ -5,7 +5,7 @@ import numpy as np
 from astropy import table
 from astropy.io import fits
 
-from ifscube import onedspec, modeling, datacube
+from ifscube import onedspec, modeling, datacube, parser
 
 
 def setup_fit(data: Union[onedspec.Spectrum, datacube.Cube], **line_fit_args):
@@ -154,6 +154,12 @@ def write_spectrum_fit(fit: Union[modeling.LineFit, modeling.LineFit3D], suffix:
     hdu.name = 'SOLUTION'
     h.append(hdu)
 
+    # Creates the reduced chi squared.
+    hdr['object'] = 'Reduced Chi^2'
+    hdu = fits.ImageHDU(data=fit.reduced_chi_squared, header=hdr)
+    hdu.name = 'RED_CHI'
+    h.append(hdu)
+
     if fit.uncertainties is not None:
         hdr['object'] = 'dispersion'
         hdu = fits.ImageHDU(data=fit.uncertainties, header=hdr)
@@ -161,6 +167,7 @@ def write_spectrum_fit(fit: Union[modeling.LineFit, modeling.LineFit3D], suffix:
         h.append(hdu)
 
     # Creates the initial guess extension.
+    hdr['object'] = 'Initial guess'
     hdu = fits.ImageHDU(data=fit.initial_guess, header=hdr)
     hdu.name = 'INIGUESS'
     h.append(hdu)
@@ -260,6 +267,7 @@ def features_from_table(fit, parameter_names, solution, rest_wavelength):
             features[name] = {'name': name, 'rest_wavelength': feature_wavelength[name], parameter: solution[i]}
     for name in features:
         fit.add_feature(**features[name])
+    fit.pack_groups()
     return fit
 
 
@@ -288,16 +296,22 @@ def load_fit(file_name):
         else:
             raise RuntimeError(
                 f'Data dimensions are expected to be either 1 or 3, got "{len(h["FITSPEC"].data.shape)}".')
-        if len(h['FITSPEC'].data.shape) == 3:
-            fit = modeling.LineFit3D(data)
-        elif len(h['FITSPEC'].data.shape) == 1:
-            fit = modeling.LineFit(data)
 
-        fit = features_from_table(fit, parameter_names=h['parnames'].data, solution=h['solution'].data,
-                                  rest_wavelength=h['featwl'].data)
+        if 'FITCONFIG' in h:
+            config = table_to_config(table.Table(h['FITCONFIG'].data))
+            fit = setup_fit(data, **parser.LineFitParser(config).get_vars())
+            fit.pack_groups()
+        else:
+            if len(h['FITSPEC'].data.shape) == 3:
+                fit = modeling.LineFit3D(data)
+            elif len(h['FITSPEC'].data.shape) == 1:
+                fit = modeling.LineFit(data)
+            fit = features_from_table(fit, parameter_names=h['parnames'].data, solution=h['solution'].data,
+                                      rest_wavelength=h['featwl'].data)
+
         translate_extensions = {'pseudo_continuum': 'fitcont', 'model': 'model', 'solution': 'solution',
                                 'eqw_model': 'eqw_m', 'eqw_direct': 'eqw_d', 'flux_model': 'flux_m',
-                                'flux_direct': 'flux_d', 'status': 'status'}
+                                'flux_direct': 'flux_d', 'status': 'status', 'reduced_chi_squared': 'red_chi'}
         for key in translate_extensions:
             setattr(fit, key, h[translate_extensions[key]].data)
     return fit

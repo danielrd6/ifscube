@@ -1,9 +1,7 @@
 #!/usr/bin/python
-# stdlib
 import argparse
 import tkinter as tk
 
-# third party
 import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
@@ -12,54 +10,44 @@ import numpy as np
 from numpy import ma
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-# local
 import ifscube
+from ifscube.io import line_fit
 
 
-class mclass:
+class Scrutinizer:
 
     def __init__(self, window, args):
 
         self.fitstatus_mask = args.fitstatus_mask
 
-        cube = ifscube.Cube()
-        cube.loadfit(args.fitfile)
+        fit = line_fit.load_fit(args.fitfile)
 
         self.window = window
-        self.buttonPlot = tk.Button(
-            window, text='Image plot', command=self.plot)
-        self.buttonFollow = tk.Button(
-            window, text='Follow mouse', command=self.follow)
-        self.buttonSinglePlot = tk.Button(
-            window, text='Plot on click', command=self.singleplot)
+        self.buttonPlot = tk.Button(window, text='Image plot', command=self.plot)
+        self.buttonFollow = tk.Button(window, text='Follow mouse', command=self.follow)
+        self.buttonSinglePlot = tk.Button(window, text='Plot on click', command=self.singleplot)
 
-        self.text = tk.Text(
-            window, bg='white', height=10, width=80, font=('Fixedsys', 12))
+        self.text = tk.Text(window, bg='white', height=10, width=80, font=('Fixedsys', 12))
 
         l_par = tk.Listbox(window, selectmode='single', exportselection=0)
-        l_component = tk.Listbox(
-            window, selectmode='single', exportselection=0)
+        l_component = tk.Listbox(window, selectmode='single', exportselection=0)
 
-        n_components, n_parameters = [
-            int(cube.fit_info[i]) for i in ['components', 'parameters']]
+        n_components = len(fit.feature_names)
+        n_parameters = fit.parameters_per_feature
 
-        if hasattr(cube, 'parnames'):
-            for i in cube.parnames:
+        self.parameter_names = fit.parameter_names
+        for i in [_[1] for _ in fit.parameter_names[:n_parameters]]:
+            l_par.insert('end', i)
+
+        for i in ['flux_model', 'flux_direct', 'eqw_model', 'eqw_direct']:
+            if hasattr(fit, i):
                 l_par.insert('end', i)
-        else:
-            for i in ['Flux', 'Velocity', 'Sigma', 'h3', 'h4'][0:n_parameters]:
-                l_par.insert('end', i)
-
-        if hasattr(cube, 'eqw_model'):
-            l_par.insert('end', 'eqw_model')
-        if hasattr(cube, 'eqw_direct'):
-            l_par.insert('end', 'eqw_direct')
 
         self.n_components = n_components
         self.n_parameters = n_parameters
 
-        if hasattr(cube, 'component_names'):
-            for i in cube.component_names:
+        if hasattr(fit, 'feature_names'):
+            for i in fit.feature_names:
                 l_component.insert('end', i)
         else:
             for i in range(n_components):
@@ -72,7 +60,7 @@ class mclass:
             self.fig = Figure(figsize=(6, 6))
             self.fitplot = Figure(figsize=(12, 6))
         self.ax1 = self.fig.add_subplot(111)
-        self.ax2 = self.fitplot.add_subplot(111)
+        # self.ax2 = self.fitplot.add_subplot(111)
 
         div = make_axes_locatable(self.ax1)
         self.cax = div.append_axes('right', size='5%', pad=0)
@@ -82,10 +70,8 @@ class mclass:
         canvas = FigureCanvasTkAgg(self.fig, master=self.window)
         canvas2 = FigureCanvasTkAgg(self.fitplot, master=self.window)
 
-        canvas.get_tk_widget()\
-            .grid(row=0, column=0, rowspan=6, columnspan=6)
-        canvas2.get_tk_widget()\
-            .grid(row=0, column=7, rowspan=6, columnspan=12)
+        canvas.get_tk_widget().grid(row=0, column=0, rowspan=6, columnspan=6)
+        canvas2.get_tk_widget().grid(row=0, column=7, rowspan=6, columnspan=12)
 
         tb_frame = tk.Frame(window)
         tb_frame.grid(row=7, column=0, columnspan=6, sticky='W')
@@ -112,68 +98,44 @@ class mclass:
         self.canvas = canvas
         self.canvas2 = canvas2
 
-        self.cube = cube
+        self.fit = fit
 
     def singleplot(self):
-
         try:
             self.canvas.mpl_disconnect(self.connect_id)
         except:
             pass
-
-        self.connect_id = self.canvas.mpl_connect(
-            'button_press_event', self.onclick)
+        self.connect_id = self.canvas.mpl_connect('button_press_event', self.onclick)
 
     def follow(self):
-
         try:
             self.canvas.mpl_disconnect(self.connect_id)
         except:
             pass
-
-        self.connect_id = self.canvas.mpl_connect(
-            'motion_notify_event', self.onclick)
+        self.connect_id = self.canvas.mpl_connect('motion_notify_event', self.onclick)
 
     def getim(self):
-
-        cm = 'viridis'
-        # ncomps = self.n_components
-        npars = self.n_parameters
-
         par = self.l_par.curselection()[0]
         comp = self.l_component.curselection()[0]
-        par_name = self.l_par.get(par)
-        # comp_name = self.l_component.get(comp)
+        parameter = (self.l_component.get(comp), self.l_par.get(par))
 
-        if 'eqw' not in par_name:
-            k = comp * npars + par
-
-            d = ma.masked_invalid(self.cube.em_model[k])
-
-            if self.fitstatus_mask:
-                d.mask |= self.cube.fit_status != 0
-
-            if par == 0:
-                d *= 1e+17
-
-            # elif par == 1:
-            #     mwl = ma.median(d)
-            #     d = (d - mwl) / d * 2.998e+5
-            #     cm = 'Spectral_r'
-
-            # elif par == 2:
-            #     wl = ma.masked_invalid(self.cube.em_model[k - 1])
-            #     d = d / wl * 2.998e+5
-            elif par > 0:
-                cm = 'Spectral_r'
-
+        if parameter[1] in ['eqw_model', 'eqw_direct', 'flux_model', 'flux_direct']:
+            data = getattr(self.fit, parameter[1])[comp]
         else:
-            if par_name == 'eqw_model':
-                data = self.cube.eqw_model[comp]
-            elif par_name == 'eqw_direct':
-                data = self.cube.eqw_direct[comp]
+            data = self.fit.solution[self.parameter_names.index(parameter)]
 
+        if parameter[1] in ['velocity', 'h_3', 'h_4']:
+            cm = 'Spectral_r'
+        else:
+            cm = 'inferno'
+
+        if 'eqw' in parameter[1]:
             d = -ma.masked_invalid(data)
+        else:
+            d = ma.masked_invalid(data)
+
+        if self.fitstatus_mask:
+            d.mask |= self.fit.fit_status != 0
 
         return d, cm
 
@@ -216,13 +178,10 @@ class mclass:
 
         self.text.delete('1.0', 'end')
 
-        a = self.ax2
-        a.cla()
-
-        self.text.insert('insert', ('({:6d}, {:6d})\n').format(i, j))
+        self.text.insert('insert', '({:6d}, {:6d})\n'.format(i, j))
 
         try:
-            s = self.cube.plotfit(i, j, axis=a, output='return')
+            s = self.fit.plot(x_0=i, y_0=j, figure=self.fitplot, return_results=True, plot_all=arguments.full_spectrum)
             self.text.insert('insert', s)
         except IndexError:
             self.text.insert('insert', 'Index Error!')
@@ -251,13 +210,15 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s', '--single-spectrum', action='store_true', help='Use this option for one-dimensional spectra.')
     parser.add_argument('--small-screen', action='store_true', help='Makes a small window for small screens.')
+    parser.add_argument('--full-spectrum', action='store_true',
+                        help='Plots the full spectrum, not just the part used in the fit.')
 
-    args = parser.parse_args()
+    arguments = parser.parse_args()
 
-    if args.single_spectrum:
-        s = onedfit(args.fitfile) 
+    if arguments.single_spectrum:
+        onedfit(arguments.fitfile)
     else:
-        window = tk.Tk()
-        window.title('IFSCUBE Fit Scrutinizer')
-        start = mclass(window, args)
-        window.mainloop()
+        app_window = tk.Tk()
+        app_window.title('IFSCUBE Fit Scrutinizer')
+        start = Scrutinizer(app_window, arguments)
+        app_window.mainloop()
