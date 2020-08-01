@@ -670,7 +670,8 @@ class LineFit3D(LineFit):
                       'solution', 'reduced_chi_squared']
         in_attr = ['solution', 'reduced_chi_squared', 'status', 'pseudo_continuum']
         fit_args = (min_method, minimum_good_fraction, verbose, fit_continuum, continuum_options)
-        self._select_spaxel(function=super().fit, used_attr=attributes, in_attr=in_attr, args=fit_args, kwargs=kwargs)
+        self._select_spaxel(function=super().fit, used_attributes=attributes, modified_attributes=in_attr,
+                            args=fit_args, kwargs=kwargs)
 
     def integrate_flux(self, sigma_factor: float = 5.0):
         attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status',
@@ -679,7 +680,7 @@ class LineFit3D(LineFit):
         dims = (len(self.feature_names),) + self.data.shape[1:]
         self.flux_direct = np.zeros(dims)
         self.flux_model = np.zeros(dims)
-        self._select_spaxel(function=super().integrate_flux, used_attr=attributes, in_attr=in_attr,
+        self._select_spaxel(function=super().integrate_flux, used_attributes=attributes, modified_attributes=in_attr,
                             args=(sigma_factor,))
 
     def equivalent_width(self, sigma_factor=5.0, continuum_windows=None):
@@ -689,23 +690,21 @@ class LineFit3D(LineFit):
         dims = (len(self.feature_names),) + self.data.shape[1:]
         self.eqw_direct = np.zeros(dims)
         self.eqw_model = np.zeros(dims)
-        self._select_spaxel(function=super().equivalent_width, used_attr=attributes, in_attr=in_attr,
+        self._select_spaxel(function=super().equivalent_width, used_attributes=attributes, modified_attributes=in_attr,
                             args=(sigma_factor, continuum_windows))
 
     def _select_spaxel(self, function: Callable, x: Union[int, Iterable] = None, y: Union[int, Iterable] = None,
-                       used_attr: list = None, in_attr: list = None, out_attr: list = None, args: tuple = None,
+                       used_attributes: list = None, modified_attributes: list = None, args: tuple = None,
                        kwargs: dict = None):
         if args is None:
             args = ()
         if kwargs is None:
             kwargs = {}
 
-        if in_attr is None:
-            in_attr = []
-        if out_attr is None:
-            out_attr = in_attr
+        if modified_attributes is None:
+            modified_attributes = []
 
-        cube_data = {_: np.copy(getattr(self, _)) for _ in used_attr}
+        cube_data = {_: np.copy(getattr(self, _)) for _ in used_attributes}
 
         if (x is None) and (y is None):
             x = self.spaxel_indices[:, 1]
@@ -717,7 +716,7 @@ class LineFit3D(LineFit):
 
         for xx, yy in iterator:
             s = (Ellipsis, yy, xx)
-            for i in used_attr:
+            for i in used_attributes:
                 if i in self.two_d_attributes:
                     setattr(self, i, cube_data[i][s[1:]])
                 else:
@@ -725,13 +724,13 @@ class LineFit3D(LineFit):
 
             function(*args, **kwargs)
 
-            for i, o in zip(in_attr, out_attr):
+            for i in modified_attributes:
                 if i in self.two_d_attributes:
-                    cube_data[i][s[1:]] = getattr(self, o)
+                    cube_data[i][s[1:]] = getattr(self, i)
                 else:
-                    cube_data[i][s] = getattr(self, o)
+                    cube_data[i][s] = getattr(self, i)
 
-        for i in used_attr:
+        for i in used_attributes:
             setattr(self, i, cube_data[i])
 
     def plot(self, plot_all: bool = True, verbose: bool = False, x_0: int = None, y_0: int = None):
@@ -743,4 +742,4 @@ class LineFit3D(LineFit):
             x_0 = self.x_0
         if y_0 is None:
             y_0 = self.y_0
-        self._select_spaxel(function=super().plot, x=x_0, y=y_0, used_attr=attributes, args=(plot_all, verbose))
+        self._select_spaxel(function=super().plot, x=x_0, y=y_0, used_attributes=attributes, args=(plot_all, verbose))
