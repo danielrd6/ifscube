@@ -31,7 +31,7 @@ def spectrum_fit(data: Union[Cube, onedspec.Spectrum], **line_fit_args):
     if line_fit_args['fixed']:
         fit.solution = fit.initial_guess
         print('Not fitting! Returning initial guess.')
-        fit.print_parameters('solution')
+        print(fit.print_parameters('solution'))
     else:
         if line_fit_args['monte_carlo']:
             print('\n' + (40 * '-') + '\n' + 'Initial fit.\n')
