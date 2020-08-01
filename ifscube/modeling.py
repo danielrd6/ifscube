@@ -289,7 +289,6 @@ class LineFit:
         self.mask |= optimized_mask
 
     def fit_pseudo_continuum(self, **continuum_options):
-        continuum_options.update({'output': 'polynomial'})
         new_options = continuum_options.copy()
         wl = self.wavelength
         fw = (wl >= self.fitting_window[0]) & (wl <= self.fitting_window[1])
@@ -307,9 +306,10 @@ class LineFit:
             new_options.update(
                 {'weights': continuum_weights(spectools.sigma_lambda(sigma_velocities, self.feature_wavelengths))[fw]})
             new_options.pop('line_weight')
-
-        pc: Union[Iterable, Callable] = spectools.continuum(wl[fw], (self.data - self.stellar)[fw], **new_options)
-        self.pseudo_continuum = pc(wl)
+        # noinspection PyCallingNonCallable
+        pc = spectools.continuum(wl[fw], (self.data - self.stellar)[fw], output='polynomial', **new_options)(wl)
+        pc[~fw] = np.nan
+        self.pseudo_continuum = pc
 
     def fit(self, min_method: str = 'slsqp', minimum_good_fraction: float = 0.8, verbose: bool = False,
             fit_continuum: bool = True, continuum_options: dict = None, **kwargs):
@@ -488,12 +488,12 @@ class LineFit:
 
     def _cut_fit_spectrum(self, feature, sigma_factor):
         sigma = self._get_feature_parameter(feature, 'sigma', 'solution')
-        index = self._get_parameter_indices('amplitude', feature)
-        feature_solution = self._get_feature_parameter(feature, 'all', 'solution')
-        sig = spectools.sigma_lambda(sigma, index)
+        solution = self._get_feature_parameter(feature, 'all', 'solution')
+        wavelength = self.feature_wavelengths[self.feature_names.index(feature)]
+        sig = spectools.sigma_lambda(sigma, wavelength)
         low_wl, up_wl = [self._get_center_wavelength(feature) + (_ * sigma_factor * sig) for _ in [-1.0, 1.0]]
         cond = (self.wavelength > low_wl) & (self.wavelength < up_wl)
-        fit = self.function(self.wavelength[cond], np.array([self.feature_wavelengths[index]]), feature_solution)
+        fit = self.function(self.wavelength[cond], wavelength, solution)
 
         return cond, fit, self.stellar, self.pseudo_continuum, self.data
 
@@ -543,19 +543,20 @@ class LineFit:
 
                 if cwin is not None:
                     assert len(cwin) == 4, 'Windows must be an iterable of the form (blue0, blue1, red0, red1)'
-                    weights = np.zeros_like(self.wavelength)
-                    cwin_cond = (
+                    mask = (
                             ((self.wavelength > cwin[0]) & (self.wavelength < cwin[1]))
                             | ((self.wavelength > cwin[2]) & (self.wavelength < cwin[3])))
-                    weights[cwin_cond] = 1
-                    nite = 1
+                    n_iterations = 1
+                    degree = 1
                 else:
-                    weights = np.ones_like(self.wavelength)
-                    nite = 3
+                    mask = ((self.wavelength > self.fitting_window[0]) & (self.wavelength < self.fitting_window[1]))
+                    n_iterations = 3
+                    degree = 7
 
+                # noinspection PyCallingNonCallable
                 cont = spectools.continuum(
-                    self.wavelength, syn + fit_continuum, weights=weights, degree=1, n_iterate=nite, lower_threshold=3,
-                    upper_threshold=3, output='function')[1][cond]
+                    self.wavelength[mask], (syn + fit_continuum)[mask], degree=degree, n_iterate=n_iterations,
+                    lower_threshold=3, upper_threshold=3, output='polynomial')(self.wavelength[cond])
 
                 # Remember that 1 - (g + c)/c = -g/c, where g is the
                 # line profile and c is the local continuum level.
@@ -564,7 +565,7 @@ class LineFit:
                 # definition in the eqw_model integration below.
                 ci = component_index
                 eqw_model[ci] = integrate.trapz(- fit / cont, x=self.wavelength[cond])
-                eqw_direct[ci] = integrate.trapz(1. - data[cond] / cont, x=self.wavelength[cond])
+                eqw_direct[ci] = integrate.trapz(1. - (data[cond] / cont), x=self.wavelength[cond])
 
             self.eqw_model = eqw_model
             self.eqw_direct = eqw_direct
@@ -659,6 +660,13 @@ class LineFit3D(LineFit):
                                                 sigma=sigma_lam, width=width)
         self.mask |= optimized_mask[:, np.newaxis, np.newaxis]
 
+    def _mask2d_to_nan(self, attribute):
+        x = getattr(self, attribute)
+        if len(x.shape) == 3:
+            x[:, self.input_data.spatial_mask] = np.nan
+        elif len(x.shape) == 2:
+            x[self.input_data.spatial_mask] = np.nan
+
     def fit(self, min_method: str = 'slsqp', minimum_good_fraction: float = 0.8, verbose: bool = False,
             fit_continuum: bool = True, continuum_options: dict = None, refit: bool = False,
             refit_radius: float = 3.0, **kwargs):
@@ -666,12 +674,16 @@ class LineFit3D(LineFit):
             self.solution = np.zeros((len(self.initial_guess),) + self.data.shape[1:])
         if self.reduced_chi_squared is None:
             self.reduced_chi_squared = np.zeros(self.data.shape[1:])
+        if self.model_spectrum is None:
+            self.model_spectrum = np.zeros_like(self.data)
+        for i in ['solution', 'reduced_chi_squared', 'model_spectrum']:
+            self._mask2d_to_nan(i)
         attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status',
-                      'solution', 'reduced_chi_squared']
-        in_attr = ['solution', 'reduced_chi_squared', 'status', 'pseudo_continuum']
+                      'solution', 'reduced_chi_squared', 'model_spectrum']
+        in_attr = ['solution', 'reduced_chi_squared', 'status', 'pseudo_continuum', 'model_spectrum']
         fit_args = (min_method, minimum_good_fraction, verbose, fit_continuum, continuum_options)
         self._select_spaxel(function=super().fit, used_attributes=attributes, modified_attributes=in_attr,
-                            args=fit_args, kwargs=kwargs)
+                            args=fit_args, kwargs=kwargs, description='Fitting spectral features')
 
     def integrate_flux(self, sigma_factor: float = 5.0):
         attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status',
@@ -680,8 +692,10 @@ class LineFit3D(LineFit):
         dims = (len(self.feature_names),) + self.data.shape[1:]
         self.flux_direct = np.zeros(dims)
         self.flux_model = np.zeros(dims)
+        for i in ['flux_model', 'flux_direct']:
+            self._mask2d_to_nan(i)
         self._select_spaxel(function=super().integrate_flux, used_attributes=attributes, modified_attributes=in_attr,
-                            args=(sigma_factor,))
+                            args=(sigma_factor,), description='Integrating flux')
 
     def equivalent_width(self, sigma_factor=5.0, continuum_windows=None):
         attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status',
@@ -690,12 +704,14 @@ class LineFit3D(LineFit):
         dims = (len(self.feature_names),) + self.data.shape[1:]
         self.eqw_direct = np.zeros(dims)
         self.eqw_model = np.zeros(dims)
+        for i in ['eqw_model', 'eqw_direct']:
+            self._mask2d_to_nan(i)
         self._select_spaxel(function=super().equivalent_width, used_attributes=attributes, modified_attributes=in_attr,
-                            args=(sigma_factor, continuum_windows))
+                            args=(sigma_factor, continuum_windows), description='Evaluating equivalent width')
 
     def _select_spaxel(self, function: Callable, x: Union[int, Iterable] = None, y: Union[int, Iterable] = None,
-                       used_attributes: list = None, modified_attributes: list = None, args: tuple = None,
-                       kwargs: dict = None):
+                       used_attributes: list = None, modified_attributes: list = None, description: str = None,
+                       args: tuple = None, kwargs: dict = None,):
         if args is None:
             args = ()
         if kwargs is None:
@@ -712,7 +728,7 @@ class LineFit3D(LineFit):
         if isinstance(x, (int, np.int64)):
             iterator = [[x, y]]
         else:
-            iterator = tqdm.tqdm(zip(x, y))
+            iterator = tqdm.tqdm(zip(x, y), desc=description, unit='spaxels')
 
         for xx, yy in iterator:
             s = (Ellipsis, yy, xx)

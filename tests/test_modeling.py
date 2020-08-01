@@ -172,6 +172,14 @@ def test_monte_carlo():
     assert 1
 
 
+def test_equivalent_width():
+    fit = simple_fit(fit_type='spectrum')
+    fit.optimize_fit(width=5.0)
+    fit.fit()
+    fit.equivalent_width()
+    assert True
+
+
 def test_simple_cube_fit():
     fit = simple_fit(fit_type='cube')
     fit.fit()
@@ -211,4 +219,12 @@ def test_cube_flux():
     fit.optimize_fit(width=5.0)
     fit.fit()
     fit.integrate_flux()
+    assert True
+
+
+def test_cube_equivalent_width():
+    fit = simple_fit(fit_type='cube', spiral_loop=True)
+    fit.optimize_fit(width=5.0)
+    fit.fit()
+    fit.equivalent_width()
     assert True
