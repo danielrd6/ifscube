@@ -3,7 +3,6 @@ import configparser
 import copy
 
 import numpy as np
-from scipy.optimize import NonlinearConstraint
 
 # LOCAL
 from . import spectools
@@ -109,12 +108,77 @@ class ConstraintParser:
 
         self.type = t
 
-    def evaluate(self, parameter, scale_factor: float = 1.0, method: str = 'slsqp'):
+    @staticmethod
+    def _constraint_comparison(comparison, value):
+        if comparison == '<':
+            lb = -np.inf
+            ub = value
+        elif comparison == '>':
+            lb = value
+            ub = +np.inf
+        else:
+            lb = ub = value
+        return lb, ub
 
+    def _get_expression_elements(self, sentence):
+        num = [i for i in sentence if i in self.numbers][0]
+        var = [i for i in sentence if i in self.variables][0]
+        idx2 = self._idx(var)
+        a = float(num)
+        oper = sentence[1]
+        return num, var, idx2, a, oper
+
+    def _differential_evolution_constraints(self, parameter, scale_factor):
         idx = self._idx(parameter)
-
         lis = self.tolist()
+        m = np.zeros(2 * (len(self.parameter_names),))
+        m[idx, idx] = 1.0
 
+        if lis[0] in '<>':
+            compare = lis[0]
+            lis.remove(lis[0])
+        else:
+            compare = None
+
+        if len(lis) == 1:
+            if lis[0] in self.numbers:
+                bounds = self._constraint_comparison(compare, float(lis[0]) / scale_factor)
+            elif lis[0] in self.variables:
+                m[idx, self._idx(lis[0])] = -1.0
+                bounds = self._constraint_comparison(compare, 0.0)
+            else:
+                raise RuntimeError('Failed to interpret constraint expression.')
+        elif len(lis) == 3:
+            num, var, idx2, a, oper = self._get_expression_elements(lis)
+
+            if oper == '+':
+                m[idx, idx2] = -1.0
+                bounds = self._constraint_comparison(compare, a / scale_factor)
+            elif oper == '*':
+                m[idx, idx2] = -a
+                bounds = self._constraint_comparison(compare, 0.0)
+            elif oper == '-':
+                sign = 1.0 if (lis.index(num) > lis.index(var)) else -1.0
+                m[idx, idx2] = -sign
+                bounds = self._constraint_comparison(compare, sign * num)
+            elif oper == '/':
+                assert lis.index(num) > lis.index(var), 'Non linear constraints are not yet supported.'
+                m[idx, idx2] = -(1.0 / a)
+                bounds = self._constraint_comparison(compare, 0.0)
+            else:
+                raise RuntimeError('Failed to interpret constraint expression.')
+        else:
+            raise RuntimeError('Failed to interpret constraint expression.')
+
+        lb = np.zeros(len(self.parameter_names))
+        ub = np.zeros(len(self.parameter_names))
+        lb[idx] = bounds[0]
+        ub[idx] = bounds[1]
+        self.constraint = {'matrix': m, 'lower_bounds': lb, 'upper_bounds': ub}
+
+    def _minimize_constraints(self, parameter, scale_factor):
+        idx = self._idx(parameter)
+        lis = self.tolist()
         if lis[0] == '<':
             lis.remove(lis[0])
             sign = 1.
@@ -125,7 +189,6 @@ class ConstraintParser:
             sign = 1.
 
         if len(lis) == 1:
-
             if lis[0] in self.numbers:
                 a = float(lis[0]) / scale_factor
 
@@ -141,15 +204,8 @@ class ConstraintParser:
                     return r
             else:
                 raise Exception('Failed to interpret constraint expression.')
-
         elif len(lis) == 3:
-
-            num = [i for i in lis if i in self.numbers][0]
-            var = [i for i in lis if i in self.variables][0]
-            idx2 = self._idx(var)
-            a = float(num)
-            oper = lis[1]
-
+            num, var, idx2, a, oper = self._get_expression_elements(lis)
             if lis.index(num) > lis.index(var):
                 if oper == '+':
                     def op(x, j):
@@ -183,16 +239,13 @@ class ConstraintParser:
 
         else:
             raise Exception('Failed to interpret constraint expression.')
+        self.constraint = dict(type=self.type, fun=func)
 
-        if method == 'slsqp':
-            self.constraint = dict(type=self.type, fun=func)
-        elif method in ['differential_evolution', 'trust-constr']:
-            if self.type == 'eq':
-                self.constraint = NonlinearConstraint(func, 0.0, 0.0)
-            elif self.type == 'ineq':
-                self.constraint = NonlinearConstraint(func, 0.0, np.inf)
-            else:
-                raise RuntimeError(f'Unknown constraint type "{self.type}".')
+    def evaluate(self, parameter, scale_factor: float = 1.0, method: str = 'slsqp'):
+        if method == 'differential_evolution':
+            self._differential_evolution_constraints(parameter, scale_factor)
+        elif method in ['slsqp', 'trust-constr']:
+            self._minimize_constraints(parameter, scale_factor)
         else:
             raise RuntimeError(f'Unknown method "{method}".')
 

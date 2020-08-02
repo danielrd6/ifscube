@@ -6,7 +6,7 @@ import numpy as np
 import tqdm
 from astropy import constants, units
 from scipy import integrate
-from scipy.optimize import minimize, differential_evolution
+from scipy.optimize import minimize, differential_evolution, LinearConstraint
 
 from ifscube import elprofile, parser, spectools
 from .datacube import Cube
@@ -175,6 +175,14 @@ class LineFit:
                 else:
                     cp.evaluate(parameter, method=method)
                 constraints.append(cp.constraint)
+        if method == 'differential_evolution':
+            c = {'A': np.array([_['matrix'] for _ in constraints]),
+                 'lb': np.array([_['lower_bounds'] for _ in constraints]),
+                 'ub': np.array([_['upper_bounds'] for _ in constraints])}
+            for key in c.keys():
+                assert np.max(c[key].astype(bool).sum(0)) == 1.0, \
+                    f'Multiple constraints for the same parameter are not supported for the method "{method}".'
+            constraints = (LinearConstraint(**c),)
         self.constraints = constraints
 
     def res(self, x, s):
