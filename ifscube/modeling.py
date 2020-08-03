@@ -618,18 +618,17 @@ class LineFit:
         ax.plot(wavelength, observed, color='C0')
         ax.plot(wavelength, model_lines + stellar + pseudo_continuum, color='C2')
 
-        if plot_all:
-            if np.any(pseudo_continuum):
-                ax.plot(wavelength, pseudo_continuum + stellar)
-            if np.any(stellar):
-                ax.plot(wavelength, stellar)
+        if np.any(pseudo_continuum):
+            ax.plot(wavelength, pseudo_continuum + stellar)
+        if np.any(stellar):
+            ax.plot(wavelength, stellar)
 
-            ppf = self.parameters_per_feature
-            for i in range(0, len(self.parameter_names), ppf):
-                feature_wl = self.feature_wavelengths[int(i / ppf)]
-                parameters = self.solution[i:i + ppf]
-                line = self.function(wavelength, feature_wl, parameters)
-                ax.plot(wavelength, pseudo_continuum + stellar + line, 'k--')
+        ppf = self.parameters_per_feature
+        for i in range(0, len(self.parameter_names), ppf):
+            feature_wl = self.feature_wavelengths[int(i / ppf)]
+            parameters = self.solution[i:i + ppf]
+            line = self.function(wavelength, feature_wl, parameters)
+            ax.plot(wavelength, pseudo_continuum + stellar + line, 'k--')
 
         ax.set_ylabel('Spectral flux density')
         ax.minorticks_on()
