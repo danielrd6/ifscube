@@ -747,7 +747,7 @@ class LineFit3D(LineFit):
         if isinstance(x, (int, np.int64)):
             iterator = [[x, y]]
         else:
-            iterator = tqdm.tqdm(zip(x, y), desc=description, unit='spaxels')
+            iterator = tqdm.tqdm(np.column_stack([x, y]), desc=description, unit='spaxels')
         for xx, yy in iterator:
             s = (Ellipsis, yy, xx)
             for i in used_attributes:
