@@ -180,8 +180,9 @@ class LineFit:
                  'lb': np.array([_['lower_bounds'] for _ in constraints]),
                  'ub': np.array([_['upper_bounds'] for _ in constraints])}
             for key in c.keys():
-                assert np.max(c[key].astype(bool).sum(0)) == 1.0, \
+                assert np.max(c[key].astype(bool).sum(0)) <= 1.0, \
                     f'Multiple constraints for the same parameter are not supported for the method "{method}".'
+                c[key] = c[key].sum(0)
             constraints = (LinearConstraint(**c),)
         self.constraints = constraints
 
@@ -357,7 +358,7 @@ class LineFit:
                 'Cannot have unbound parameters when using differential_evolution.'
             # noinspection PyTypeChecker
             solution = differential_evolution(
-                self.res, bounds=bounds, args=(s,), constraints=self.constraints, **kwargs)
+                self.res, bounds=list(bounds), args=(s,), constraints=self.constraints, **kwargs)
             self.status = 0
         else:
             raise RuntimeError(f'Unknown minimization method {min_method}.')
@@ -647,8 +648,14 @@ class LineFit3D(LineFit):
 
     def __init__(self, data: Cube, function: str = 'gaussian', fitting_window: tuple = None,
                  instrument_dispersion: float = 1.0, individual_spec: tuple = None, spiral_loop: bool = False,
-                 spiral_center: tuple = None):
+                 spiral_center: tuple = None, refit: bool = False, refit_radius: float = 3.0,
+                 bounds_change: list = None):
         super().__init__(data, function, fitting_window, instrument_dispersion)
+        self.refit = refit
+        self.refit_radius = refit_radius
+        if refit:
+            assert bounds_change is not None, 'When using refit the bounds_change option must be defined.'
+        self.bounds_change = bounds_change
 
         if individual_spec is not None:
             self.spaxel_indices = np.array([individual_spec[::-1]])
@@ -658,6 +665,7 @@ class LineFit3D(LineFit):
             self.spaxel_indices = data.spec_indices
         self.y_0, self.x_0 = self.spaxel_indices[0]
         self.status = np.ones(self.data.data.shape[1:])
+        self.image_coordinates = np.indices(self.data.data.shape[1:])
 
     def _spiral(self, spiral_center: tuple = None):
         y, x = self.input_data.spec_indices[:, 0], self.input_data.spec_indices[:, 1]
@@ -687,21 +695,24 @@ class LineFit3D(LineFit):
 
     def fit(self, min_method: str = 'slsqp', minimum_good_fraction: float = 0.8, verbose: bool = False,
             fit_continuum: bool = True, continuum_options: dict = None, refit: bool = False,
-            refit_radius: float = 3.0, **kwargs):
+            refit_radius: float = 3.0, bounds_change: float = 0.2, **kwargs):
         if self.solution is None:
             self.solution = np.zeros((len(self.initial_guess),) + self.data.shape[1:])
         if self.reduced_chi_squared is None:
             self.reduced_chi_squared = np.zeros(self.data.shape[1:])
         if self.model_spectrum is None:
             self.model_spectrum = np.zeros_like(self.data)
+        if self.status is None:
+            self.status = np.ones(self.data.shape[1:])
         for i in ['solution', 'reduced_chi_squared', 'model_spectrum']:
             self._mask2d_to_nan(i)
+
         attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status',
                       'solution', 'reduced_chi_squared', 'model_spectrum']
-        in_attr = ['solution', 'reduced_chi_squared', 'status', 'pseudo_continuum', 'model_spectrum']
+        mod_attr = ['solution', 'reduced_chi_squared', 'status', 'pseudo_continuum', 'model_spectrum']
         fit_args = (min_method, minimum_good_fraction, verbose, fit_continuum, continuum_options)
-        self._select_spaxel(function=super().fit, used_attributes=attributes, modified_attributes=in_attr,
-                            args=fit_args, kwargs=kwargs, description='Fitting spectral features')
+        self._select_spaxel(function=super().fit, used_attributes=attributes, modified_attributes=mod_attr,
+                            args=fit_args, kwargs=kwargs, description='Fitting spectral features', fitting=True)
 
     def integrate_flux(self, sigma_factor: float = 5.0):
         attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status',
@@ -727,9 +738,47 @@ class LineFit3D(LineFit):
         self._select_spaxel(function=super().equivalent_width, used_attributes=attributes, modified_attributes=in_attr,
                             args=(sigma_factor, continuum_windows), description='Evaluating equivalent width')
 
+    @staticmethod
+    def _change_bounds(value, change, original, fraction: bool = False):
+        if fraction:
+            lb, ub = [value * (1.0 + (_ * np.sign(value) * change)) for _ in [-1, 1]]
+        else:
+            lb, ub = [value + (_ * change) for _ in [-1, 1]]
+
+        if original[0] is not None:
+            if lb < original[0]:
+                lb = original[0]
+        else:
+            lb = None
+        if original[1] is not None:
+            if ub > original[1]:
+                ub = original[1]
+        else:
+            ub = None
+        if (lb is not None) and (ub is not None):
+            assert lb < ub, 'Lower bound higher than upper bound.'
+        return [lb, ub]
+
+    def _updated_parameters(self, x: int, y: int, cube_solution: np.ndarray, cube_status: np.ndarray,
+                            original_bounds: list, original_guess: np.ndarray):
+        yy, xx = self.image_coordinates
+        r = np.sqrt(np.square(yy - y) + np.square(np.square(xx - x)))
+        mask = (r < self.refit_radius) & (cube_status == 0)
+        if np.any(mask):
+            self.initial_guess = np.nanmean(cube_solution[:, mask], axis=1)
+            b = []
+            for i in range(len(self.bounds)):
+                d = (i % self.parameters_per_feature)
+                b.append(self._change_bounds(self.initial_guess[i], self.bounds_change[d], original_bounds[i],
+                                             fraction=(d == 0)))
+            self.bounds = b
+        else:
+            self.initial_guess = original_guess.copy()
+            self.bounds = original_bounds.copy()
+
     def _select_spaxel(self, function: Callable, x: Union[int, Iterable] = None, y: Union[int, Iterable] = None,
                        used_attributes: list = None, modified_attributes: list = None, description: str = None,
-                       args: tuple = None, kwargs: dict = None, ):
+                       args: tuple = None, kwargs: dict = None, fitting: bool = False):
         if args is None:
             args = ()
         if kwargs is None:
@@ -740,6 +789,17 @@ class LineFit3D(LineFit):
 
         r = None
         cube_data = {_: np.copy(getattr(self, _)) for _ in used_attributes}
+
+        refit = self.refit and fitting
+        if refit:
+            original_guess = self.initial_guess.copy()
+            original_bounds = self.bounds.copy()
+            if (self.bounds_change is not None) and hasattr(self.bounds_change, '__len__'):
+                assert len(self.bounds_change) == self.parameters_per_feature,\
+                    'Bounds_change should have the same length as feature parameters. '\
+                    f'Expected {self.parameters_per_feature}, got {len(self.bounds_change)}.'
+            else:
+                raise RuntimeError('Bounds_change should be an iterable.')
 
         if (x is None) and (y is None):
             x = self.spaxel_indices[:, 1]
@@ -755,6 +815,11 @@ class LineFit3D(LineFit):
                     setattr(self, i, cube_data[i][s[1:]])
                 else:
                     setattr(self, i, cube_data[i][s])
+
+            if refit:
+                # noinspection PyUnboundLocalVariable
+                self._updated_parameters(xx, yy, cube_solution=cube_data['solution'], cube_status=cube_data['status'],
+                                         original_bounds=original_bounds, original_guess=original_guess)
 
             r = function(*args, **kwargs)
 
