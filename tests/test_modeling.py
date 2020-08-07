@@ -228,3 +228,10 @@ def test_cube_equivalent_width():
     fit.fit()
     fit.equivalent_width()
     assert True
+
+
+def test_refit():
+    fit = simple_fit(fit_type='cube', spiral_loop=True, spiral_center=(3, 4), refit=True, refit_radius=2.0,
+                     bounds_change=[0.2, 10, 10])
+    fit.fit()
+    assert True

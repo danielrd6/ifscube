@@ -399,9 +399,8 @@ class LineFitParser:
 
         fit_opts['fixed'] = self.cfg.getboolean('fit', 'fixed', fallback=False)
 
-        float_args = [
-            'refit_radius', 'sig_threshold', 'instrument_dispersion',
-            'optimization_window', 'good_minfraction', 'instrument_dispersion_angstrom']
+        float_args = ['refit_radius', 'sig_threshold', 'instrument_dispersion', 'optimization_window',
+                      'good_minfraction', 'instrument_dispersion_angstrom']
         for i in float_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getfloat('fit', i)
@@ -409,6 +408,7 @@ class LineFitParser:
         fit_opts['monte_carlo'] = self.cfg.getint('fit', 'monte_carlo', fallback=0)
         fit_opts['method'] = self.cfg.get('fit', 'method', fallback='slsqp')
         fit_opts['suffix'] = self.cfg.get('fit', 'suffix', fallback='_linefit')
+        fit_opts['bounds_change'] = [float(_) for _ in self.cfg.get('fit', 'bounds_change', fallback=None).split(',')]
 
         key = 'fitting_window'
         if key in fit_opts:

@@ -12,7 +12,8 @@ def setup_fit(data: Union[onedspec.Spectrum, datacube.Cube], **line_fit_args):
 
     if isinstance(data, datacube.Cube):
         general_fit_args = {_: line_fit_args[_] for _ in ['function', 'fitting_window', 'instrument_dispersion',
-                                                          'individual_spec', 'spiral_loop', 'spiral_center']
+                                                          'individual_spec', 'spiral_loop', 'spiral_center', 'refit',
+                                                          'refit_radius', 'bounds_change']
                             if _ in line_fit_args.keys()}
         fit = modeling.LineFit3D(data, **general_fit_args)
     elif isinstance(data, onedspec.Spectrum):
