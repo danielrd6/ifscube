@@ -102,8 +102,9 @@ class DiskRotation(Fittable2DModel):
     This equation was taken from Bertola et al. 1991 (ApJ, 373, 369B).
     """
 
-    inputs = ('x', 'y',)
-    outputs = ('v',)
+    # inputs = ('x', 'y',)
+    n_outputs = 1
+    n_inputs = 2
 
     amplitude = Parameter(default=100.0)
     c_0 = Parameter(default=1.0)
