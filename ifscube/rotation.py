@@ -71,14 +71,13 @@ class Rotation(object):
         """
 
         for key in parameters:
-            n = list(self.model.param_names).index(key)
-            self.model.parameters[n] = parameters[key]
+            setattr(self.model, key, parameters[key])
 
     def update_bounds(self, bounds):
         for key in bounds:
             self.model.bounds[key] = bounds[key]
 
-    def updated_fixed(self, fixed):
+    def update_fixed(self, fixed):
         for key in fixed:
             self.model.fixed[key] = fixed[key]
 
@@ -98,13 +97,13 @@ class Rotation(object):
             else:
                 print('{:12s}: {:8.3f}'.format(key, self.solution.parameters[n]))
 
-    def plot_results(self, contrast=1.0, contours=True, symetric=True):
+    def plot_results(self, contrast=1.0, contours=True, symmetric=True):
         """Plots the fit results."""
 
         vmin = np.percentile(self.obs, contrast)
         vmax = np.percentile(self.obs, 100.0 - contrast)
 
-        if symetric:
+        if symmetric:
             m = np.max(np.abs([vmin, vmax]))
             vmin = -m
             vmax = m
@@ -124,10 +123,7 @@ class Rotation(object):
                 im = ax.imshow(d, origin='lower', **kwargs)
             ax.set_title(lab)
 
-        fig.subplots_adjust(bottom=0.2)
-        cbar_ax = fig.add_axes([0.2, 0.15, 0.6, 0.05])
-        fig.colorbar(im, cax=cbar_ax, orientation='horizontal')
-
+        fig.colorbar(im, ax=axes[1], orientation='horizontal')
         plt.show()
 
 
@@ -209,7 +205,7 @@ def main():
 
     if config.getboolean('general', 'fit'):
         r.update_bounds(config.bounds)
-        r.updated_fixed(config.fixed)
+        r.update_fixed(config.fixed)
         r.fit_model(maxiter=1000)
     else:
         r.solution = r.model
