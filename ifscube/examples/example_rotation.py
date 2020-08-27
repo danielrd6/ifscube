@@ -22,6 +22,7 @@ def create_fake_data(plot: bool = False):
 
 def main():
     data = create_fake_data(plot=False)
+    data[0, 0] = np.nan
 
     config = rotation.Config('rotation.ini')
 

@@ -5,6 +5,7 @@ from astropy.io import fits
 from astropy.modeling.fitting import LevMarLSQFitter
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy import ma
 
 from .models import DiskRotation
 
@@ -35,8 +36,10 @@ class Rotation(object):
 
             if isinstance(input_data, str):
                 with fits.open(input_data) as h:
-                    self.obs = h[extension].data
+                    self.obs = ma.masked_invalid(h[extension].data)
             elif isinstance(input_data, np.ndarray):
+                self.obs = ma.masked_invalid(input_data)
+            elif isinstance(input_data, ma.masked_array):
                 self.obs = input_data
             else:
                 raise IOError('Could not understand input data.')
@@ -50,7 +53,7 @@ class Rotation(object):
             self.y, self.x = np.indices(self.obs.shape)
 
         else:
-            self.obs = np.array([])
+            self.obs = ma.array([])
 
         if model is None:
             self.model = DiskRotation()
@@ -100,8 +103,8 @@ class Rotation(object):
     def plot_results(self, contrast=1.0, contours=True, symmetric=True):
         """Plots the fit results."""
 
-        vmin = np.percentile(self.obs, contrast)
-        vmax = np.percentile(self.obs, 100.0 - contrast)
+        vmin = np.percentile(self.obs[~self.obs.mask], contrast)
+        vmax = np.percentile(self.obs[~self.obs.mask], 100.0 - contrast)
 
         if symmetric:
             m = np.max(np.abs([vmin, vmax]))
