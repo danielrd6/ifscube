@@ -114,6 +114,7 @@ def write_spectrum_fit(fit: Union[modeling.LineFit, modeling.LineFit3D], suffix:
         hdr['CRPIX1'] = (1, 'Reference pixel for wavelength')
         hdr['CRVAL1'] = (fit.wavelength[0], 'Reference value for wavelength')
         hdr['CD1_1'] = (avg_d_wl, 'CD1_1')
+        fit.reduced_chi_squared = np.array([[fit.reduced_chi_squared]])
     hdu = fits.ImageHDU(data=fit.data, header=hdr)
     hdu.name = 'FITSPEC'
     h.append(hdu)
