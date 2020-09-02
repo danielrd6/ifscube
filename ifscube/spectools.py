@@ -407,7 +407,7 @@ def continuum(x, y, output='ratio', degree=6, n_iterate=5, lower_threshold=2, up
                 warnings.warn('Not enough fitting points. Stopped at iteration {:d}. sig={:.2e}'.format(i, sig))
             break
 
-        if np.sum(weights == 0.0) >= degree:
+        if np.sum(weights != 0.0) <= degree:
             if verbose:
                 warnings.warn(
                     'Number of non-zero values in weights vector is lower than the polynomial degree. '
