@@ -2,7 +2,7 @@ name: myenv
 channels:
   - conda-forge
 dependencies:
-  - python=3.6
+  - python=3.7
   - conda-build
   - numpy
   - scipy
