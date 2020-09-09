@@ -104,15 +104,23 @@ def write_spectrum_fit(fit: Union[modeling.LineFit, modeling.LineFit3D], suffix:
     hdr = fits.Header()
     d_wl = np.diff(fit.wavelength)
     avg_d_wl = np.average(d_wl)
-    assert np.all(np.abs((d_wl / avg_d_wl) - 1) < 1e-6), 'Wavelength vector is not linearly sampled.'
+
+    if np.all(np.abs((d_wl / avg_d_wl) - 1) < 1e-6):
+        crval = fit.wavelength[0]
+        cdelt = avg_d_wl
+    else:
+        print('WARNING: Wavelength vector is not linearly sampled.\n',
+              'Setting dumb WCS, and rest wavelength at RESTWAVE extension.')
+        crval, cdelt = ('', '')
+
     if is_cube:
         hdr['CRPIX3'] = (1, 'Reference pixel for wavelength')
-        hdr['CRVAL3'] = (fit.wavelength[0], 'Reference value for wavelength')
-        hdr['CD3_3'] = (np.average(np.diff(fit.wavelength)), 'CD3_3')
+        hdr['CRVAL3'] = (crval, 'Reference value for wavelength')
+        hdr['CD3_3'] = (cdelt, 'CD3_3')
     else:
         hdr['CRPIX1'] = (1, 'Reference pixel for wavelength')
-        hdr['CRVAL1'] = (fit.wavelength[0], 'Reference value for wavelength')
-        hdr['CD1_1'] = (avg_d_wl, 'CD1_1')
+        hdr['CRVAL1'] = (crval, 'Reference value for wavelength')
+        hdr['CD1_1'] = (cdelt, 'CD1_1')
         fit.reduced_chi_squared = np.array([[fit.reduced_chi_squared]])
 
     # Creates the rest wavelength extension

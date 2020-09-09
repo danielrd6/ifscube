@@ -24,7 +24,7 @@ class Cube(onedspec.Spectrum):
     def __init__(self, fname: str = None, scidata: Union[str, int] = 'SCI', variance: Union[str, int] = None,
                  flags: Union[str, int] = None, stellar: Union[str, int] = None, primary: Union[str, int] = 'PRIMARY',
                  redshift: float = None, wcs_axis: int = 3, spatial_mask: Union[np.ndarray, str] = None,
-                 nan_spaxels: str = 'all'):
+                 nan_spaxels: str = 'all', wavelength: Union[str, int] = 'WAVE'):
         """
         Instantiates the class. If any arguments are given they will be
         passed to the _load method.
