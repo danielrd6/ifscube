@@ -110,7 +110,7 @@ def write_spectrum_fit(fit: Union[modeling.LineFit, modeling.LineFit3D], suffix:
         cdelt = avg_d_wl
     else:
         print('WARNING: Wavelength vector is not linearly sampled.\n',
-              'Setting dumb WCS, and rest wavelength at RESTWAVE extension.')
+              'Setting dumb header WCS. Rest wavelength at RESTWAVE extension.')
         crval, cdelt = ('', '')
 
     if is_cube:

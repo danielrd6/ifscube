@@ -74,11 +74,12 @@ class Spectrum:
 
     def _wavelength(self, hdu, wave):
 
-        if isinstance(wave, str):
-            if wave in hdu:
-                assert(hdu[wave].data.shape == self.data.shape[-1:],
-                       'wavelength  must have the same shape of the data')
-                self.wl = hdu[wave].data
+        if isinstance(wave, str) and (wave in hdu):
+            assert hdu[wave].data.shape == self.data.shape[-1:],\
+                   'wavelength  must have the same shape of the data'
+            self.wl = hdu[wave].data
+        else:
+            self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
 
     def _load(self, fname: str, scidata: str = 'SCI', variance: str = None, flags: str = None, stellar: str = None,
               primary: str = 'PRIMARY', redshift: float = None, wcs_axis: int = None, wavelength: str = None) -> None:
@@ -97,16 +98,8 @@ class Spectrum:
             self._wavelength(hdu, wavelength)
 
         try:
-            self.delta_lambda = np.nanmean(self.wl)
-            # FIXME: overide wcs
-        except AttributeError:
-            self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
-            self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
-
-        try:
             if self.header_data['cunit1'] == 'm':
                 self.wl *= 1.e+10
-                self.delta_lambda *= 1.e+10
         except KeyError:
             pass
 
