@@ -79,8 +79,10 @@ class Spectrum:
             return s.format(name)
 
         if isinstance(wave, str):
-            assert hdu[wave].data.shape == self.data.shape[-1:], shape_error(lab)
-            self.wavelength = hdu[wave].data
+            if wave in hdu:
+                assert(hdu[wave].data.shape == self.data.shape[-1:],
+                       'wavelength  must have the same shape of the data')
+                self.wavelength = hdu[wave].data
 
     def _load(self, fname: str, scidata: str = 'SCI', variance: str = None, flags: str = None, stellar: str = None,
               primary: str = 'PRIMARY', redshift: float = None, wcs_axis: int = None, wavelength: str = None) -> None:
