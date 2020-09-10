@@ -81,6 +81,13 @@ class Spectrum:
         else:
             self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
 
+    def _flags(self):
+
+        # Flag nan and inf values
+        self.flags += (np.isnan(self.data) + np.isinf(self.data)
+                       + np.isnan(self.variance) + np.isinf(self.variance)
+                       + np.isnan(self.stellar) + np.isinf(self.stellar))
+
     def _load(self, fname: str, scidata: str = 'SCI', variance: str = None, flags: str = None, stellar: str = None,
               primary: str = 'PRIMARY', redshift: float = None, wcs_axis: int = None, wavelength: str = None) -> None:
         self.fitsfile = fname
@@ -94,8 +101,8 @@ class Spectrum:
             self.wcs = wcs.WCS(self.header_data, naxis=wcs_axis)
 
             self._accessory_data(hdu, variance, flags, stellar)
-
             self._wavelength(hdu, wavelength)
+            self._flags()
 
         try:
             if self.header_data['cunit1'] == 'm':
