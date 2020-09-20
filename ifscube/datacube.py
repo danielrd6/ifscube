@@ -1373,13 +1373,13 @@ class Cube:
             flags = np.zeros_like(self.fit_wavelength)
 
         assert np.any(s), 'Spectrum is null.'
-        median_spec = np.median(s)
 
-        if median_spec > 0:
-            norm_factor_d = np.int(np.log10(median_spec))
+        if np.percentile(s, 97) > 0:
+            norm_factor_d = np.int(np.log10(np.percentile(s, 97))) - 1
             norm_factor = 10.0 ** norm_factor_d
         else:
-            return ax
+            print('Too many negative values. Skipping normalization.')
+            norm_factor = 1.0
 
         mask = spectools.flags_to_mask(wl, flags)
         for i in mask:
