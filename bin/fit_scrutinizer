@@ -192,11 +192,8 @@ class Scrutinizer:
 class onedfit:
 
     def __init__(self, fname):
-
-        spec = ifscube.onedspec.Spectrum()
-        spec.loadfit(fname)
-
-        spec.plotfit()
+        spec = line_fit.load_fit(fname)
+        spec.plot(plot_all=arguments.full_spectrum)
 
         return
 
