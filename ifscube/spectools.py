@@ -649,7 +649,7 @@ def spectrophotometry(spec: Callable, transmission: Callable, limits: Iterable, 
         return photometry
 
 
-def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None,
+def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, width: float = 80.0, smooth: float = None,
             clip_negative_flux: bool = True) -> tuple:
     """
     Evaluates the W80 parameter of a given emission fature.
@@ -662,6 +662,8 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None,
       Flux vector.
     wl0 : number
       Central wavelength of the emission feature.
+    width : float
+      Percentile velocity width. For instance width=80 for the W_80 index.
     smooth : float
         Smoothing sigma to apply after the cumulative sum.
     clip_negative_flux : bool
@@ -703,8 +705,8 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, smooth: float = None,
             raise ValueError(f'cumulative must have only one dimension, but it has {len(cumulative.shape)}.')
         cumulative /= cumulative.max()
 
-        r0 = velocity[(np.abs(cumulative - 0.1)).argsort()[0]].value
-        r1 = velocity[(np.abs(cumulative - 0.9)).argsort()[0]].value
+        r0 = velocity[(np.abs(cumulative - ((50.0 - (width / 2.0)) / 100.0))).argsort()[0]].value
+        r1 = velocity[(np.abs(cumulative - ((50.0 + (width / 2.0)) / 100.0))).argsort()[0]].value
         w80 = r1 - r0
     else:
         w80, r0, r1 = np.nan, np.nan, np.nan
