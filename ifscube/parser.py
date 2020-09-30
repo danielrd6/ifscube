@@ -408,7 +408,12 @@ class LineFitParser:
         fit_opts['monte_carlo'] = self.cfg.getint('fit', 'monte_carlo', fallback=0)
         fit_opts['method'] = self.cfg.get('fit', 'method', fallback='slsqp')
         fit_opts['suffix'] = self.cfg.get('fit', 'suffix', fallback='_linefit')
-        fit_opts['bounds_change'] = [float(_) for _ in self.cfg.get('fit', 'bounds_change', fallback=None).split(',')]
+
+        bounds_change = self.cfg.get('fit', 'bounds_change', fallback=None)
+        if bounds_change is not None:
+            fit_opts['bounds_change'] = [float(_) for _ in bounds_change.split(',')]
+        else:
+            fit_opts['bounds_change'] = bounds_change
 
         key = 'fitting_window'
         if key in fit_opts:
