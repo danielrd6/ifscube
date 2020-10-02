@@ -9,6 +9,7 @@ from scipy import integrate
 from scipy.optimize import minimize, differential_evolution, LinearConstraint
 
 from ifscube import elprofile, parser, spectools
+from ifscube import plots as ifs_plots
 from .datacube import Cube
 from .onedspec import Spectrum
 
@@ -464,24 +465,24 @@ class LineFit:
         flux_direct = np.zeros_like(flux_model)
         c = constants.c.to('km / s').value
 
-        for idx, component in enumerate(self.feature_names):
-            if np.any(np.isnan(self._get_feature_parameter(component, 'all', 'solution'))):
+        for idx, feature in enumerate(self.feature_names):
+            if np.any(np.isnan(self._get_feature_parameter(feature, 'all', 'solution'))):
                 flux_model[idx] = np.nan
                 flux_direct[idx] = np.nan
 
             else:
-                z = (1.0 + self._get_feature_parameter(component, 'velocity', 'solution') / c)
+                z = (1.0 + self._get_feature_parameter(feature, 'velocity', 'solution') / c)
                 center_wavelength = np.array([self.feature_wavelengths[idx] * z])
-                sigma_vel = np.array([self._get_feature_parameter(component, 'sigma', 'solution')])
+                sigma_vel = np.array([self._get_feature_parameter(feature, 'sigma', 'solution')])
                 sigma_lam = spectools.sigma_lambda(sigma_vel, center_wavelength)
                 mask = spectools.feature_mask(wavelength=self.wavelength, feature_wavelength=center_wavelength,
                                               sigma=sigma_lam, width=sigma_factor)
 
                 observed_feature = self.data[~mask] - self.pseudo_continuum[~mask] - self.stellar[~mask]
                 fit = self.function(self.wavelength[~mask], self.feature_wavelengths[idx],
-                                    self._get_feature_parameter(component, 'all', 'solution'))
+                                    self._get_feature_parameter(feature, 'all', 'solution'))
                 for i, j in enumerate(self.feature_names):
-                    if j != component:
+                    if j != feature:
                         observed_feature -= self.function(
                             self.wavelength[~mask], self.feature_wavelengths[i],
                             self._get_feature_parameter(j, 'all', 'solution'))
@@ -491,6 +492,29 @@ class LineFit:
 
             self.flux_model = flux_model
             self.flux_direct = flux_direct
+
+    def velocity_width(self, feature: Union[str, list], plot: bool = False, **kwargs):
+
+        if type(feature) == str:
+            index = self.feature_names.index(feature)
+            solution = self._get_feature_parameter(feature, 'all', 'solution')
+            fit = self.function(self.wavelength, self.feature_wavelengths[index], solution)
+        elif type(feature) == list:
+            fit = np.zeros_like(self.wavelength)
+            for component in feature:
+                solution = self._get_feature_parameter(component, 'all', 'solution')
+                index = self.feature_names.index(feature)
+                fit += self.function(self.wavelength, self.feature_wavelengths[index], solution)
+        else:
+            raise TypeError('feature must be either string or list.')
+
+        obs_spec = (self.data - self.pseudo_continuum - self.stellar)
+        res = spectools.velocity_width(wavelength=self.wavelength, model=fit, data=obs_spec, **kwargs)
+
+        if plot:
+            ifs_plots.velocity_width(res)
+
+        return res
 
     def _get_center_wavelength(self, feature):
         velocity = self._get_feature_parameter(feature, 'velocity', 'solution')
@@ -795,8 +819,8 @@ class LineFit3D(LineFit):
             original_guess = self.initial_guess.copy()
             original_bounds = self.bounds.copy()
             if (self.bounds_change is not None) and hasattr(self.bounds_change, '__len__'):
-                assert len(self.bounds_change) == self.parameters_per_feature,\
-                    'Bounds_change should have the same length as feature parameters. '\
+                assert len(self.bounds_change) == self.parameters_per_feature, \
+                    'Bounds_change should have the same length as feature parameters. ' \
                     f'Expected {self.parameters_per_feature}, got {len(self.bounds_change)}.'
             else:
                 raise RuntimeError('Bounds_change should be an iterable.')

@@ -534,9 +534,9 @@ class LineFitParser:
 
                             if (m == 'sigma') & fix_sigma0:
                                 self.constraints += [
-                                    spectools.Constraints.same_instrinsic_sigma(
-                                        par1, par2,
-                                        instdisp_vel[j] ** 2 - instdisp_vel[j + 1] ** 2)]
+                                    spectools.Constraints.same_intrinsic_sigma(par1, par2,
+                                                                               instdisp_vel[j] ** 2 - instdisp_vel[
+                                                                                   j + 1] ** 2)]
                             else:
                                 self.constraints += [
                                     spectools.Constraints.same(par1, par2)]

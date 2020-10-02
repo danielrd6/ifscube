@@ -30,11 +30,11 @@ def simple_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs)
         gh_moments = {}
 
     for name, wl in zip(names, r_wl):
-        fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
+        fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0, velocity=0.0, sigma=100.0,
                         kinematic_group=0, **gh_moments)
 
     for name in names:
-        fit.set_bounds(feature=name, parameter='amplitude', bounds=[0.0, 1e-13])
+        fit.set_bounds(feature=name, parameter='amplitude', bounds=[0.0, 100])
         fit.set_bounds(feature=name, parameter='sigma', bounds=[40.0, 300])
         fit.set_bounds(feature=name, parameter='velocity', bounds=[-300, 300])
         if function == 'gauss_hermite':
@@ -111,7 +111,7 @@ def test_skip_feature():
 def test_bounds():
     fit = simple_fit()
     fit.set_bounds('ha', 'velocity', [-50, 50])
-    fit.set_bounds('ha', 'amplitude', [None, 0.4e-14])
+    fit.set_bounds('ha', 'amplitude', [None, 100])
     fit.fit()
     assert 1
 
@@ -177,6 +177,14 @@ def test_equivalent_width():
     fit.optimize_fit(width=5.0)
     fit.fit()
     fit.equivalent_width()
+    assert True
+
+
+def test_velocity_width():
+    fit = simple_fit(fit_type='spectrum')
+    fit.optimize_fit(width=5.0)
+    fit.fit()
+    fit.velocity_width(feature='ha', width=80)
     assert True
 
 

@@ -89,8 +89,8 @@ def fit_gauss(x, y, p0=None, fit_center=True, fit_background=True):
 
     if p0 is None:
         p0 = np.zeros(4)
-        p0[0] = y.max()
-        p0[1] = np.where(y == y.max())[0][0]
+        p0[0] = y.max(initial=0)
+        p0[1] = np.where(y == y.max(initial=0))[0][0]
         p0[2] = 3
         p0[3] = 1
 
@@ -209,7 +209,7 @@ def closest(arr, value):
 
 def get_wl(image, dimension=0, hdrext=0, dataext=0, dwlkey='CD1_1', wl0key='CRVAL1', pix0key='CRPIX1'):
     """
-    Obtains the wavelenght coordinates from the header keywords of the
+    Obtains the wavelength coordinates from the header keywords of the
     FITS file image. The default keywords are CD1_1 for the delta
     lambda, CRVAL for the value of the first pixel and CRPIX1 for the
     number of the first pixel. These keywords are the standard for
@@ -630,6 +630,7 @@ def spectrophotometry(spec: Callable, transmission: Callable, limits: Iterable, 
 
     if get_filter_center:
         def median_function(x):
+            # noinspection PyTypeChecker
             return np.abs(quad(transmission, -np.inf, x, epsrel=er, limit=l)[0] -
                           quad(transmission, x, +np.inf, epsrel=er, limit=l)[0])
 
@@ -637,7 +638,9 @@ def spectrophotometry(spec: Callable, transmission: Callable, limits: Iterable, 
     else:
         f_center = np.nan
 
+    # noinspection PyTypeChecker
     cal = quad(transmission, x0, x1, limit=l, epsrel=er)[0]
+    # noinspection PyTypeChecker
     photometry = quad(y2, x0, x1, limit=l, epsrel=er)[0] / cal
 
     if verbose:
@@ -649,36 +652,36 @@ def spectrophotometry(spec: Callable, transmission: Callable, limits: Iterable, 
         return photometry
 
 
-def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, width: float = 80.0, smooth: float = None,
-            clip_negative_flux: bool = True) -> tuple:
+def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, width: float = 80.0,
+                   smooth: float = None, clip_negative_flux: bool = True, sigma_factor: float = 5.0):
     """
     Evaluates the W80 parameter of a given emission fature.
 
     Parameters
     ----------
-    wl : array-like
+    wavelength : array-like
       Wavelength vector.
-    spec : array-like
-      Flux vector.
-    wl0 : number
-      Central wavelength of the emission feature.
+    model : np.ndarray
+      Modeled spectral feature.
+    data : np.ndarray
+      Observed spectrum.
     width : float
       Percentile velocity width. For instance width=80 for the W_80 index.
     smooth : float
-        Smoothing sigma to apply after the cumulative sum.
+      Smoothing sigma to apply after the cumulative sum.
     clip_negative_flux : bool
-        Sets negative flux values to zero.
+      Sets negative flux values to zero.
+    sigma_factor : float
+      Radius of integration, from the modeled feature centroid,
+      in units of the distance between the centroid and the 16 and 84
+      percentiles.
+
 
     Returns
     -------
-    w80 : float
-      The resulting w80 parameter.
-    r0 : float
-    r1 : float
-    velocity : numpy.ndarray
-        Velocity vector.
-    velocity_spectrum : numpy.ndarray
-        Spectrum in velocity coordinates.
+    res : dict
+        Dictionary of results.
+
 
     Notes
     -----
@@ -688,10 +691,27 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, width: float = 80.0, s
     For instance, see Zakamska+2014 MNRAS.
     """
 
-    velocity = (wl * units.angstrom).to(units.km / units.s,
-                                        equivalencies=units.doppler_relativistic(wl0 * units.angstrom))
+    if np.all(model == 0.0) and np.all(np.isnan(data)):
+        res = {}
+        return res
 
-    if not (spec == 0.0).all() and not np.isnan(spec).all():
+    cumulative = cumtrapz(model, wavelength, initial=0)
+    cumulative /= cumulative.max(initial=0)
+
+    center_wavelength = wavelength[np.argsort(np.abs(cumulative - 0.5))[0]]
+    cw = center_wavelength
+    lower_lambda = cw - ((cw - wavelength[np.argsort(np.abs(cumulative - 0.16))[0]]) * sigma_factor)
+    upper_lambda = cw + ((wavelength[np.argsort(np.abs(cumulative - 0.84))[0]] - cw) * sigma_factor)
+
+    window = (wavelength > lower_lambda) & (wavelength < upper_lambda)
+    wavelength = wavelength[window]
+    model = model[window]
+    data = data[window]
+
+    res = {}
+    name = ['model', 'direct']
+
+    for i, spec in enumerate([model, data]):
         y = ma.masked_invalid(spec)
         if clip_negative_flux:
             y = np.clip(y, a_min=0.0, a_max=None)
@@ -700,18 +720,24 @@ def w80eval(wl: np.ndarray, spec: np.ndarray, wl0: float, width: float = 80.0, s
             y_mask = copy.deepcopy(y.mask)
             y = ma.array(data=convolve(y, kernel=kernel, boundary='extend'), mask=y_mask)
 
-        cumulative = cumtrapz(y[~y.mask], velocity[~y.mask], initial=0)[0]
+        cumulative = cumtrapz(y[~y.mask], wavelength[~y.mask], initial=0)[0]
         if len(cumulative.shape) > 1:
             raise ValueError(f'cumulative must have only one dimension, but it has {len(cumulative.shape)}.')
         cumulative /= cumulative.max()
 
+        velocity = (wavelength * units.angstrom).to(
+            units.km / units.s, equivalencies=units.doppler_relativistic(center_wavelength * units.angstrom))
+
         r0 = velocity[(np.abs(cumulative - ((50.0 - (width / 2.0)) / 100.0))).argsort()[0]].value
         r1 = velocity[(np.abs(cumulative - ((50.0 + (width / 2.0)) / 100.0))).argsort()[0]].value
-        w80 = r1 - r0
-    else:
-        w80, r0, r1 = np.nan, np.nan, np.nan
 
-    return w80, r0, r1, velocity, spec
+        res[f'{name[i]}_velocity_width'] = r1 - r0
+        res[f'{name[i]}_lower_velocity'] = r0
+        res[f'{name[i]}_upper_velocity'] = r1
+        res[f'{name[i]}_velocities'] = velocity
+        res[f'{name[i]}_spectrum'] = y
+
+    return res
 
 
 def read_weights(wavelength: np.ndarray, file_name: str) -> np.ndarray:
@@ -779,21 +805,35 @@ class Constraints:
 
         return d
 
-    def same_instrinsic_sigma(ha, hb, instr_quadratic_differece=0):
-        '''
-        Same instrinsic velocity dispersion.
-            sigma0_ha ** 2 = sigma0_hb ** 2
-            (sigma_ha ** 2 - inst_ha ** 2) = (sigma_hb ** 2 - inst_hb ** 2)
-            (sigma_ha ** 2 - sigma_hb ** 2) - (inst_ha ** 2 - inst_hb ** 2) = 0
-             
+    @staticmethod
+    def same_intrinsic_sigma(ha, hb, instr_quadratic_difference=0):
+        """
+        Constraint for maintaining the same velocity dispersion.
 
         Parameters
         ----------
-        instr_quadratic_differece: float
+        ha : int
+            Index for the sigma of the first spectral feature.
+        hb : int
+            Index for the sigma of the first spectral feature.
+        instr_quadratic_difference: float
             (instr_ha ** 2) - (instr_hb ** 2). In km/s.
-        '''
+
+        Returns
+        -------
+        d : dict
+            Constraint dictionary for the SLSQP minimization method.
+
+        Notes
+        -----
+        Same intrinsic velocity dispersion.
+        sigma0_ha ** 2 = sigma0_hb ** 2
+        (sigma_ha ** 2 - inst_ha ** 2) = (sigma_hb ** 2 - inst_hb ** 2)
+        (sigma_ha ** 2 - sigma_hb ** 2) - (inst_ha ** 2 - inst_hb ** 2) = 0
+        """
+
         def func(x):
-            return x[ha]**2 - x[hb]**2 - instr_quadratic_differece
+            return x[ha] ** 2 - x[hb] ** 2 - instr_quadratic_difference
 
         d = dict(type='eq', fun=func)
 
