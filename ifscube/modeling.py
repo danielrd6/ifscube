@@ -440,7 +440,7 @@ class LineFit:
         -------
 
         """
-        assert feature in self.feature_names,\
+        assert (feature in self.feature_names) or (feature == 'all'),\
             f'Requested feature "{feature}" not defined. Currently defined features are: {self.feature_names}'
         x = getattr(self, attribute)
         if parameter == 'all':
