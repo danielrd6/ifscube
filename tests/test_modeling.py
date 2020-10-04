@@ -188,6 +188,14 @@ def test_velocity_width():
     assert True
 
 
+def test_velocity_width_multiple_features():
+    fit = simple_fit(fit_type='spectrum')
+    fit.optimize_fit(width=5.0)
+    fit.fit()
+    fit.velocity_width(feature=['n2_6548', 'ha', 'n2_6583'], width=80)
+    assert True
+
+
 def test_simple_cube_fit():
     fit = simple_fit(fit_type='cube')
     fit.fit()

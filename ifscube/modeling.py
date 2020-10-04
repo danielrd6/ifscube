@@ -437,6 +437,8 @@ class LineFit:
         -------
 
         """
+        assert feature in self.feature_names,\
+            f'Requested feature "{feature}" not defined. Currently defined features are: {self.feature_names}'
         x = getattr(self, attribute)
         if parameter == 'all':
             i = self.parameter_names.index((feature, 'amplitude'))
@@ -503,7 +505,7 @@ class LineFit:
             fit = np.zeros_like(self.wavelength)
             for component in feature:
                 solution = self._get_feature_parameter(component, 'all', 'solution')
-                index = self.feature_names.index(feature)
+                index = self.feature_names.index(component)
                 fit += self.function(self.wavelength, self.feature_wavelengths[index], solution)
         else:
             raise TypeError('feature must be either string or list.')
