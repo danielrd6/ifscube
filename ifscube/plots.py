@@ -22,7 +22,7 @@ def velocity_width(results: dict):
 
         ax.set_xlabel('Velocity (km/s)')
         if power != 0:
-            ax.set_ylabel(r'$F_\lambda \time 10^{{{:d}}}$'.format(power))
+            ax.set_ylabel(r'$F_\lambda \times 10^{{{:d}}}$'.format(power))
         else:
             ax.set_ylabel(r'$F_\lambda$')
 

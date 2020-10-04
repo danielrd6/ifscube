@@ -691,8 +691,8 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
     For instance, see Zakamska+2014 MNRAS.
     """
 
+    res = {'model_velocity_width': np.nan, 'direct_velocity_width': np.nan}
     if np.all(model == 0.0) and np.all(np.isnan(data)):
-        res = {}
         return res
 
     cumulative = cumtrapz(model, wavelength, initial=0)
@@ -704,6 +704,9 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
     upper_lambda = cw + ((wavelength[np.argsort(np.abs(cumulative - 0.84))[0]] - cw) * sigma_factor)
 
     window = (wavelength > lower_lambda) & (wavelength < upper_lambda)
+    if not np.any(window):
+        return res
+
     wavelength = wavelength[window]
     model = model[window]
     data = data[window]

@@ -29,12 +29,19 @@ def simple_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs)
     else:
         gh_moments = {}
 
+    if fit_type == 'spectrum':
+        amp = 1.0
+    elif fit_type == 'cube':
+        amp = 1.0e-14
+    else:
+        raise IOError(f'fit_type {fit_type} is not recognized.')
+
     for name, wl in zip(names, r_wl):
-        fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0, velocity=0.0, sigma=100.0,
+        fit.add_feature(name=name, rest_wavelength=wl, amplitude=amp, velocity=0.0, sigma=100.0,
                         kinematic_group=0, **gh_moments)
 
     for name in names:
-        fit.set_bounds(feature=name, parameter='amplitude', bounds=[0.0, 100])
+        fit.set_bounds(feature=name, parameter='amplitude', bounds=[0.0, amp * 100])
         fit.set_bounds(feature=name, parameter='sigma', bounds=[40.0, 300])
         fit.set_bounds(feature=name, parameter='velocity', bounds=[-300, 300])
         if function == 'gauss_hermite':
@@ -243,6 +250,14 @@ def test_cube_equivalent_width():
     fit.optimize_fit(width=5.0)
     fit.fit()
     fit.equivalent_width()
+    assert True
+
+
+def test_cube_velocity_width_multiple_features():
+    fit = simple_fit(fit_type='cube')
+    fit.optimize_fit(width=5.0)
+    fit.fit()
+    fit.velocity_width(feature=['ha', 'n2_6583'], width=80)
     assert True
 
 

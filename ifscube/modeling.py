@@ -71,6 +71,9 @@ class LineFit:
         self.eqw_model = None
         self.eqw_direct = None
 
+        self.velocity_width_model = None
+        self.velocity_width_direct = None
+
     @property
     def weights(self):
         return self._weights
@@ -495,7 +498,7 @@ class LineFit:
             self.flux_model = flux_model
             self.flux_direct = flux_direct
 
-    def velocity_width(self, feature: Union[str, list], plot: bool = False, **kwargs):
+    def velocity_width(self, feature: Union[str, list], sigma_factor: float = 5.0, plot: bool = False, **kwargs):
 
         if type(feature) == str:
             index = self.feature_names.index(feature)
@@ -511,10 +514,14 @@ class LineFit:
             raise TypeError('feature must be either string or list.')
 
         obs_spec = (self.data - self.pseudo_continuum - self.stellar)
-        res = spectools.velocity_width(wavelength=self.wavelength, model=fit, data=obs_spec, **kwargs)
+        res = spectools.velocity_width(wavelength=self.wavelength, model=fit, data=obs_spec, sigma_factor=sigma_factor,
+                                       **kwargs)
 
-        if plot:
+        if plot and not np.isnan(res['model_velocity_width']):
             ifs_plots.velocity_width(res)
+
+        self.velocity_width_model = res['model_velocity_width']
+        self.velocity_width_direct = res['direct_velocity_width']
 
         return res
 
@@ -763,6 +770,16 @@ class LineFit3D(LineFit):
             self._mask2d_to_nan(i)
         self._select_spaxel(function=super().equivalent_width, used_attributes=attributes, modified_attributes=in_attr,
                             args=(sigma_factor, continuum_windows), description='Evaluating equivalent width')
+
+    def velocity_width(self, feature: Union[str, list], sigma_factor=5.0, **kwargs):
+        in_attr = ['velocity_width_model', 'velocity_width_direct']
+        attributes = ['data', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'status', 'solution'] + in_attr
+        self.velocity_width_model = np.zeros(self.data.shape[1:])
+        self.velocity_width_direct = np.zeros(self.data.shape[1:])
+        for i in ['velocity_width_model', 'velocity_width_direct']:
+            self._mask2d_to_nan(i)
+        self._select_spaxel(function=super().velocity_width, used_attributes=attributes, modified_attributes=in_attr,
+                            args=(feature, sigma_factor), kwargs=kwargs, description='Evaluating velocity width')
 
     @staticmethod
     def _change_bounds(value, change, original, fraction: bool = False):
