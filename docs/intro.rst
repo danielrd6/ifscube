@@ -41,7 +41,7 @@ environment.
 
     git clone https://github.com/danielrd6/ifscube.git
     cd ifscube
-    conda env create -f environmnent.yml
+    conda env create -f environment.yml
     conda activate ifscube
 
 Once you are within the correct conda environment, you can install IFSCube with pip.
