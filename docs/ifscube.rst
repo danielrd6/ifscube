@@ -20,14 +20,6 @@ ifscube\.cubetools module
     :undoc-members:
     :show-inheritance:
 
-ifscube\.cubetools\_astropy module
-----------------------------------
-
-.. automodule:: ifscube.cubetools_astropy
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 ifscube\.datacube module
 ------------------------
 

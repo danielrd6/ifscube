@@ -16,7 +16,7 @@ programs that the user could call directly from the command line, with
 options being set by an ASCII configuration file. These tasks are the fitting of
 spectral features in 1D spectra and data cubes, the fitting of rotation models
 to velocity fields and the inspection of fit results, which are accomplished
-by the programs :program:`specfit`, :program:`ifscube`, :program:`fit_rotation`
+by the programs :program:`specfit`, :program:`cubefit`, :program:`fit_rotation`
 and :program:`fit_scrutinizer` respectively.
 
 The preferred data format for IFSCube is the Flexible Image Transport System (FITS) standard. However, if you wish to
@@ -33,12 +33,6 @@ can install directly from the git repository using the following command:
 .. code-block:: bash
 
     pip install git+https://github.com/danielrd6/ifscube.git
-
-IFSCube uses third party programs that are not distributed with the
-package, namely pPXF and Voronoi Binning, written by Michelle Cappellari. If
-you wish to use IFSCube in conjunction with these programs you will have
-to install them first, by downloading and following the instructions at the
-following address: http://www-astro.physics.ox.ac.uk/~mxc/software/
 
 Requirements
 --------------------------------------------------
@@ -70,8 +64,9 @@ To force a specific compiler:
     pip install --install-option=build --install-option='--fcompiler=gnu95' git+https://github.com/danielrd6/ifscube.git
 
 IFSCube has been extensively tested with the
-astroconda [#astroconda]_ distribution,
-therefore it is highly recommended that you install it within the astroconda's
+astroconda [#astroconda]_ distribution.
+If you are not familiar with [#anaconda_], and do not know how to work with
+multiple environments, I recommended that you install it within the astroconda's
 Python 3 environment.
 
 If you want to be able to change the package to suit your needs, or contribute
@@ -95,3 +90,5 @@ Remember to switch to the desired Conda environment prior to running this comman
 .. rubric:: Footnotes
 
 .. [#astroconda] https://astroconda.readthedocs.io/en/latest/
+
+.. [#anaconda] https://www.anaconda.com/

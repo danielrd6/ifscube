@@ -23,7 +23,6 @@ steps:
 
 - bash: |
     source activate myenv
-    pip install vorbin
     pip install -e .
   displayName: Install ifscube
 

@@ -1,27 +1,25 @@
 from numpy.distutils.core import Extension, setup
 
-
-with open('./ifscube/.version', 'r') as verfile:
-    __version__ = verfile.read().strip('\n')
+with open('./ifscube/.version', 'r') as version_file:
+    __version__ = version_file.read().strip('\n')
 
 ext1 = Extension(name='ifscube.elprofile', sources=['ifscube/profiles.f90'])
 
-packdata = {
+package_data = {
     'ifscube': [
         'examples/*',
-        'examples/halpha.cfg',
-        'examples/halpha_cube.cfg',
         'data/*',
-        'docs/*'
+        'docs/*',
+        'tests/*'
     ]
 }
 
 setup(
     name='ifscube',
-    python_requires='>3.7',
+    python_requires='>=3.7',
     version=__version__,
     packages=['ifscube'],
-    package_data=packdata,
+    package_data=package_data,
     scripts=['bin/fit_scrutinizer', 'bin/cubefit', 'bin/specfit', 'bin/fit_rotation'],
     description="Fit emssision lines",
     author="Daniel Ruschel Dutra",

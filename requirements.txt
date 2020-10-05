@@ -1,7 +1,6 @@
 numpy>1.18.4
 scipy>1.4.1
-matplotlib>3.2.1
+matplotlib>3
 astropy>=4
-tqdm>4.46.0
-vorbin
+tqdm>=4
 pytest>5.4.2
