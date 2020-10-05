@@ -440,7 +440,7 @@ class LineFit:
         -------
 
         """
-        assert (feature in self.feature_names) or (feature == 'all'),\
+        assert (feature in self.feature_names) or (feature == 'all'), \
             f'Requested feature "{feature}" not defined. Currently defined features are: {self.feature_names}'
         x = getattr(self, attribute)
         if parameter == 'all':
@@ -778,8 +778,10 @@ class LineFit3D(LineFit):
         self.velocity_width_direct = np.zeros(self.data.shape[1:])
         for i in ['velocity_width_model', 'velocity_width_direct']:
             self._mask2d_to_nan(i)
-        self._select_spaxel(function=super().velocity_width, used_attributes=attributes, modified_attributes=in_attr,
-                            args=(feature, sigma_factor), kwargs=kwargs, description='Evaluating velocity width')
+        r = self._select_spaxel(function=super().velocity_width, used_attributes=attributes,
+                                modified_attributes=in_attr, args=(feature, sigma_factor), kwargs=kwargs,
+                                description='Evaluating velocity width')
+        return r
 
     @staticmethod
     def _change_bounds(value, change, original, fraction: bool = False):
@@ -830,8 +832,8 @@ class LineFit3D(LineFit):
         if modified_attributes is None:
             modified_attributes = []
 
-        r = None
         cube_data = {_: np.copy(getattr(self, _)) for _ in used_attributes}
+        r = np.empty(self.data.shape[1:], dtype='object')
 
         refit = self.refit and fitting
         if refit:
@@ -864,7 +866,7 @@ class LineFit3D(LineFit):
                 self._updated_parameters(xx, yy, cube_solution=cube_data['solution'], cube_status=cube_data['status'],
                                          original_bounds=original_bounds, original_guess=original_guess)
 
-            r = function(*args, **kwargs)
+            r[s[1:]] = function(*args, **kwargs)
 
             for i in modified_attributes:
                 if i in self.two_d_attributes:
