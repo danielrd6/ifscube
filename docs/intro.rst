@@ -27,23 +27,79 @@ and :meth:`_load` methods.
 Installation instructions
 ==================================================
 
-The preferred method for the installation of IFSCube is to use pip. Pip
-can install directly from the git repository using the following command:
+Using Anaconda
+------------------------
+
+If you are familiar with Anaconda [#anaconda]_  and contained environments, I recommend you install IFSCube within its
+own environment, in order to avoid conflicts with other packages and package versions.
+The repository has an environment file named `environment.yml` which can be used to create a Conda environment with all
+the requirements already installed.
+The following command will create an environment named `ifscube` in your system, and subsequently switch to this
+environment.
 
 .. code-block:: bash
 
-    pip install git+https://github.com/danielrd6/ifscube.git
+    git clone https://github.com/danielrd6/ifscube.git
+    cd ifscube
+    conda env create -f environmnent.yml
+    conda activate ifscube
 
-Requirements
+Once you are within the correct conda environment, you can install IFSCube with pip.
+While still in the `ifscube` directory enter the following command:
+
+.. code-block:: bash
+
+    pip install .
+
+Without Anaconda
 --------------------------------------------------
 
-Apart from the Python modules listed in the requirements.txt file,
-IFSCube also requires that some Fortran compiler be present in the system.
-If you are using Ubuntu you can install one using the following command:
+IFSCube requires that some Fortran compiler be present in the system, and it is recommended to have Git_.
+If you are using Ubuntu you can install them by using the following command:
 
 .. code-block:: bash
 
-    sudo apt-get update && sudo apt-get install gfortran
+    sudo apt update && sudo apt install gfortran git
+
+In order to get the code you can use git and clone the entire repository.
+
+.. code-block:: bash
+
+    git clone https://github.com/danielrd6/ifscube.git
+
+After that you will need to install the required python packages.
+Switch to the directory where you cloned the repository (the default is ifscube), and run pip.
+
+.. code-block:: bash
+
+    cd ifscube
+    pip install -r requirements.txt
+
+Finally, while still in the `ifscube` directory, install the package with
+
+.. code-block:: bash
+
+    pip install .
+
+If you are having trouble with the Fortran compiler you can force one with pip's install options, which are
+exemplified below.
+
+To force a specific compiler:
+
+.. code-block:: bash
+
+    pip install --install-option=build --install-option='--fcompiler=gnu95' .
+
+Developer installation
+------------------------
+
+If you want to be able to change the package to suit your needs, or contribute
+with your own code to the project, it is recommended to clone the git
+repository and install the package as an editable package.
+
+.. code-block:: bash
+
+    pip install --editable .
 
 Upgrade
 --------------------------------------------------
@@ -54,41 +110,10 @@ If you want to upgrade an existing installation of IFSCube use
 
     pip install --upgrade git+https://github.com/danielrd6/ifscube.git
 
-If you are having trouble with the Fortran compiler you can force one with
-pip's install options, which are exemplified below.
-
-To force a specific compiler:
-
-.. code-block:: bash
-
-    pip install --install-option=build --install-option='--fcompiler=gnu95' git+https://github.com/danielrd6/ifscube.git
-
-IFSCube has been extensively tested with the
-astroconda [#astroconda]_ distribution.
-If you are not familiar with [#anaconda_], and do not know how to work with
-multiple environments, I recommended that you install it within the astroconda's
-Python 3 environment.
-
-If you want to be able to change the package to suit your needs, or contribute
-with your own code to the project, it is recommended to clone the git
-repository and install the package as an editable package.
-
-.. code-block:: bash
-
-    git clone https://github.com/danielrd6/ifscube.git
-    cd ifscube
-    pip install -e .
-
-If you are using Conda you can substitute the last line by
-
-.. code-block:: bash
-
-    conda develop -b .
-
-Remember to switch to the desired Conda environment prior to running this command.
-
 .. rubric:: Footnotes
 
 .. [#astroconda] https://astroconda.readthedocs.io/en/latest/
 
 .. [#anaconda] https://www.anaconda.com/
+
+.. _git: https://git-scm.com/

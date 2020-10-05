@@ -82,6 +82,9 @@ process.
 * method: any in scipy.optimize.minimize, 'differential_evolution'
     Method of minimization. If you are really unsure about the parameters for your fit, I recommend using
     differential_evolution, since it is immune to local minima.
+* monte_carlo: integer
+    Number of Monte Carlo iterations for uncertainty estimates. The uncertainties will only be meaningful
+    if the given variance is correct.
 * optimize_fit: 'yes', 'no'
     Only fits pixels that are close to the spectral features set in the
     configuration file. For instance, if you want to fit a spectrum that goes from
@@ -307,9 +310,9 @@ Constraints
 
 Constraints are perhaps the most valuable tool for any spectral feature
 fitting. We already discussed the automated constraints that keep the
-same kinematical parameters for different spectral features using the
+same kinematic parameters for different spectral features using the
 **k_group** parameter, but :mod:`specfit` also accepts arbitrary relations
-between the same parameter of different features. For instance, suppose
+between the parameters of different features. For instance, suppose
 you want fix the flux relation between two lines you know to be
 physically connected, such as the [N II] lines at 6548A and 6583A.
 
@@ -319,7 +322,7 @@ physically connected, such as the [N II] lines at 6548A and 6583A.
     rest_wavelength: 6548
     velocity: 0
     sigma: 60
-    amplitude: 1e-15,, n2_b / 3
+    amplitude: 1e-15,, n2_b.amplitude / 3
     k_group: 0
 
     [n2_b]
@@ -335,9 +338,9 @@ set any bounds, an extra comma is necessary for the parser to correctly
 identify the constraint.
 
 Now let us discuss the syntax of the constraint, which is the expression
-**n2_b / 3**. The parser accepts simple arithmetic operations (\*, /,
+**n2_b.amplitude / 3**.
+The parser accepts simple arithmetic operations (\*, /,
 +, -), inequality relations (:math:`<`, :math:`>`), numbers and feature
-names. The feature name is the name given to the section containing the
-spectral feature parameters, and the parameters constrained are always
-the same parameters in different features. Currently the parser does not
-support relating the sigma of some line to the amplitude of some other line.
+parameters.
+Feature parameters are given as **<feature_name>.<parameter_name>**.
+For that reason feature names should not include periods.

@@ -31,6 +31,14 @@ also apply to single spectrum fitting.
 fit
 ---
 
+* bounds_change: <change_par_0>, <change_par_1>, ...
+    When using refit (see below), set the bounds to these distances from the
+    nearby successful fits. The values are all aditive, with the exception
+    of the amplitude (always the first parameter), which is a ratio.
+    For instance, if you want the amplitude to change by at most half the
+    current value, the velocity to change by at most 30 km/s and the
+    velocity dispersion by 20 km/s, you would write "0.5, 30, 20".
+
 * individual_spec: 'no', 'x, y', 'peak' or 'cofm'
     If set to *no* fits all the spectra in the data cube, else fits only
     one spectrum. If set to *x, y* fits the spectrum in the spaxel with
