@@ -1,11 +1,12 @@
-name: myenv
+name: ifscube 
 channels:
   - conda-forge
 dependencies:
   - python=3.7
-  - conda-build
+  - fortran-compiler
   - numpy
   - scipy
   - matplotlib
   - astropy
   - tqdm
+  - pytest

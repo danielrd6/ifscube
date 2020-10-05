@@ -18,7 +18,7 @@ setup(
     name='ifscube',
     python_requires='>=3.7',
     version=__version__,
-    packages=['ifscube'],
+    packages=['ifscube', 'ifscube.io'],
     package_data=package_data,
     scripts=['bin/fit_scrutinizer', 'bin/cubefit', 'bin/specfit', 'bin/fit_rotation'],
     description="Fit emssision lines",

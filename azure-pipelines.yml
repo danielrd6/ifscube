@@ -10,11 +10,6 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
-- bash: |
-    sudo apt-get -y update
-    sudo apt-get install -y --no-install-recommends gfortran
-  displayName: Install fortran compiler
-
 - bash: echo "##vso[task.prependpath]$CONDA/bin"
   displayName: Add conda to PATH
 
@@ -22,7 +17,7 @@ steps:
   displayName: Create conda environment
 
 - bash: |
-    source activate myenv
+    source activate ifscube 
     pip install -e .
   displayName: Install ifscube
 
