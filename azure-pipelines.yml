@@ -13,16 +13,16 @@ steps:
 - bash: echo "##vso[task.prependpath]$CONDA/bin"
   displayName: Add conda to PATH
 
-- bash: conda env create --file environment.yml
+- bash: conda env create -f environment.yml
   displayName: Create conda environment
 
 - bash: |
     source activate ifscube 
-    pip install -e .
+    pip install .
   displayName: Install ifscube
 
 - bash: |
-    source activate myenv
+    source activate ifscube
     cd ifscube/examples/
     python cube_fit_gaussian_cfg.py
     specfit --overwrite -c halpha_gauss.cfg manga_onedspec.fits
