@@ -681,7 +681,7 @@ class LineFit3D(LineFit):
 
     def __init__(self, data: Cube, function: str = 'gaussian', fitting_window: tuple = None,
                  instrument_dispersion: float = 1.0, individual_spec: tuple = None, spiral_loop: bool = False,
-                 spiral_center: tuple = None, refit: bool = False, refit_radius: float = 3.0,
+                 spiral_center: Union[tuple, str] = None, refit: bool = False, refit_radius: float = 3.0,
                  bounds_change: list = None):
         super().__init__(data, function, fitting_window, instrument_dispersion)
         self.refit = refit
@@ -700,10 +700,24 @@ class LineFit3D(LineFit):
         self.status = np.ones(self.data.data.shape[1:])
         self.image_coordinates = np.indices(self.data.data.shape[1:])
 
-    def _spiral(self, spiral_center: tuple = None):
+    def _spiral(self, spiral_center: Union[str, tuple] = None):
         y, x = self.input_data.spec_indices[:, 0], self.input_data.spec_indices[:, 1]
         if spiral_center is None:
             spiral_center = (x.max() / 2., y.max() / 2.)
+        elif isinstance(spiral_center, str):
+            summed = np.nan_to_num(np.sum(self.data, 0))
+            if spiral_center == 'peak':
+                spiral_center = np.where(summed == summed.max())
+            elif spiral_center == 'cofm':
+                from scipy.ndimage import center_of_mass as com
+                spiral_center = np.array(com(summed)).round().astype(int)
+            else:
+                raise ValueError('If spiral_center is a string, it must be either "peak" or "cofm".')
+        elif isinstance(spiral_center, tuple):
+            pass
+        else:
+            raise TypeError('Parameter spiral_center must be either tuple or string.')
+
         radius = np.sqrt(np.square((x - spiral_center[0])) + np.square((y - spiral_center[1])))
         angle = np.arctan2(y - spiral_center[1], x - spiral_center[0])
         angle[angle < 0] += 2 * np.pi

@@ -266,3 +266,21 @@ def test_refit():
                      bounds_change=[0.2, 10, 10])
     fit.fit()
     assert True
+
+
+def test_spiral_center():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/ngc3081_cube.fits')
+    cube = datacube.Cube(file_name)
+    fit = modeling.LineFit3D(data=cube, spiral_center=None, spiral_loop=True)
+    assert all(fit.spaxel_indices[0] == [4, 3]) and all(fit.spaxel_indices[-1] == [0, 5])
+    fit = modeling.LineFit3D(data=cube, spiral_center=(3, 4), spiral_loop=True)
+    assert all(fit.spaxel_indices[0] == [4, 3]) and all(fit.spaxel_indices[-1] == [0, 0])
+    fit = modeling.LineFit3D(data=cube, spiral_center='peak', spiral_loop=True)
+    assert all(fit.spaxel_indices[0] == [2, 4]) and all(fit.spaxel_indices[-1] == [7, 0])
+    fit = modeling.LineFit3D(data=cube, spiral_center='cofm', spiral_loop=True)
+    assert all(fit.spaxel_indices[0] == [2, 4]) and all(fit.spaxel_indices[-1] == [7, 0])
+    with pytest.raises(ValueError):
+        modeling.LineFit3D(data=cube, spiral_center='boo', spiral_loop=True)
+    with pytest.raises(TypeError):
+        # noinspection PyTypeChecker
+        modeling.LineFit3D(data=cube, spiral_center=['boo'], spiral_loop=True)
