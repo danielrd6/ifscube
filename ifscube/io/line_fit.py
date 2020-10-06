@@ -100,9 +100,8 @@ def write_spectrum_fit(fit: Union[modeling.LineFit, modeling.LineFit3D], suffix:
     hdu.name = 'PRIMARY'
     h.append(hdu)
 
-    # Creates the fitted spectrum extension
+    # Creates the header
     hdr = fits.Header()
-    hdr['object'] = ('spectrum', 'Data in this extension')
     d_wl = np.diff(fit.wavelength)
     avg_d_wl = np.average(d_wl)
     assert np.all(np.abs((d_wl / avg_d_wl) - 1) < 1e-6), 'Wavelength vector is not linearly sampled.'
@@ -115,10 +114,20 @@ def write_spectrum_fit(fit: Union[modeling.LineFit, modeling.LineFit3D], suffix:
         hdr['CRVAL1'] = (fit.wavelength[0], 'Reference value for wavelength')
         hdr['CD1_1'] = (avg_d_wl, 'CD1_1')
         fit.reduced_chi_squared = np.array([[fit.reduced_chi_squared]])
+
+    # Creates the rest wavelength extension
+    hdu = fits.ImageHDU(data=fit.wavelength, header=hdr)
+    hdr['object'] = ('rest_wavelength', 'Data in this extension')
+    hdu.name = 'RESTWAVE'
+    h.append(hdu)
+
+    # Creates the fitted spectrum extension
     hdu = fits.ImageHDU(data=fit.data, header=hdr)
+    hdr['object'] = ('spectrum', 'Data in this extension')
     hdu.name = 'FITSPEC'
     h.append(hdu)
 
+    # Creates the variance extension.
     hdu = fits.ImageHDU(data=fit.variance, header=hdr)
     hdr['object'] = ('variance', 'Data in this extension')
     hdu.name = 'VAR'
@@ -290,11 +299,11 @@ def load_fit(file_name):
     with fits.open(file_name, mode='readonly') as h:
         if len(h['FITSPEC'].data.shape) == 3:
             data = datacube.Cube(file_name, scidata='FITSPEC', variance='VAR', flags='FLAGS', stellar='STELLAR',
-                                 primary='PRIMARY', spatial_mask='MASK2D', redshift=0.0)
+                                 primary='PRIMARY', spatial_mask='MASK2D', wavelength='RESTWAVE', redshift=0.0)
         # Redshift is set to zero because LineFit already puts everything in the rest frame.
         elif len(h['FITSPEC'].data.shape) == 1:
             data = onedspec.Spectrum(file_name, scidata='FITSPEC', variance='VAR', flags='FLAGS', stellar='STELLAR',
-                                     primary='PRIMARY', redshift=0.0)
+                                     primary='PRIMARY', wavelength='RESTWAVE', redshift=0.0)
         else:
             raise RuntimeError(
                 f'Data dimensions are expected to be either 1 or 3, got "{len(h["FITSPEC"].data.shape)}".')
