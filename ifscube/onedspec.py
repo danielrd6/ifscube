@@ -99,15 +99,8 @@ class Spectrum:
             self._wavelength(hdu, wavelength)
 
         try:
-            self.delta_lambda = np.nanmean(self.wl)
-        except AttributeError:
-            self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
-            self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
-
-        try:
             if self.header_data['cunit1'] == 'm':
                 self.wl *= 1.e+10
-                self.delta_lambda *= 1.e+10
         except KeyError:
             pass
 
