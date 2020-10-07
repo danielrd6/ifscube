@@ -182,7 +182,7 @@ class Scrutinizer:
 
         try:
             s = self.fit.plot(x_0=i, y_0=j, figure=self.fitplot, return_results=True, plot_all=arguments.full_spectrum)
-            self.text.insert('insert', s)
+            self.text.insert('insert', s[j, i])
         except IndexError:
             self.text.insert('insert', 'Index Error!')
 
