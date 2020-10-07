@@ -68,6 +68,8 @@ class Cube(onedspec.Spectrum):
                 ext_name = value.strip()
                 ext_version = None
             self._spatial_mask = fits.getdata(self.fitsfile, ext_name, ext_version)
+        elif isinstance(value, int):
+            self._spatial_mask = fits.getdata(self.fitsfile, value).astype('bool')
         else:
             self._spatial_mask = value.astype('bool')
         assert self._spatial_mask.shape == self.data.shape[1:],\
