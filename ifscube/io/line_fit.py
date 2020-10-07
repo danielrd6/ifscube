@@ -255,6 +255,9 @@ def table_to_config(t: table.Table):
                           f'Replacing first {replace_occurrences} occurrences by "_".')
             line['parameters'] = line['parameters'].replace('.', '_', replace_occurrences)
         section, option = line['parameters'].split('.')
+        if option in ['h3', 'h4']:
+            warnings.warn(f'Converting parameter name {option} to {"_".join(option)}')
+            option = '_'.join(option)
         value = line['values']
         if section != previous_section:
             cfg.add_section(section)
