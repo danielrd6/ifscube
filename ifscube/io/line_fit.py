@@ -1,3 +1,4 @@
+import warnings
 import configparser
 from typing import Union
 
@@ -248,6 +249,11 @@ def table_to_config(t: table.Table):
     cfg = configparser.ConfigParser()
     previous_section = None
     for line in t:
+        if line['parameters'].count('.') > 1:
+            replace_occurrences = line['parameters'].count('.') - 1
+            warnings.warn(f'Found more than one "." in parameter name {line["parameters"]}. '
+                          f'Replacing first {replace_occurrences} occurrences by "_".')
+            line['parameters'] = line['parameters'].replace('.', '_', replace_occurrences)
         section, option = line['parameters'].split('.')
         value = line['values']
         if section != previous_section:
@@ -301,7 +307,9 @@ def load_fit(file_name):
 
         if 'FITCONFIG' in h:
             config = table_to_config(table.Table(h['FITCONFIG'].data))
-            fit = setup_fit(data, **parser.LineFitParser(config).get_vars())
+            line_fit_config = parser.LineFitParser(config).get_vars()
+            line_fit_config['refit'] = False
+            fit = setup_fit(data, **line_fit_config)
             fit.pack_groups()
         else:
             if len(h['FITSPEC'].data.shape) == 3:
@@ -315,5 +323,9 @@ def load_fit(file_name):
                                 'eqw_model': 'eqw_m', 'eqw_direct': 'eqw_d', 'flux_model': 'flux_m',
                                 'flux_direct': 'flux_d', 'status': 'status', 'reduced_chi_squared': 'red_chi'}
         for key in translate_extensions:
-            setattr(fit, key, h[translate_extensions[key]].data)
+            value = translate_extensions[key]
+            if value in h:
+                setattr(fit, key, h[translate_extensions[key]].data)
+            else:
+                warnings.warn(f'Extension {value} not found in file {h.filename()}. Skipping.')
     return fit
