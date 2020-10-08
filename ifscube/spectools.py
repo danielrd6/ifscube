@@ -691,7 +691,14 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
     For instance, see Zakamska+2014 MNRAS.
     """
 
-    res = {'model_velocity_width': np.nan, 'direct_velocity_width': np.nan}
+    res = {}
+    for name in ['model', 'direct']:
+        res[f'{name}_velocity_width'] = np.nan
+        res[f'{name}_lower_velocity'] = np.nan
+        res[f'{name}_upper_velocity'] = np.nan
+        res[f'{name}_velocities'] = np.array([])
+        res[f'{name}_spectrum'] = np.array([])
+
     if np.all(model == 0.0) and np.all(np.isnan(data)):
         return res
 
@@ -711,10 +718,7 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
     model = model[window]
     data = data[window]
 
-    res = {}
-    name = ['model', 'direct']
-
-    for i, spec in enumerate([model, data]):
+    for name, spec in zip(['model', 'direct'], [model, data]):
         y = ma.masked_invalid(spec)
         if clip_negative_flux:
             y = np.clip(y, a_min=0.0, a_max=None)
@@ -734,11 +738,11 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
         r0 = velocity[(np.abs(cumulative - ((50.0 - (width / 2.0)) / 100.0))).argsort()[0]].value
         r1 = velocity[(np.abs(cumulative - ((50.0 + (width / 2.0)) / 100.0))).argsort()[0]].value
 
-        res[f'{name[i]}_velocity_width'] = r1 - r0
-        res[f'{name[i]}_lower_velocity'] = r0
-        res[f'{name[i]}_upper_velocity'] = r1
-        res[f'{name[i]}_velocities'] = velocity
-        res[f'{name[i]}_spectrum'] = y
+        res[f'{name}_velocity_width'] = r1 - r0
+        res[f'{name}_lower_velocity'] = r0
+        res[f'{name}_upper_velocity'] = r1
+        res[f'{name}_velocities'] = velocity
+        res[f'{name}_spectrum'] = y
 
     return res
 
