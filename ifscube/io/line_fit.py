@@ -322,13 +322,27 @@ def load_fit(file_name):
             fit = features_from_table(fit, parameter_names=h['parnames'].data, solution=h['solution'].data,
                                       rest_wavelength=h['featwl'].data)
 
-        translate_extensions = {'pseudo_continuum': 'fitcont', 'model': 'model', 'solution': 'solution',
-                                'eqw_model': 'eqw_m', 'eqw_direct': 'eqw_d', 'flux_model': 'flux_m',
-                                'flux_direct': 'flux_d', 'status': 'status', 'reduced_chi_squared': 'red_chi'}
+        translate_extensions = {'pseudo_continuum': 'fitcont', 'model': 'model', 'eqw_model': 'eqw_m',
+                                'eqw_direct': 'eqw_d', 'flux_model': 'flux_m', 'flux_direct': 'flux_d',
+                                'status': 'status', 'reduced_chi_squared': 'red_chi'}
+        # Backwards compatibility
+        key = 'solution'
+        if len(fit.parameter_names) == (len(h[key].data) - 1):
+            warnings.warn('It seems you are trying to read a file from IFSCube v1.0.'
+                          'Removing last plane from solution extension.')
+            setattr(fit, key, h[key].data[:-1])
+        else:
+            setattr(fit, key, h[key].data)
         for key in translate_extensions:
             value = translate_extensions[key]
             if value in h:
                 setattr(fit, key, h[translate_extensions[key]].data)
             else:
-                warnings.warn(f'Extension {value} not found in file {h.filename()}. Skipping.')
+                warnings.warn(
+                    f'Extension {value} not found in file {h.filename()}. Adding place holder data to this extension.')
+                if key == 'reduced_chi_squared':
+                    setattr(fit, key, np.zeros(data.data.shape[1:]))
+                else:
+                    warnings.warn(f'No behaviour set for extension {key}. Leaving empty.')
+
     return fit
