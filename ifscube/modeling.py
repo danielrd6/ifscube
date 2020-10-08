@@ -143,10 +143,6 @@ class LineFit:
                             f'Parameter "{i}" for feature "{name}" is undefined. Since this is the first feature ' \
                             f'of kinematic group "{kinematic_group}", all of its kinematic parameters should be ' \
                             'defined.'
-            else:
-                assert self.kinematic_groups == {}, \
-                    'If you plan on using k_group, please set it for every spectral feature. ' \
-                    'Groups can have a single spectral feature in them.'
 
             self.feature_names.append(name)
             self.feature_wavelengths = np.append(self.feature_wavelengths, rest_wavelength)
@@ -199,6 +195,13 @@ class LineFit:
         return chi2
 
     def pack_groups(self):
+        if self.kinematic_groups != {}:
+            features_in_groups = [item for sublist in list(self.kinematic_groups.values()) for item in sublist]
+            for i in self.feature_names:
+                if i not in features_in_groups:
+                    last_key = max(self.kinematic_groups.keys()) + 1
+                    self.kinematic_groups[last_key] = [i]
+
         packed = []
         first_in_group = [_[0] for _ in self.kinematic_groups.values()]
         inverse = []

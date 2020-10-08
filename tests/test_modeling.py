@@ -284,3 +284,14 @@ def test_spiral_center():
     with pytest.raises(TypeError):
         # noinspection PyTypeChecker
         modeling.LineFit3D(data=cube, spiral_center=['boo'], spiral_loop=True)
+
+
+def test_missing_k_group():
+    file_name = pkg_resources.resource_filename('ifscube', 'examples/manga_onedspec.fits')
+    spec = onedspec.Spectrum(file_name, primary='PRIMARY', scidata='F_OBS', variance='F_VAR', flags='F_FLAG',
+                             stellar='F_SYN')
+    fit = modeling.LineFit(spec, function='gaussian', fitting_window=(6400.0, 6800.0))
+    fit.add_feature(name='line_a', rest_wavelength=6548, amplitude=1, velocity=0.0, sigma=100.0)
+    fit.add_feature(name='line_b', rest_wavelength=6563, amplitude=1, velocity=0.0, sigma=100.0, kinematic_group=1)
+    fit.pack_groups()
+    assert True
