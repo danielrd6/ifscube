@@ -328,8 +328,8 @@ def load_fit(file_name):
         # Backwards compatibility
         key = 'solution'
         if len(fit.parameter_names) == (len(h[key].data) - 1):
-            warnings.warn('It seems you are trying to read a file from IFSCube v1.0.'
-                          'Removing last plane from solution extension.')
+            warnings.warn('It seems you are trying to read a file from IFSCube v1.0. '
+                          'Removing last plane from solution extension.', stacklevel=2)
             setattr(fit, key, h[key].data[:-1])
         else:
             setattr(fit, key, h[key].data)

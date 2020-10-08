@@ -155,7 +155,11 @@ class LineFit:
             self.bounds += [[None, None]] * self.parameters_per_feature
 
     def set_bounds(self, feature: str, parameter: str, bounds: list):
-        self.bounds[self.parameter_names.index((feature, parameter))] = bounds
+        if (feature, parameter) in self.parameter_names:
+            self.bounds[self.parameter_names.index((feature, parameter))] = bounds
+        else:
+            warnings.warn(f'Parameter {parameter} for feature {feature} not found. Attempt to set bounds failed.',
+                          stacklevel=2)
 
     def add_constraint(self, parameter, expression):
         self.constraint_expressions.append([parameter, expression])
