@@ -655,7 +655,7 @@ def spectrophotometry(spec: Callable, transmission: Callable, limits: Iterable, 
 def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, width: float = 80.0,
                    smooth: float = None, clip_negative_flux: bool = True, sigma_factor: float = 5.0):
     """
-    Evaluates the W80 parameter of a given emission fature.
+    Evaluates the W80 parameter of a given emission feature.
 
     Parameters
     ----------
@@ -703,6 +703,9 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
         return res
 
     cumulative = cumtrapz(model, wavelength, initial=0)
+    if cumulative.max(initial=0) <= 0:
+        return res
+
     cumulative /= cumulative.max(initial=0)
 
     center_wavelength = wavelength[np.argsort(np.abs(cumulative - 0.5))[0]]
