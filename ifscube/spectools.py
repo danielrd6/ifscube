@@ -703,6 +703,9 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
         return res
 
     cumulative = cumtrapz(model, wavelength, initial=0)
+    if cumulative.max(initial=0) <= 0:
+        return res
+
     cumulative /= cumulative.max(initial=0)
 
     center_wavelength = wavelength[np.argsort(np.abs(cumulative - 0.5))[0]]
