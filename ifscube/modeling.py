@@ -632,7 +632,7 @@ class LineFit:
             self.eqw_model = eqw_model
             self.eqw_direct = eqw_direct
 
-    def plot(self, figure: plt.Figure = None, plot_all: bool = False, verbose: bool = False,
+    def plot(self, figure: plt.Figure = None, plot_all: bool = True, verbose: bool = False,
              return_results: bool = False):
         if plot_all:
             m = Ellipsis

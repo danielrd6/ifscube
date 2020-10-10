@@ -181,7 +181,7 @@ class Scrutinizer:
         self.text.insert('insert', '({:6d}, {:6d})\n'.format(i, j))
 
         try:
-            s = self.fit.plot(x_0=i, y_0=j, figure=self.fitplot, return_results=True, plot_all=arguments.full_spectrum)
+            s = self.fit.plot(x_0=i, y_0=j, figure=self.fitplot, return_results=True)
             self.text.insert('insert', s[j, i])
         except IndexError:
             self.text.insert('insert', 'Index Error!')
@@ -207,9 +207,6 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s', '--single-spectrum', action='store_true', help='Use this option for one-dimensional spectra.')
     parser.add_argument('--small-screen', action='store_true', help='Makes a small window for small screens.')
-    parser.add_argument('--full-spectrum', action='store_true',
-                        help='Plots the full spectrum, not just the part used in the fit.')
-
     arguments = parser.parse_args()
 
     if arguments.single_spectrum:
