@@ -423,12 +423,14 @@ def continuum(x, y, output='ratio', degree=6, n_iterate=5, lower_threshold=2, up
 
     p = fitter(model, x, s(x), weights=weights)
 
-    out = dict(
-        ratio=(x_full, s(x_full) / p(x_full)),
-        difference=(x_full, s(x_full) - p(x_full)),
-        function=(x_full, p(x_full)),
-        polynomial=p,
-    )
+    out = {'difference': (x_full, s(x_full) - p(x_full)), 'function': (x_full, p(x_full)), 'polynomial': p}
+    if all(p(x_full) == 0.0):
+        warnings.warn('Continuum is identically zero. Setting ratio to NaN.', stacklevel=2)
+        nan_spec = np.empty_like(x_full)
+        nan_spec[:] = np.nan
+        out['ratio'] = (x_full, nan_spec)
+    else:
+        out['ratio'] = (x_full, s(x_full) / p(x_full))
 
     return out[output]
 

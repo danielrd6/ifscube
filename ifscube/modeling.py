@@ -283,6 +283,10 @@ class LineFit:
 
     def _apply_flux_scale(self):
         self.flux_scale_factor = np.percentile(np.abs(self.data[~self.mask]), 90)
+        if (self.flux_scale_factor <= 0.0) or (np.isnan(self.flux_scale_factor)):
+            warnings.warn(f'Attempt to get flux scale factor failed with value {self.flux_scale_factor}. '
+                          'Falling back to unity.', stacklevel=2)
+            self.flux_scale_factor = 1.0
         for i in self._get_parameter_indices('amplitude'):
             self.initial_guess[i] /= self.flux_scale_factor
             self.bounds[i] = [_ / self.flux_scale_factor if _ is not None else _ for _ in self.bounds[i]]
@@ -617,8 +621,13 @@ class LineFit:
                 # That is why we can shorten the equivalent width
                 # definition in the eqw_model integration below.
                 ci = component_index
-                eqw_model[ci] = integrate.trapz(- fit / cont, x=self.wavelength[cond])
-                eqw_direct[ci] = integrate.trapz(1. - (data[cond] / cont), x=self.wavelength[cond])
+                if np.all(cont == 0.0):
+                    warnings.warn(f'Continuum for feature {component} is identically zero. Setting EqW to NaN.')
+                    eqw_model[ci] = np.nan
+                    eqw_direct[ci] = np.nan
+                else:
+                    eqw_model[ci] = integrate.trapz(- fit / cont, x=self.wavelength[cond])
+                    eqw_direct[ci] = integrate.trapz(1. - (data[cond] / cont), x=self.wavelength[cond])
 
             self.eqw_model = eqw_model
             self.eqw_direct = eqw_direct
