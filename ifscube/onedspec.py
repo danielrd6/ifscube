@@ -10,7 +10,7 @@ from astropy.io import fits
 class Spectrum:
     def __init__(self, fname: str = None, scidata: Union[str, int] = 'SCI', variance: Union[str, int] = None,
                  flags: Union[str, int] = None, stellar: Union[str, int] = None, primary: Union[str, int] = 'PRIMARY',
-                 redshift: float = None, wcs_axis: int = None) -> None:
+                 redshift: float = None, wcs_axis: int = None, wavelength: Union[str, int] = 'WAVE') -> None:
         """
         Base class for 1D spectra.
 
@@ -26,6 +26,8 @@ class Spectrum:
             Flag extension name.
         stellar : str
             Stellar (or synthetic) spectra extension name.
+        wavelength : str
+            Wavelength extension name. Overrides WCS from header.
         primary : str
             Primary extension name, normally containing only a header.
         redshift : float
@@ -38,7 +40,9 @@ class Spectrum:
         self.ppxf_sol = np.ndarray([])
 
         if fname is not None:
-            arg_names = ['fname', 'scidata', 'variance', 'flags', 'stellar', 'primary', 'redshift', 'wcs_axis']
+            arg_names = ['fname', 'scidata', 'variance', 'flags', 'stellar',
+                         'primary', 'redshift', 'wcs_axis', 'wavelength']
+
             locale = locals()
             load_args = {i: locale[i] for i in arg_names}
             self._load(**load_args)
@@ -68,9 +72,26 @@ class Spectrum:
                     i[:] = j
 
         self.flags = self.flags.astype(bool)
+        self._flags()
+
+    def _wavelength(self, hdu, wave):
+
+        if isinstance(wave, str) and (wave in hdu):
+            assert hdu[wave].data.shape == self.data.shape[-1:],\
+                   'wavelength  must have the same shape of the data'
+            self.wl = hdu[wave].data
+        else:
+            self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
+
+    def _flags(self):
+
+        # Flag nan and inf values
+        self.flags += (np.isnan(self.data) + np.isinf(self.data)
+                       + np.isnan(self.variance) + np.isinf(self.variance)
+                       + np.isnan(self.stellar) + np.isinf(self.stellar))
 
     def _load(self, fname: str, scidata: str = 'SCI', variance: str = None, flags: str = None, stellar: str = None,
-              primary: str = 'PRIMARY', redshift: float = None, wcs_axis: int = None) -> None:
+              primary: str = 'PRIMARY', redshift: float = None, wcs_axis: int = None, wavelength: str = None) -> None:
         self.fitsfile = fname
 
         with fits.open(fname) as hdu:
@@ -83,12 +104,11 @@ class Spectrum:
 
             self._accessory_data(hdu, variance, flags, stellar)
 
-        self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
-        self.delta_lambda = self.wcs.pixel_scale_matrix[0, 0]
+            self._wavelength(hdu, wavelength)
+
         try:
             if self.header_data['cunit1'] == 'm':
                 self.wl *= 1.e+10
-                self.delta_lambda *= 1.e+10
         except KeyError:
             pass
 
