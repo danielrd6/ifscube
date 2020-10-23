@@ -895,8 +895,12 @@ class LineFit3D(LineFit):
                 # noinspection PyUnboundLocalVariable
                 self._updated_parameters(xx, yy, cube_solution=cube_data['solution'], cube_status=cube_data['status'],
                                          original_bounds=original_bounds, original_guess=original_guess)
-
-            r[s[1:]] = function(*args, **kwargs)
+            try:
+                r[s[1:]] = function(*args, **kwargs)
+            except Exception as err:
+                print(f'Execption ocurred in spaxel {s}.')
+                print(err)
+                self.status = 1
 
             for i in modified_attributes:
                 if i in self.two_d_attributes:
