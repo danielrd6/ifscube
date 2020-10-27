@@ -165,7 +165,8 @@ def test_fixed_features():
     r_wl = [6548.04, 6562.8, 6583.46, 6716.44, 6730.86]
 
     for name, wl, k in zip(names, r_wl, [0, 1, 0, 2, 2]):
-        fit.add_feature(name=name, rest_wavelength=wl, amplitude=1.0e-14, velocity=0.0, sigma=100.0,
+        amp = 1e-14 if name == 'n2_6548' else 3.e-14
+        fit.add_feature(name=name, rest_wavelength=wl, amplitude=amp, velocity=0.0, sigma=100.0,
                         fixed='n2' in name, kinematic_group=k)
     fit.fit()
     assert 1

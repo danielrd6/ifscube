@@ -134,7 +134,7 @@ class LineFit:
                 if kinematic_group in self.kinematic_groups.keys():
                     self.kinematic_groups[kinematic_group].append(name)
                     first_feature = self.kinematic_groups[kinematic_group][0]
-                    for key in parameters.keys():
+                    for key in [_ for _ in parameters.keys() if _ != 'amplitude']:
                         parameters[key] = self._get_feature_parameter(first_feature, key, 'initial_guess')
                 else:
                     self.kinematic_groups[kinematic_group] = [name]
