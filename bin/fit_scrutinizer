@@ -193,7 +193,7 @@ class onedfit:
 
     def __init__(self, fname):
         spec = line_fit.load_fit(fname)
-        spec.plot(plot_all=arguments.full_spectrum)
+        spec.plot()
 
         return
 

@@ -425,7 +425,7 @@ class LineFitParser:
     def _loading(self):
 
         if 'loading' in self.cfg.sections():
-            self.loading_opts = self._parse_dict(section='loading', float_args=('redshift',))
+            self.loading_opts = self._parse_dict(section='loading', float_args=('redshift',), int_args=('wcs_axis',))
         else:
             self.loading_opts = {}
 

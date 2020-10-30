@@ -101,6 +101,9 @@ class Spectrum:
             if wcs_axis is not None:
                 wcs_axis = [wcs_axis]
             self.wcs = wcs.WCS(self.header_data, naxis=wcs_axis)
+            assert (self.wcs.naxis == 1) or (wcs_axis is not None),\
+                f'WCS read from extension {scidata} has {self.wcs.naxis} dimensions but no wcs_axis was specified. '\
+                'Please specify the correct axis (usually 1) in the loading section of the configuration file.'
 
             self._accessory_data(hdu, variance, flags, stellar)
 
