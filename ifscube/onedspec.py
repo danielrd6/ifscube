@@ -10,7 +10,7 @@ from astropy.io import fits
 class Spectrum:
     def __init__(self, fname: str = None, scidata: Union[str, int] = 'SCI', variance: Union[str, int] = None,
                  flags: Union[str, int] = None, stellar: Union[str, int] = None, primary: Union[str, int] = 'PRIMARY',
-                 redshift: float = None, wcs_axis: int = None, wavelength: Union[str, int] = 'WAVE') -> None:
+                 redshift: float = None, wcs_axis: int = None, wavelength: Union[str, int] = None) -> None:
         """
         Base class for 1D spectra.
 
@@ -77,7 +77,7 @@ class Spectrum:
     def _wavelength(self, hdu, wave):
 
         if isinstance(wave, str) and (wave in hdu):
-            assert hdu[wave].data.shape == self.data.shape[-1:],\
+            assert hdu[wave].data.shape == self.data.shape[:1],\
                    'wavelength  must have the same shape of the data'
             self.wl = hdu[wave].data
         else:
