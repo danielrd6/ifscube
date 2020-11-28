@@ -740,8 +740,8 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
         velocity = (wavelength * units.angstrom).to(
             units.km / units.s, equivalencies=units.doppler_relativistic(center_wavelength * units.angstrom))
 
-        r0 = velocity[(np.abs(cumulative - ((50.0 - (width / 2.0)) / 100.0))).argsort()[0]].value
-        r1 = velocity[(np.abs(cumulative - ((50.0 + (width / 2.0)) / 100.0))).argsort()[0]].value
+        r0 = find_intermediary_value(velocity.value, cumulative, (50.0 - (width / 2))/100.0)
+        r1 = find_intermediary_value(velocity.value, cumulative, (50.0 + (width / 2))/100.0)
 
         res[f'{name}_velocity_width'] = r1 - r0
         res[f'{name}_lower_velocity'] = r0
@@ -750,6 +750,36 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
         res[f'{name}_spectrum'] = y
 
     return res
+
+
+def find_intermediary_value(x: np.ndarray, y: np.ndarray, v: float):
+    """
+    Find the *xv* coordinate which yields the *v* value, assuming a linear
+    interpolation of the given x, y arrays.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Independent variable
+    y : np.ndarray
+        Function value at x coordinates.
+    v : float
+        Value for which to compute the x coordinate.
+
+    Returns
+    -------
+    xv : float
+        x coordinate which evaluates to v.
+    """
+    idx = np.abs(y - v).argsort()[:2]
+    idx = np.sort(idx)
+    a = (y[idx[1]] - y[idx[0]]) / (x[idx[1]] - x[idx[0]])
+    if a == 0:
+        xv = (x[idx[1]] - x[idx[0]]) / 2.0
+    else:
+        b = y[idx[0]] - a * x[idx[0]]
+        xv = (v - b) / a
+    return xv
 
 
 def read_weights(wavelength: np.ndarray, file_name: str) -> np.ndarray:
@@ -887,9 +917,9 @@ def feature_mask(wavelength, feature_wavelength, sigma, width=20, catch_error=Fa
         up_lam = (lam + width * s)
 
         if catch_error:
-            assert low_lam > wavelength[0],\
+            assert low_lam > wavelength[0], \
                 'Lower limit in optimization window is below the lowest available wavelength.'
-            assert up_lam < wavelength[-1],\
+            assert up_lam < wavelength[-1], \
                 'Upper limit in optimization window is above the highest available wavelength.'
         else:
             if low_lam < wavelength[0]:
