@@ -655,7 +655,8 @@ def spectrophotometry(spec: Callable, transmission: Callable, limits: Iterable, 
 
 
 def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, width: float = 80.0,
-                   smooth: float = None, clip_negative_flux: bool = True, sigma_factor: float = 5.0):
+                   smooth: float = None, clip_negative_flux: bool = True, sigma_factor: float = 5.0,
+                   fractional_pixels: bool = False):
     """
     Evaluates the W80 parameter of a given emission feature.
 
@@ -677,6 +678,10 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
       Radius of integration, from the modeled feature centroid,
       in units of the distance between the centroid and the 16 and 84
       percentiles.
+    fractional_pixels : bool
+      Uses a linear interpolation between adjacent pixels to find the
+      velocity which yields the desired width exactly. Otherwise take
+      the value from the closest pixel.
 
 
     Returns
@@ -740,8 +745,12 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
         velocity = (wavelength * units.angstrom).to(
             units.km / units.s, equivalencies=units.doppler_relativistic(center_wavelength * units.angstrom))
 
-        r0 = find_intermediary_value(velocity.value, cumulative, (50.0 - (width / 2))/100.0)
-        r1 = find_intermediary_value(velocity.value, cumulative, (50.0 + (width / 2))/100.0)
+        if fractional_pixels:
+            r0 = find_intermediary_value(velocity.value, cumulative, (50 - (width / 2)) / 100)
+            r1 = find_intermediary_value(velocity.value, cumulative, (50 + (width / 2)) / 100)
+        else:
+            r0 = velocity[np.abs(cumulative - ((50 - (width / 2)) / 100)).argsort()[0]].value
+            r1 = velocity[np.abs(cumulative - ((50 + (width / 2)) / 100)).argsort()[0]].value
 
         res[f'{name}_velocity_width'] = r1 - r0
         res[f'{name}_lower_velocity'] = r0

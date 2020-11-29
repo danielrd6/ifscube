@@ -262,6 +262,14 @@ def test_cube_velocity_width_multiple_features():
     assert True
 
 
+def test_cube_velocity_width_multiple_features_not_fractional():
+    fit = simple_fit(fit_type='cube')
+    fit.optimize_fit(width=5.0)
+    fit.fit()
+    fit.velocity_width(feature=['ha', 'n2_6583'], width=80, fractional_pixels=False)
+    assert True
+
+
 def test_refit():
     fit = simple_fit(fit_type='cube', spiral_loop=True, spiral_center=(3, 4), refit=True, refit_radius=2.0,
                      bounds_change=[0.2, 10, 10])
