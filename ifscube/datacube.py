@@ -8,7 +8,6 @@ from numpy import ma
 from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter, center_of_mass
 
-from . import channel_maps
 from . import cubetools, spectools, onedspec
 
 
@@ -511,10 +510,6 @@ class Cube(onedspec.Spectrum):
             ax.scatter(self.rest_wavelength[sflags], s[sflags], marker='x', color='red')
 
         plt.show()
-
-    def channel_maps(self, *args, **kwargs):
-
-        channel_maps.channelmaps(self, *args, **kwargs)
 
     def peak_coords(self, wl_center, wl_width, center_type='peak_cen', spatial_center=None, spatial_width=10):
         """

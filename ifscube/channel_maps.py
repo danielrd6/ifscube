@@ -4,299 +4,329 @@ import numpy as np
 from astropy import constants, units
 from matplotlib import patheffects
 from numpy import ma
+from scipy.integrate import quad
+from scipy.interpolate import interp1d
 
-from . import cubetools
+from ifscube.datacube import Cube
+from . import cubetools, spectools
 
 
-def channelmaps(cube, lambda0, vel_min, vel_max, channels=6, continuum_width=300, continuum_options=None,
-                log_flux=False, angular_scale=None, scale_bar=None, north_arrow=None, lower_threshold=1e-16,
-                plot_opts={}, fig_opts={}, width_space=None, height_space=None, text_color='black',
-                stroke_color='white', color_bar=True, center_mark=True, screen=True, xy_coords=None):
-    """
-    Creates velocity channel maps from a data cube.
+class ChannelMaps:
+    def __init__(self, data_cube: Cube, wavelength_unit: str = 'Angstrom'):
+        self.cube = data_cube
+        self.data = data_cube.data
+        self.wavelength_unit = wavelength_unit
+        self.wavelength = units.Quantity(data_cube.rest_wavelength, unit=wavelength_unit)
+        self.velocity_limits = np.array([])
+        self.channel_limits = np.array([])
+        self.maps = ma.array([])
 
-    Parameters
-    ----------
-    lambda0: number
-        Central wavelength of the desired spectral feature.
-    vel_min: number
-        Mininum velocity in kilometers per second.
-    vel_max: number
-        Maximum velocity in kilometers per second.
-    channels: int
-        Number of channel maps to build.
-    continuum_width: number
-        Width in wavelength units for the continuum evaluation
-        window.
-    continuum_options: dict
-        Dicitionary of options to be passed to the
-        spectools.continuum function.
-    log_flux: bool
-        If True, takes the base 10 logarithm of the fluxes.
-    lower_threshold: number
-        Minimum emission flux for plotting, after subtraction
-        of the continuum level. Spaxels with flux values below
-        lowerThreshold will be masked in the channel maps.
-    angular_scale: number
-        The angular pixel scale, in arcsec/pix. By default it is readen
-        from the header keyword CD1_1.
-    scale_bar: dict
-        Places a scale bar with the size 'scale_size' in the y,x
-        position 'scale_pos', in the first panel, labeled with text
-        'scale_tex'.
-    north_arrow: dict
-        Places reference arrows where north PA is 'north_pa' and east
-        is rotated 90 degrees counterclockwise (when 'east_side' is 1)
-        or clockwise (when 'east_side' is -1). The arrows have origin
-        at position 'arrow_pos'.
-    color_bar: bool
-        If True draws a colorbar.
-    center_mark: bool
-        If True, evaluates the continuum centroid and marks it with
-        'plus' sign.
-    plot_opts: dict
-        Dictionary of options to be passed to **pcolormesh**.
-    fig_opts: dict
-        Options passed to **pyplot.figure**.
-    width_space: float
-        Horizontal gap between channel maps.
-    height_space: float
-        Vertical gap between channel maps.
-    text_color: matplotlib.color
-        The color of the annotated texts specifying the velocity
-        bin, the scale bar and scale text and the reference arrows and
-        text.
-    stroke_color: matplotlib.color
-        The color of the the thin stroke drawn around texts and lines to
-        increase contrast when those symbols appear over image areas of
-        similar color.
-    screen: bool
-        If screen is True the channel maps are shown on screen.
-    xy_coords : tuple
-        Tuple with (x, y) coordinates for the plots. If *None*
-        coordinates will be automatically calculated based on the
-        central pixel of the image.
+    def set_channels(self, center_wavelength: float, lower_velocity: float = -600, upper_velocity: float = 600,
+                     n_channels: int = 6):
+        self.velocity_limits = np.linspace(lower_velocity, upper_velocity, n_channels + 1)
+        eq = units.doppler_relativistic(units.Quantity(center_wavelength, unit=self.wavelength_unit))
+        self.channel_limits = units.Quantity(
+            self.velocity_limits, unit='km/s').to(self.wavelength_unit, equivalencies=eq).value
 
-    Returns
-    -------
-    """
+    def _ranges_to_mask(self, r):
+        x = self.wavelength.value
+        m = np.zeros_like(x, dtype=bool)
+        if len(r) == 4:
+            m[(((x >= r[0]) & (x <= r[1])) | ((x >= r[2]) & (x <= r[3])))] = True
+        elif len(r) == 2:
+            m[(x >= r[0]) & (x <= r[1])] = True
+        return m
 
-    sigma = lower_threshold
+    def evaluate_maps(self, fit_continuum: bool = False, continuum_windows: list = None, interpolation: str = 'linear',
+                      flux_threshold: float = 1e-18, continuum_options: dict = None, debug_spectrum: tuple = None):
+        if continuum_options is None:
+            continuum_options = {'degree': 1, 'n_iterate': 3, 'lower_threshold': 3, 'upper_threshold': 3}
+        continuum_options.update({'output': 'function'})
 
-    # Converting from velocities to wavelength
-    wlmin, wlmax = lambda0 * (np.array([vel_min, vel_max]) / constants.c.to(units.km / units.s).value + 1.)
+        maps = np.zeros((len(self.channel_limits) - 1,) + self.data.shape[1:])
 
-    wlstep = (wlmax - wlmin) / channels
-    wl_limits = np.arange(wlmin, wlmax + wlstep, wlstep)
-
-    side = int(np.ceil(np.sqrt(channels)))  # columns
-    otherside = int(np.ceil(channels / side))  # lines
-    fig = plt.figure(**fig_opts)
-    plt.clf()
-
-    if continuum_options is None:
-        continuum_options = {'n_iterate': 3, 'degree': 5, 'upper_threshold': 3, 'lower_threshold': 3,
-                             'output': 'function'}
-
-    cp = continuum_options
-    cw = continuum_width
-    fw = lambda0 + np.array([-cw / 2., cw / 2.])
-
-    cube.cont = cube.continuum(
-        write_fits=False, output_image=None, fitting_window=fw, continuum_options=cp)
-
-    contwl = cube.rest_wavelength[(cube.rest_wavelength > fw[0]) & (cube.rest_wavelength < fw[1])]
-    maps = []
-    axes = []
-    pmaps = []
-    x_axes_0 = []
-    x_axes_1 = []
-    y_axes_0 = []
-    y_axes_1 = []
-    mpl.rcParams['xtick.labelsize'] = (12 - int(np.sqrt(channels)))
-    mpl.rcParams['ytick.labelsize'] = (12 - int(np.sqrt(channels)))
-    mpl.rcParams['figure.subplot.left'] = 0.05
-    mpl.rcParams['figure.subplot.right'] = 0.80
-    if angular_scale is None:
-        try:
-            pScale = abs(cube.header['CD1_1'])
-        except KeyError:
-            print(
-                'WARNING! Angular scale \'CD1_1\' not found in the image' +
-                'header. Adopting angular scale = 1.')
-            pScale = 1.
-    else:
-        pScale = angular_scale
-
-    for i in np.arange(channels):
-        ax = fig.add_subplot(otherside, side, i + 1)
-        axes += [ax]
-        wl = cube.rest_wavelength
-        wl0, wl1 = wl_limits[i], wl_limits[i + 1]
-        print(wl[(wl > wl0) & (wl < wl1)])
-        wlc, wlwidth = np.average([wl0, wl1]), (wl1 - wl0)
-
-        f_obs = cube.wlprojection(
-            wl0=wlc, fwhm=wlwidth, filtertype='box')
-        f_cont = cubetools.wlprojection(
-            arr=cube.cont, wl=contwl, wl0=wlc, fwhm=wlwidth,
-            filtertype='box')
-        f = f_obs - f_cont
-
-        mask = (f < sigma) | np.isnan(f)
-        channel = ma.array(f, mask=mask)
-
-        if log_flux:
-            channel = np.log10(channel)
-        if i == 0:
-            coords = cube.peak_coords(
-                wl_center=lambda0, wl_width=cw, center_type='peak_cen')
-
-        if xy_coords is None:
-            y, x = pScale * (np.indices(np.array(f.shape) + 1) - 0.5)
-            y, x = y - coords[0] * pScale, x - coords[1] * pScale
+        if debug_spectrum is not None:
+            it = [debug_spectrum[::-1]]
         else:
-            x, y = xy_coords
-        if center_mark:
-            mpl.pyplot.plot(0, 0, 'w+', lw=3)
-            mpl.pyplot.plot(0, 0, 'k+', lw=2)
-        ax.set_xlim(x.min(), x.max())
-        ax.set_ylim(y.min(), y.max())
+            it = np.column_stack([np.ravel(_) for _ in np.indices(self.data.shape[1:])])
 
-        pmap = ax.pcolormesh(x, y, channel, **plot_opts)
-        ax.set_aspect('equal', 'datalim')
+        for y, x in it:
+            flux = self.data[:, y, x]
+            wl = self.wavelength.value
 
-        if scale_bar is not None:
-            scale_text = scale_bar['scale_text']
-            scale_size = scale_bar['scale_size']
-            scale_pos = scale_bar['scale_pos']
-            scale_panel = scale_bar['scale_panel']
-            if i == scale_panel:
-                pos_y, pos_x = (
-                    (y.max() - y.min()) * scale_pos[0] + y.min(),
-                    (x.max() - x.min()) * scale_pos[1] + x.min())
-                delt_y = (y.max() - y.min()) * 0.05
-                ax.plot(
-                    [pos_x, pos_x + scale_size], [pos_y, pos_y], '-',
-                    lw=3, color=text_color,
-                    path_effects=[
-                        patheffects.Stroke(
-                            linewidth=4.5, foreground=stroke_color,
-                            alpha=0.3),
-                        patheffects.Normal()])
-                ax.annotate(
-                    scale_text, xy=(
-                        pos_x + scale_size / 2., pos_y + delt_y),
-                    ha='center',
-                    va='bottom',
-                    color=text_color,
-                    weight='bold',
-                    path_effects=[
-                        patheffects.Stroke(
-                            linewidth=1.5,
-                            foreground=stroke_color,
-                            alpha=0.3),
-                        patheffects.Normal()])
+            if fit_continuum:
+                assert continuum_windows is not None, \
+                    'The parameter *continuum_windows* must be defined in order to fit a pseudo continuum.'
+                continuum = spectools.continuum(
+                    wl, flux, weights=self._ranges_to_mask(continuum_windows).astype(float), **continuum_options)[1]
+            else:
+                continuum = np.zeros_like(flux)
+            emission = flux - continuum
 
-        if north_arrow is not None:
-            north_pa = 90. + north_arrow['north_pa']
-            east_side = north_arrow['east_side']
-            arrow_pos = np.array(north_arrow['arrow_pos']) * \
-                        np.array([(y.max() - y.min()), (x.max() - x.min())]) + \
-                        np.array([y.min(), x.min()])
-            n_panel = north_arrow['n_panel']
-            if (i == n_panel):
-                arrSize = 0.2 * \
-                          np.sqrt(
-                              (y.max() - y.min()) ** 2 + (x.max() - x.min()) ** 2)
-                y_north = arrow_pos[0] + arrSize * np.sin(
-                    np.deg2rad(north_pa))
-                x_north = arrow_pos[1] + arrSize * np.cos(
-                    np.deg2rad(north_pa))
-                y_east = arrow_pos[0] + arrSize * np.sin(
-                    np.deg2rad(north_pa + east_side * 90.))
-                x_east = arrow_pos[1] + arrSize * np.cos(
-                    np.deg2rad(north_pa + east_side * 90.))
-                plt.plot(
-                    [x_north, arrow_pos[1], x_east],
-                    [y_north, arrow_pos[0], y_east], '-',
-                    lw=3, color=text_color,
-                    path_effects=[
-                        patheffects.Stroke(
-                            linewidth=4.5,
-                            foreground=stroke_color,
-                            alpha=0.3),
-                        patheffects.Normal()])
-                l_ang = -15
-                y_letter_n = arrow_pos[0] + 1.15 * arrSize * np.sin(
-                    np.deg2rad(north_pa + l_ang))
-                x_letter_n = arrow_pos[1] + 1.15 * arrSize * np.cos(
-                    np.deg2rad(north_pa + l_ang))
-                y_letter_e = arrow_pos[0] + 1.15 * arrSize * np.sin(
-                    np.deg2rad(north_pa + 90. + l_ang))
-                x_letter_e = arrow_pos[1] + 1.15 * arrSize * np.cos(
-                    np.deg2rad(north_pa + 90. + l_ang))
-                plt.text(
-                    x_letter_n, y_letter_n, 'N',
-                    ha='center',
-                    va='center',
-                    weight='bold',
-                    color=text_color,
-                    path_effects=[
-                        patheffects.Stroke(
-                            linewidth=1.5,
-                            foreground=stroke_color,
-                            alpha=0.3),
-                        patheffects.Normal()])
-                plt.text(
-                    x_letter_e, y_letter_e, 'E',
-                    ha='center',
-                    va='center',
-                    weight='bold',
-                    color=text_color,
-                    path_effects=[
-                        patheffects.Stroke(
-                            linewidth=1.5,
-                            foreground=stroke_color,
-                            alpha=0.3),
-                        patheffects.Normal()])
+            wl_interval = self.channel_limits[-1] - self.channel_limits[0]
+            line_mask = self._ranges_to_mask(
+                [self.channel_limits[0] - wl_interval / 2, self.channel_limits[-1] + wl_interval / 2])
+            flux = flux[line_mask]
+            emission = emission[line_mask]
+            wl = wl[line_mask]
+            continuum = continuum[line_mask]
 
-        ax.annotate(
-            '{:.0f}'.format((wlc - lambda0) / lambda0 * 2.99792e+5),
-            xy=(0.1, 0.8), xycoords='axes fraction', weight='bold',
-            color=text_color, path_effects=[
-                patheffects.Stroke(
-                    linewidth=1.5, foreground=stroke_color, alpha=0.3),
-                patheffects.Normal()])
-        if i % side != 0:
-            ax.set_yticklabels([])
-        if i / float((otherside - 1) * side) < 1:
-            ax.set_xticklabels([])
-        maps += [channel]
-        pmaps += [pmap]
-        x_axes_0 = np.append(x_axes_0, ax.get_position().x0)
-        x_axes_1 = np.append(x_axes_1, ax.get_position().x1)
-        y_axes_0 = np.append(y_axes_0, ax.get_position().y0)
-        y_axes_1 = np.append(y_axes_1, ax.get_position().y1)
+            if interpolation == 'linear':
+                interp_flux = interp1d(wl, emission, bounds_error=False, fill_value=0.0)
+            else:
+                raise RuntimeError(f'Interpolation type {interpolation} not understood.')
 
-    fig.subplots_adjust(wspace=width_space, hspace=height_space)
+            if debug_spectrum is not None:
+                self._debug_spectrum_plot(wl, flux, continuum, interp_flux, flux_threshold)
 
-    if color_bar:
-        # x_min_axes_0 = np.min(x_axes_0)
-        x_max_axes_1 = np.max(x_axes_1)
-        y_min_axes_0 = np.min(y_axes_0)
-        y_max_axes_1 = np.max(y_axes_1)
+            for i, j in enumerate(self.channel_limits[:-1]):
+                lower, upper = self.channel_limits[i], self.channel_limits[i + 1]
+                integrated_flux = quad(interp_flux, lower, upper)[0]
+                maps[i, y, x] = integrated_flux if integrated_flux > flux_threshold else np.nan
+                if debug_spectrum is not None:
+                    print(f'{lower:.2f} -- {upper:.2f} = {maps[i, y, x]:.2e}')
 
-        # setup colorbar axes.
-        ax1 = fig.add_axes([
-            x_max_axes_1, y_min_axes_0, 0.015,
-            y_max_axes_1 - y_min_axes_0])
-        fig.colorbar(pmap, cax=ax1, orientation='vertical')
+            maps = ma.masked_invalid(maps)
 
-    if screen is True:
+        self.maps = maps
+
+    def _debug_spectrum_plot(self, wl, flux, continuum, interp_flux, flux_threshold):
+        fig = plt.figure()
+        ax = fig.add_subplot()
+        ax.plot(wl, flux, lw=3, label='Data')
+        ax.plot(wl, continuum, label='Pseudo-continuum')
+        ax.plot(wl, interp_flux(wl) + continuum, linestyle='dashed', label='Interpolated flux')
+        for k in self.channel_limits:
+            ax.axvline(k, color='k', alpha=.5)
+        ax.plot(wl, continuum + flux_threshold, color='k', linestyle='dashed', label='Flux threshold')
+        ax.set_xlabel('Wavelength')
+        ax.set_ylabel('Spectral flux density')
+        plt.legend()
         plt.show()
 
-    return maps, axes, pmaps
+    def plot(self, log_flux=False, angular_scale=None, scale_bar=None, north_arrow=None, plot_opts=None,
+             fig_opts=None, width_space=None, height_space=None, text_color='black', stroke_color='white',
+             color_bar=True, center_mark=True, screen=True, xy_coords=None, center_coords=None):
+        """
+        Creates velocity channel maps from a data cube.
+
+        Parameters
+        ----------
+        log_flux: bool
+            If True, takes the base 10 logarithm of the fluxes.
+        angular_scale: number
+            The angular pixel scale, in arcsec/pix. By default it is read
+            from the header keyword CD1_1.
+        scale_bar: dict
+            Places a scale bar with the size 'scale_size' in the y,x
+            position 'scale_pos', in the first panel, labeled with text
+            'scale_tex'.
+        north_arrow: dict
+            Places reference arrows where north PA is 'north_pa' and east
+            is rotated 90 degrees counterclockwise (when 'east_side' is 1)
+            or clockwise (when 'east_side' is -1). The arrows have origin
+            at position 'arrow_pos'.
+        color_bar: bool
+            If True draws a colorbar.
+        center_mark: bool
+            If True, evaluates the continuum centroid and marks it with
+            'plus' sign.
+        plot_opts: dict
+            Dictionary of options to be passed to *pcolormesh*.
+        fig_opts: dict
+            Options passed to *pyplot.figure*.
+        width_space: float
+            Horizontal gap between channel maps.
+        height_space: float
+            Vertical gap between channel maps.
+        text_color: matplotlib.color
+            The color of the annotated texts specifying the velocity
+            bin, the scale bar and scale text and the reference arrows and
+            text.
+        stroke_color: matplotlib.color
+            The color of the the thin stroke drawn around texts and lines to
+            increase contrast when those symbols appear over image areas of
+            similar color.
+        screen: bool
+            If screen is True the channel maps are shown on screen.
+        xy_coords : tuple
+            Tuple with (x, y) coordinates for the plots. If *None*
+            coordinates will be automatically calculated based on the
+            central pixel of the image.
+        center_coords : tuple
+            Coordinates for the central pixel in the images.
+
+        Returns
+        -------
+        """
+
+        channels = self.maps.shape[0]
+        side = int(np.ceil(np.sqrt(channels)))  # columns
+        other_side = int(np.ceil(channels / side))  # lines
+
+        if fig_opts is None:
+            fig_opts = {}
+        fig = plt.figure(**fig_opts)
+        plt.clf()
+
+        maps = []
+        axes = []
+        pmaps = []
+        x_axes_0 = []
+        x_axes_1 = []
+        y_axes_0 = []
+        y_axes_1 = []
+        mpl.rcParams['xtick.labelsize'] = (12 - int(np.sqrt(channels)))
+        mpl.rcParams['ytick.labelsize'] = (12 - int(np.sqrt(channels)))
+        mpl.rcParams['figure.subplot.left'] = 0.05
+        mpl.rcParams['figure.subplot.right'] = 0.80
+        if angular_scale is None:
+            try:
+                pScale = abs(self.cube.header['CD1_1'])
+            except KeyError:
+                print('WARNING! Angular scale \'CD1_1\' not found in the image' + 'header. Adopting angular scale = 1.')
+                pScale = 1.
+        else:
+            pScale = angular_scale
+
+        for i in np.arange(channels):
+            ax = fig.add_subplot(other_side, side, i + 1)
+            axes += [ax]
+            channel = self.maps[i]
+
+            if log_flux:
+                channel = np.log10(channel)
+
+            if center_coords is None:
+                center_coords = ([(_ / 2) for _ in self.maps[0].shape])
+            if xy_coords is None:
+                y, x = pScale * (np.indices(np.array(channel.shape) + 1) - 0.5)
+                y, x = y - center_coords[0] * pScale, x - center_coords[1] * pScale
+            else:
+                x, y = xy_coords
+            if center_mark:
+                mpl.pyplot.plot(0, 0, 'w+', lw=4)
+                mpl.pyplot.plot(0, 0, 'k+', lw=2)
+            ax.set_xlim(x.min(), x.max())
+            ax.set_ylim(y.min(), y.max())
+
+            if plot_opts is None:
+                plot_opts = {}
+            pmap = ax.pcolormesh(x, y, channel, **plot_opts)
+            ax.set_aspect('equal', 'datalim')
+
+            if scale_bar is not None:
+                scale_text = scale_bar['scale_text']
+                scale_size = scale_bar['scale_size']
+                scale_pos = scale_bar['scale_pos']
+                scale_panel = scale_bar['scale_panel']
+                if i == scale_panel:
+                    pos_y, pos_x = ((y.max() - y.min()) * scale_pos[0] + y.min(),
+                                    (x.max() - x.min()) * scale_pos[1] + x.min())
+                    delt_y = (y.max() - y.min()) * 0.05
+
+                    effects = [patheffects.Stroke(linewidth=4.5, foreground=stroke_color, alpha=0.3),
+                               patheffects.Normal()]
+                    ax.plot([pos_x, pos_x + scale_size], [pos_y, pos_y], '-', lw=3, color=text_color,
+                            path_effects=effects)
+                    effects = [patheffects.Stroke(linewidth=1.5, foreground=stroke_color, alpha=0.3),
+                               patheffects.Normal()]
+                    ax.annotate(scale_text, xy=(pos_x + scale_size / 2., pos_y + delt_y), ha='center', va='bottom',
+                                color=text_color, weight='bold', path_effects=effects)
+
+            if north_arrow is not None:
+                north_pa = 90. + north_arrow['north_pa']
+                east_side = north_arrow['east_side']
+                arrow_pos = np.array(north_arrow['arrow_pos']) * \
+                            np.array([(y.max() - y.min()), (x.max() - x.min())]) + \
+                            np.array([y.min(), x.min()])
+                n_panel = north_arrow['n_panel']
+                if (i == n_panel):
+                    arrSize = 0.2 * np.sqrt((y.max() - y.min()) ** 2 + (x.max() - x.min()) ** 2)
+                    y_north = arrow_pos[0] + arrSize * np.sin(np.deg2rad(north_pa))
+                    x_north = arrow_pos[1] + arrSize * np.cos(np.deg2rad(north_pa))
+                    y_east = arrow_pos[0] + arrSize * np.sin(np.deg2rad(north_pa + east_side * 90.))
+                    x_east = arrow_pos[1] + arrSize * np.cos(np.deg2rad(north_pa + east_side * 90.))
+                    plt.plot(
+                        [x_north, arrow_pos[1], x_east],
+                        [y_north, arrow_pos[0], y_east], '-',
+                        lw=3, color=text_color,
+                        path_effects=[
+                            patheffects.Stroke(
+                                linewidth=4.5,
+                                foreground=stroke_color,
+                                alpha=0.3),
+                            patheffects.Normal()])
+                    l_ang = -15
+                    y_letter_n = arrow_pos[0] + 1.15 * arrSize * np.sin(
+                        np.deg2rad(north_pa + l_ang))
+                    x_letter_n = arrow_pos[1] + 1.15 * arrSize * np.cos(
+                        np.deg2rad(north_pa + l_ang))
+                    y_letter_e = arrow_pos[0] + 1.15 * arrSize * np.sin(
+                        np.deg2rad(north_pa + 90. + l_ang))
+                    x_letter_e = arrow_pos[1] + 1.15 * arrSize * np.cos(
+                        np.deg2rad(north_pa + 90. + l_ang))
+                    plt.text(
+                        x_letter_n, y_letter_n, 'N',
+                        ha='center',
+                        va='center',
+                        weight='bold',
+                        color=text_color,
+                        path_effects=[
+                            patheffects.Stroke(
+                                linewidth=1.5,
+                                foreground=stroke_color,
+                                alpha=0.3),
+                            patheffects.Normal()])
+                    plt.text(
+                        x_letter_e, y_letter_e, 'E',
+                        ha='center',
+                        va='center',
+                        weight='bold',
+                        color=text_color,
+                        path_effects=[
+                            patheffects.Stroke(
+                                linewidth=1.5,
+                                foreground=stroke_color,
+                                alpha=0.3),
+                            patheffects.Normal()])
+
+            ax.annotate(
+                f'{(self.velocity_limits[i] + self.velocity_limits[i + 1]) / 2:.0f}',
+                xy=(0.1, 0.8), xycoords='axes fraction', weight='bold',
+                color=text_color, path_effects=[
+                    patheffects.Stroke(
+                        linewidth=1.5, foreground=stroke_color, alpha=0.3),
+                    patheffects.Normal()])
+            if i % side != 0:
+                ax.set_yticklabels([])
+            if i / float((other_side - 1) * side) < 1:
+                ax.set_xticklabels([])
+            maps += [channel]
+            pmaps += [pmap]
+            x_axes_0 = np.append(x_axes_0, ax.get_position().x0)
+            x_axes_1 = np.append(x_axes_1, ax.get_position().x1)
+            y_axes_0 = np.append(y_axes_0, ax.get_position().y0)
+            y_axes_1 = np.append(y_axes_1, ax.get_position().y1)
+
+        fig.subplots_adjust(wspace=width_space, hspace=height_space)
+
+        if color_bar:
+            # x_min_axes_0 = np.min(x_axes_0)
+            x_max_axes_1 = np.max(x_axes_1)
+            y_min_axes_0 = np.min(y_axes_0)
+            y_max_axes_1 = np.max(y_axes_1)
+
+            # setup colorbar axes.
+            ax1 = fig.add_axes([
+                x_max_axes_1, y_min_axes_0, 0.015,
+                y_max_axes_1 - y_min_axes_0])
+            fig.colorbar(pmap, cax=ax1, orientation='vertical')
+
+        if screen is True:
+            plt.show()
+
+        return maps, axes, pmaps
 
 
 def rgb_line_compose(
