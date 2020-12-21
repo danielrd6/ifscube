@@ -75,7 +75,7 @@ Additionally, you can checkout different branches with
 
     git checkout <branch_name>
 
-Experimental features are always first available in dedicated branches before being incorporated in to the main version.
+Experimental features are always first available in dedicated branches before being incorporated into the main version.
 
 Without Anaconda
 --------------------------------------------------
