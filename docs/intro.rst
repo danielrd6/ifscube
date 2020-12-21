@@ -36,6 +36,8 @@ The repository has an environment file named `environment.yml` which can be used
 the requirements already installed.
 The following command will create an environment named `ifscube` in your system, and subsequently switch to this
 environment.
+If you want to give another name to the ifscube environment, all you have to do is change the first line in the
+`environment.yml` file.
 
 .. code-block:: bash
 
@@ -50,6 +52,30 @@ While still in the `ifscube` directory enter the following command:
 .. code-block:: bash
 
     pip install .
+
+If you want to be able to modify the code to better suit your needs, or to contribute
+your own code to the project, or just to be able to check different branches of the
+source code, I recommend using the editable flag of pip's install.
+Just substitute the line in the previous block by
+
+.. code-block:: bash
+
+    pip install -e .
+
+This editable installation will allow you to update the code with a simple
+
+.. code-block:: bash
+
+    git pull
+
+issued from within the `ifscube` directory, and avoid the need to run `pip install` every time there is an update.
+Additionally, you can checkout different branches with
+
+.. code-block:: bash
+
+    git checkout <branch_name>
+
+Experimental features are always first available in dedicated branches before being incorporated in to the main version.
 
 Without Anaconda
 --------------------------------------------------
