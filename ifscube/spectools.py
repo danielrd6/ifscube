@@ -656,7 +656,7 @@ def spectrophotometry(spec: Callable, transmission: Callable, limits: Iterable, 
 
 def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, width: float = 80.0,
                    smooth: float = None, clip_negative_flux: bool = True, sigma_factor: float = 5.0,
-                   fractional_pixels: bool = False):
+                   fractional_pixels: bool = True, rest_wavelength: float = None):
     """
     Evaluates the W80 parameter of a given emission feature.
 
@@ -682,6 +682,9 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
       Uses a linear interpolation between adjacent pixels to find the
       velocity which yields the desired width exactly. Otherwise take
       the value from the closest pixel.
+    rest_wavelength : astropy.units.Quantity
+      Rest wavelength of the desired spectral feature. This quantity
+      is only used to assess the centroid velocity.
 
 
     Returns
@@ -701,6 +704,7 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
     res = {}
     for name in ['model', 'direct']:
         res[f'{name}_velocity_width'] = np.nan
+        res[f'{name}_centroid_velocity'] = np.nan
         res[f'{name}_lower_velocity'] = np.nan
         res[f'{name}_upper_velocity'] = np.nan
         res[f'{name}_velocities'] = np.array([])
@@ -716,6 +720,12 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
     cumulative /= cumulative.max(initial=0)
 
     center_wavelength = wavelength[np.argsort(np.abs(cumulative - 0.5))[0]]
+    if rest_wavelength is not None:
+        coarse_center_velocity = (center_wavelength * units.angstrom).to(
+            units.km / units.s, equivalencies=units.doppler_relativistic(rest_wavelength)).value
+    else:
+        coarse_center_velocity = 0.0
+
     cw = center_wavelength
     lower_lambda = cw - ((cw - wavelength[np.argsort(np.abs(cumulative - 0.16))[0]]) * sigma_factor)
     upper_lambda = cw + ((wavelength[np.argsort(np.abs(cumulative - 0.84))[0]] - cw) * sigma_factor)
@@ -748,11 +758,14 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
         if fractional_pixels:
             r0 = find_intermediary_value(velocity.value, cumulative, (50 - (width / 2)) / 100)
             r1 = find_intermediary_value(velocity.value, cumulative, (50 + (width / 2)) / 100)
+            centroid = find_intermediary_value(velocity.value, cumulative, 0.5)
         else:
             r0 = velocity[np.abs(cumulative - ((50 - (width / 2)) / 100)).argsort()[0]].value
             r1 = velocity[np.abs(cumulative - ((50 + (width / 2)) / 100)).argsort()[0]].value
+            centroid = velocity[np.abs(cumulative - 0.5).argsort()[0]].value
 
         res[f'{name}_velocity_width'] = r1 - r0
+        res[f'{name}_centroid_velocity'] = centroid + coarse_center_velocity
         res[f'{name}_lower_velocity'] = r0
         res[f'{name}_upper_velocity'] = r1
         res[f'{name}_velocities'] = velocity
