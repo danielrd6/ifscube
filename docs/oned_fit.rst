@@ -48,12 +48,7 @@ fit
 This part of the configuration file sets the main options of the fitting
 process. 
 
-* continuum_line_weight: number
-    When fitting a pseudo-continuum function, sets the weight of pixels near
-    spectral features to this number. Setting this option to 1.0 effectively
-    disables it, while setting it to zero makes the pseudo-continuum fitting
-    completely insensitive to any pixels within 3 times the given sigma from
-    the line center.
+
 * fit_continuum: 'yes', 'no'
     Fits a polynomial pseudo continuum before fitting the spectral features.
 * fitting_window: lambda_0:lambda_1
@@ -176,6 +171,13 @@ provide enough room for an adequate sampling of valid continuum points.
 
 * lower / upper\_threshold: number
    The rejection threshold in units of standard deviation.
+
+* line_weight: number
+    When fitting a pseudo-continuum function, sets the weight of pixels near
+    spectral features to this number. Setting this option to 1.0 effectively
+    disables it, while setting it to zero makes the pseudo-continuum fitting
+    completely insensitive to any pixels within 3 times the given sigma from
+    the line center.
 
 Feature definition
 ==================
