@@ -389,14 +389,16 @@ class LineFitParser:
             else:
                 fit_opts[key] = tuple([int(i) for i in fit_opts[key].split(',')])
 
-        boolean_args = ['write_fits', 'refit', 'update_bounds', 'spiral_loop',
+        # TODO: Define more fallback values.
+        fit_opts['write_fits'] = self.cfg.getboolean('fit', 'write_fits', fallback=False)
+
+        boolean_args = ['refit', 'update_bounds', 'spiral_loop',
                         'verbose', 'fit_continuum', 'optimize_fit',
                         'guess_parameters', 'trivial', 'test_jacobian', 'debug',
                         'intrinsic_sigma_constr']
         for i in boolean_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getboolean('fit', i)
-
         fit_opts['fixed'] = self.cfg.getboolean('fit', 'fixed', fallback=False)
 
         float_args = ['refit_radius', 'sig_threshold', 'instrument_dispersion', 'optimization_window',
