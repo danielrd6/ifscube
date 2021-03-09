@@ -106,11 +106,11 @@ class LineFit:
     def amplitude_parser(self, amplitude):
         try:
             if amplitude == 'peak':
-                a = self.data[self.mask].max()
+                a = self.data[~self.mask].max()
             elif amplitude == 'mean':
-                a = self.data[self.mask].mean()
+                a = self.data[~self.mask].mean()
             elif amplitude == 'median':
-                a = np.median(self.data[self.mask])
+                a = np.median(self.data[~self.mask])
             else:
                 raise ValueError(f'Amplitude {amplitude} not understood.')
         except ValueError:

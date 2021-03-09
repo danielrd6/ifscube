@@ -76,6 +76,42 @@ def full_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
     return fit
 
 
+def test_peak_amplitude():
+    names = ['n2_6548', 'ha', 'n2_6583']
+    r_wl = [6548.04, 6562.8, 6583.46]
+
+    fit = fit_select(function='gaussian', fit_type='spectrum')
+
+    for name, wl in zip(names, r_wl):
+        fit.add_feature(name=name, rest_wavelength=wl, amplitude='peak', velocity=0.0, sigma=100.0, kinematic_group=0)
+    fit.fit()
+    assert fit.initial_guess[0] == 4.147481615680209
+
+
+def test_mean_amplitude():
+    names = ['n2_6548', 'ha', 'n2_6583']
+    r_wl = [6548.04, 6562.8, 6583.46]
+
+    fit = fit_select(function='gaussian', fit_type='spectrum')
+
+    for name, wl in zip(names, r_wl):
+        fit.add_feature(name=name, rest_wavelength=wl, amplitude='mean', velocity=0.0, sigma=100.0, kinematic_group=0)
+    fit.fit()
+    assert fit.initial_guess[0] == 2.4758099883101328
+
+
+def test_median_amplitude():
+    names = ['n2_6548', 'ha', 'n2_6583']
+    r_wl = [6548.04, 6562.8, 6583.46]
+
+    fit = fit_select(function='gaussian', fit_type='spectrum')
+
+    for name, wl in zip(names, r_wl):
+        fit.add_feature(name=name, rest_wavelength=wl, amplitude='median', velocity=0.0, sigma=100.0, kinematic_group=0)
+    fit.fit()
+    assert fit.initial_guess[0] == 2.40130144892458
+
+
 def test_simple_fit():
     fit = simple_fit()
     fit.fit(verbose=True, )
