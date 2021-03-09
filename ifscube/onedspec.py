@@ -10,7 +10,7 @@ from astropy.io import fits
 class Spectrum:
     def __init__(self, fname: str = None, scidata: Union[str, int] = 'SCI', variance: Union[str, int] = None,
                  flags: Union[str, int] = None, stellar: Union[str, int] = None, primary: Union[str, int] = 'PRIMARY',
-                 redshift: float = None, wcs_axis: int = None, wavelength: Union[str, int] = 'WAVE') -> None:
+                 redshift: float = None, wcs_axis: int = None, wavelength: Union[str, int] = None) -> None:
         """
         Base class for 1D spectra.
 
@@ -40,8 +40,8 @@ class Spectrum:
         self.ppxf_sol = np.ndarray([])
 
         if fname is not None:
-            arg_names = ['fname', 'scidata', 'variance', 'flags', 'stellar',
-                         'primary', 'redshift', 'wcs_axis', 'wavelength']
+            arg_names = ['fname', 'scidata', 'variance', 'flags', 'stellar', 'primary', 'redshift', 'wcs_axis',
+                         'wavelength']
 
             locale = locals()
             load_args = {i: locale[i] for i in arg_names}
@@ -77,8 +77,8 @@ class Spectrum:
     def _wavelength(self, hdu, wave):
 
         if isinstance(wave, str) and (wave in hdu):
-            assert hdu[wave].data.shape == self.data.shape[-1:],\
-                   'wavelength  must have the same shape of the data'
+            assert hdu[wave].data.shape == self.data.shape[-1:], \
+                'wavelength  must have the same shape of the data'
             self.wl = hdu[wave].data
         else:
             self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
@@ -101,8 +101,8 @@ class Spectrum:
             if wcs_axis is not None:
                 wcs_axis = [wcs_axis]
             self.wcs = wcs.WCS(self.header_data, naxis=wcs_axis)
-            assert (self.wcs.naxis == 1) or (wcs_axis is not None),\
-                f'WCS read from extension {scidata} has {self.wcs.naxis} dimensions but no wcs_axis was specified. '\
+            assert (self.wcs.naxis == 1) or (wcs_axis is not None), \
+                f'WCS read from extension {scidata} has {self.wcs.naxis} dimensions but no wcs_axis was specified. ' \
                 'Please specify the correct axis (usually 1) in the loading section of the configuration file.'
 
             self._accessory_data(hdu, variance, flags, stellar)
