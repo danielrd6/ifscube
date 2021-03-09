@@ -55,6 +55,16 @@ class Cube(onedspec.Spectrum):
         if fname is not None:
             self._set_spec_indices()
 
+    def _wavelength(self, hdu, wave):
+
+        if isinstance(wave, str) and (wave in hdu):
+            assert hdu[wave].data.shape[0] == self.data.shape[0], \
+                f'Data in wavelength extension "{wave}" must have the same shape of the data.'\
+                f'{wave}: {hdu[wave].data.shape}; Data: {self.data.shape}'
+            self.wl = hdu[wave].data
+        else:
+            self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
+
     @property
     def spatial_mask(self):
         return self._spatial_mask
