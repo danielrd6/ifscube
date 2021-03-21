@@ -14,7 +14,8 @@ def test_parse_config_table():
 
 def test_write_fit_1d():
     fit = simple_fit()
-    fit.fit(verbose=True, fit_continuum=True)
+    fit.fit_pseudo_continuum()
+    fit.fit(verbose=True)
     line_fit.write_spectrum_fit(fit, out_image='tests/test_write_fit_1d.fits', function='gaussian', overwrite=True)
     assert 1
 

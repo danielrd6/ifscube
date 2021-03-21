@@ -312,31 +312,29 @@ class LineFit:
                                                 sigma=sigma_lam, width=width)
         self.mask |= optimized_mask
 
-    def fit_pseudo_continuum(self, **continuum_options):
-        new_options = continuum_options.copy()
+    def fit_pseudo_continuum(self, degree: int = 6, line_weight: float = 1.0, weights=None,
+                             n_iterate: int = 5, lower_threshold: float = 2.0, upper_threshold: float = 3):
         wl = self.wavelength
         fw = (wl >= self.fitting_window[0]) & (wl <= self.fitting_window[1])
-        if ('weights' not in continuum_options) and ('line_weight' in continuum_options):
+        if 'weights' is None:
             cw = np.ones_like(self.data)
 
             def continuum_weights(sigmas):
                 for i, j in enumerate(self.feature_wavelengths):
                     low_lambda = j - (3.0 * sigmas[i])
                     up_lambda = j + (3.0 * sigmas[i])
-                    cw[(wl > low_lambda) & (wl < up_lambda)] = continuum_options['line_weight']
+                    cw[(wl > low_lambda) & (wl < up_lambda)] = line_weight
                 return cw
 
             sigma_velocities = self._get_feature_parameter(feature='all', parameter='sigma', attribute='initial_guess')
-            new_options.update(
-                {'weights': continuum_weights(spectools.sigma_lambda(sigma_velocities, self.feature_wavelengths))[fw]})
-            new_options.pop('line_weight')
+            weights = continuum_weights(spectools.sigma_lambda(sigma_velocities, self.feature_wavelengths))[fw]
         # noinspection PyCallingNonCallable
-        pc = spectools.continuum(wl[fw], (self.data - self.stellar)[fw], output='polynomial', **new_options)(wl)
+        pc = spectools.continuum(wl[fw], (self.data - self.stellar)[fw], output='polynomial', degree=degree,
+                                 weights=weights)(wl)
         pc[~fw] = np.nan
         self.pseudo_continuum = pc
 
-    def fit(self, min_method: str = 'slsqp', minimum_good_fraction: float = 0.8, verbose: bool = False,
-            fit_continuum: bool = True, continuum_options: dict = None, **kwargs):
+    def fit(self, min_method: str = 'slsqp', minimum_good_fraction: float = 0.8, verbose: bool = False, **kwargs):
         assert self.initial_guess.size > 0, 'There are no spectral features to fit. Aborting'
         assert self.initial_guess.size == (len(self.feature_names) * self.parameters_per_feature), \
             'There is a problem with the initial guess. Check the spectral feature definitions.'
@@ -349,11 +347,6 @@ class LineFit:
                                                         f'{valid_fraction} < {minimum_good_fraction}.'
 
         self._apply_flux_scale()
-
-        if fit_continuum:
-            if continuum_options is None:
-                continuum_options = {}
-            self.fit_pseudo_continuum(**continuum_options)
 
         self.pack_groups()
         p_0 = self._pack_parameters(self.initial_guess)
@@ -758,9 +751,21 @@ class LineFit3D(LineFit):
         elif len(x.shape) == 2:
             x[self.input_data.spatial_mask] = np.nan
 
+    def fit_pseudo_continuum(self, degree: int = 6, line_weight: float = 1.0, weights=None,
+                             n_iterate: int = 5, lower_threshold: float = 2.0, upper_threshold: float = 3):
+        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status']
+        mod_attr = ['pseudo_continuum']
+        self.pseudo_continuum = np.zeros_like(self.data)
+        self._mask2d_to_nan('pseudo_continuum')
+        self._select_spaxel(function=super().fit_pseudo_continuum, used_attributes=attributes,
+                            modified_attributes=mod_attr,
+                            kwargs={'degree': degree, 'line_weight': line_weight, 'weights': weights,
+                                    'n_iterate': n_iterate, 'lower_threshold': lower_threshold,
+                                    'upper_threshold': upper_threshold},
+                            description='Fitting pseudo continuum')
+
     def fit(self, min_method: str = 'slsqp', minimum_good_fraction: float = 0.8, verbose: bool = False,
-            fit_continuum: bool = True, continuum_options: dict = None, refit: bool = False,
-            refit_radius: float = 3.0, bounds_change: float = 0.2, **kwargs):
+            refit: bool = False, refit_radius: float = 3.0, bounds_change: float = 0.2, **kwargs):
         if self.solution is None:
             self.solution = np.zeros((len(self.initial_guess),) + self.data.shape[1:])
         if self.reduced_chi_squared is None:
@@ -774,8 +779,8 @@ class LineFit3D(LineFit):
 
         attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'weights', 'status',
                       'solution', 'reduced_chi_squared', 'model_spectrum']
-        mod_attr = ['solution', 'reduced_chi_squared', 'status', 'pseudo_continuum', 'model_spectrum']
-        fit_args = (min_method, minimum_good_fraction, verbose, fit_continuum, continuum_options)
+        mod_attr = ['solution', 'reduced_chi_squared', 'status', 'model_spectrum']
+        fit_args = (min_method, minimum_good_fraction, verbose)
         self._select_spaxel(function=super().fit, used_attributes=attributes, modified_attributes=mod_attr,
                             args=fit_args, kwargs=kwargs, description='Fitting spectral features', fitting=True)
 

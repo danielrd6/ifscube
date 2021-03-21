@@ -28,6 +28,10 @@ def clear_lock(lock_name):
 def spectrum_fit(data: Union[Cube, onedspec.Spectrum], **line_fit_args):
     fit = ifscube.io.line_fit.setup_fit(data, **line_fit_args)
 
+    if line_fit_args['fit_continuum']:
+        continuum_options = line_fit_args['copts'] if line_fit_args['copts'] is not None else {}
+        fit.fit_pseudo_continuum(**continuum_options)
+    line_fit_args.pop('fit_continuum')
     if line_fit_args['fixed']:
         fit.solution = fit.initial_guess
         print('Not fitting! Returning initial guess.')
@@ -35,8 +39,7 @@ def spectrum_fit(data: Union[Cube, onedspec.Spectrum], **line_fit_args):
     else:
         if line_fit_args['monte_carlo']:
             print('\n' + (40 * '-') + '\n' + 'Initial fit.\n')
-        fit.fit(min_method=line_fit_args['method'], verbose=line_fit_args['verbose'],
-                fit_continuum=line_fit_args['fit_continuum'], continuum_options=line_fit_args['copts'])
+        fit.fit(min_method=line_fit_args['method'], verbose=line_fit_args['verbose'])
 
     fit.integrate_flux()
     fit.equivalent_width()
