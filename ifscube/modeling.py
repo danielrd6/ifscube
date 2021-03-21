@@ -415,6 +415,8 @@ class LineFit:
                     s.append(f'{j[0]}.{j[1]} = {p[i]:.2f}')
                 else:
                     s.append(f'{j[0]}.{j[1]} = {p[i]:.2f} +- {u[i]:.2f}')
+            if p[i] in self.bounds[i]:
+                s[-1] = '\033[93m' + s[-1] + '\033[0m'
         s = '\n'.join(s)
         return s
 
