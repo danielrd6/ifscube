@@ -244,7 +244,7 @@ class ConstraintParser:
     def evaluate(self, parameter, scale_factor: float = 1.0, method: str = 'slsqp'):
         if method == 'differential_evolution':
             self._differential_evolution_constraints(parameter, scale_factor)
-        elif method in ['slsqp', 'trust-constr']:
+        elif method in ['slsqp', 'trust-constr', 'fixed']:
             self._minimize_constraints(parameter, scale_factor)
         else:
             raise RuntimeError(f'Unknown method "{method}".')

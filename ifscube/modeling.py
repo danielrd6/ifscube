@@ -14,6 +14,11 @@ from .datacube import Cube
 from .onedspec import Spectrum
 
 
+class FixedSolution:
+    def __init__(self, solution: np.ndarray):
+        self.x = solution
+
+
 class LineFit:
     def __init__(self, data: Union[Spectrum, Cube], function: str = 'gaussian', fitting_window: tuple = None,
                  instrument_dispersion: float = 1.0):
@@ -368,6 +373,8 @@ class LineFit:
             solution = differential_evolution(
                 self.res, bounds=list(bounds), args=(s,), constraints=self.constraints, **kwargs)
             self.status = 0
+        elif min_method == 'fixed':
+            solution = FixedSolution(p_0)
         else:
             raise RuntimeError(f'Unknown minimization method {min_method}.')
         self.reduced_chi_squared = self.res(solution.x, s) / self._degrees_of_freedom()
