@@ -47,6 +47,7 @@ def simple_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs)
         if function == 'gauss_hermite':
             fit.set_bounds(feature=name, parameter='h_3', bounds=[-0.2, 0.2])
 
+    fit.fit_pseudo_continuum()
     return fit
 
 
@@ -73,6 +74,7 @@ def full_fit(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
     fit.add_constraint('n2_6548.amplitude', 'n2_6583.amplitude / 3.06')
     fit.add_constraint('n2_6548_b.amplitude', 'n2_6583_b.amplitude / 3.06')
 
+    fit.fit_pseudo_continuum()
     return fit
 
 
