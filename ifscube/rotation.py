@@ -95,10 +95,11 @@ class Rotation(object):
     def print_solution(self):
         for key in self.solution.param_names:
             n = self.solution.param_names.index(key)
+            value = self.solution.parameters[n]
             if key in ['phi_0', 'theta']:
-                print('{:12s}: {:8.3f}'.format(key, np.rad2deg(self.solution.parameters[n])))
-            else:
-                print('{:12s}: {:8.3f}'.format(key, self.solution.parameters[n]))
+                value = np.rad2deg(value)
+            color = '\033[91m' if self.solution.parameters[n] in self.model.bounds[key] else ''
+            print(f'{color}{key:12s}: {value:8.3f}\033[0m')
 
     def plot_results(self, contrast=1.0, contours=True, symmetric=True):
         """Plots the fit results."""
