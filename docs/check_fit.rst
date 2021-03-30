@@ -20,7 +20,7 @@ should read
 
     fit_scrutinizer ngc3081_cube_linefit.fits
 
-This will star a GUI similar to the one in the figure below, but
+This will start a GUI similar to the one in the figure below, but
 without any of the plots yet. To start plotting your results you have to
 select a parameter from the list at the lower left corner, and a
 component from the list right next to it. In this example we selected
