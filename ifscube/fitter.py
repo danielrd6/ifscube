@@ -1,6 +1,7 @@
 import argparse
 import os
 from typing import Union
+import matplotlib.pyplot as plt
 
 import ifscube.io.line_fit
 from . import Cube
@@ -132,6 +133,7 @@ def dofit(file_name, line_fit_args, overwrite, cube_type, loading, fit_type, con
 
     if plot:
         fit.plot()
+        plt.show()
 
     if lock:
         clear_lock(lock_name)

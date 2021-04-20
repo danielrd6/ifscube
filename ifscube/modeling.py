@@ -635,7 +635,7 @@ class LineFit:
             self.eqw_direct = eqw_direct
 
     def plot(self, figure: plt.Figure = None, plot_all: bool = True, verbose: bool = False,
-             return_results: bool = False):
+             return_results: bool = False, spectrum_ax: plt.axes = None, residuals_ax: plt.axes = None):
         if plot_all:
             m = Ellipsis
         else:
@@ -651,42 +651,43 @@ class LineFit:
             fig = plt.figure()
         else:
             fig = figure
-            fig.clf()
 
-        ax, ax_res = fig.subplots(nrows=2, ncols=1, sharex='all',
-                                  gridspec_kw={'height_ratios': [4, 1], 'hspace': 0.0})
-        ax_res.plot(wavelength, (observed - model_lines - stellar - pseudo_continuum) / err)
-        ax_res.set_xlabel('Wavelength')
-        ax_res.set_ylabel('Residuals / sigma')
-        ax_res.grid()
+        if (spectrum_ax is None) and (residuals_ax is None):
+            fig.clf()
+            spectrum_ax, residuals_ax = fig.subplots(nrows=2, ncols=1, sharex='all',
+                                                     gridspec_kw={'height_ratios': [4, 1], 'hspace': 0.0})
+
+        residuals_ax.plot(wavelength, (observed - model_lines - stellar - pseudo_continuum) / err)
+        residuals_ax.set_xlabel('Wavelength')
+        residuals_ax.set_ylabel('Residuals / sigma')
+        residuals_ax.grid()
 
         if self.uncertainties is not None:
             low = self.function(wavelength, self.feature_wavelengths, self.solution - self.uncertainties)
             high = self.function(wavelength, self.feature_wavelengths, self.solution + self.uncertainties)
             low += stellar + pseudo_continuum
             high += stellar + pseudo_continuum
-            ax.fill_between(wavelength, low, high, color='C2', alpha=0.5)
+            spectrum_ax.fill_between(wavelength, low, high, color='C2', alpha=0.5)
 
-        ax.plot(wavelength, observed, color='C0')
-        ax.plot(wavelength, model_lines + stellar + pseudo_continuum, color='C2')
+        spectrum_ax.plot(wavelength, observed, color='C0')
+        spectrum_ax.plot(wavelength, model_lines + stellar + pseudo_continuum, color='C2')
 
         if np.any(pseudo_continuum):
-            ax.plot(wavelength, pseudo_continuum + stellar)
+            spectrum_ax.plot(wavelength, pseudo_continuum + stellar)
         if np.any(stellar):
-            ax.plot(wavelength, stellar)
+            spectrum_ax.plot(wavelength, stellar)
 
         ppf = self.parameters_per_feature
         for i in range(0, len(self.parameter_names), ppf):
             feature_wl = self.feature_wavelengths[int(i / ppf)]
             parameters = self.solution[i:i + ppf]
             line = self.function(wavelength, feature_wl, parameters)
-            ax.plot(wavelength, pseudo_continuum + stellar + line, 'k--')
+            spectrum_ax.plot(wavelength, pseudo_continuum + stellar + line, 'k--')
 
-        ax.set_ylabel('Spectral flux density')
-        ax.minorticks_on()
+        spectrum_ax.set_ylabel('Spectral flux density')
+        spectrum_ax.minorticks_on()
 
-        ax.grid()
-        plt.show()
+        spectrum_ax.grid()
 
         if verbose:
             print(self.print_parameters('solution'))
@@ -928,7 +929,8 @@ class LineFit3D(LineFit):
         return r
 
     def plot(self, figure: plt.Figure = None, plot_all: bool = True, verbose: bool = False,
-             return_results: bool = False, x_0: int = None, y_0: int = None):
+             return_results: bool = False, x_0: int = None, y_0: int = None, spectrum_ax: plt.axes = None,
+             residuals_ax: plt.axes = None):
         attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'solution',
                       'reduced_chi_squared']
         if self.uncertainties is not None:
@@ -938,5 +940,5 @@ class LineFit3D(LineFit):
         if y_0 is None:
             y_0 = self.y_0
         r = self._select_spaxel(function=super().plot, x=x_0, y=y_0, used_attributes=attributes,
-                                args=(figure, plot_all, verbose, return_results))
+                                args=(figure, plot_all, verbose, return_results, spectrum_ax, residuals_ax))
         return r

@@ -3,6 +3,7 @@ import argparse
 import tkinter as tk
 
 import matplotlib
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 from matplotlib.figure import Figure
@@ -182,6 +183,7 @@ class Scrutinizer:
 
         try:
             s = self.fit.plot(x_0=i, y_0=j, figure=self.fitplot, return_results=True)
+            plt.show()
             self.text.insert('insert', s[j, i])
         except IndexError:
             self.text.insert('insert', 'Index Error!')
@@ -194,6 +196,7 @@ class onedfit:
     def __init__(self, fname):
         spec = line_fit.load_fit(fname)
         spec.plot()
+        plt.show()
 
         return
 
