@@ -76,7 +76,8 @@ subroutine gaussvel(x, rest_wl, p, y, n, np)
         s = p(i+2)
 
         w = (vel - v0) / s
-        fvel = a * exp(-w**2 / 2.0)
+        ! The observed flux density equals the emitted flux density divided by (1 + z)
+        fvel = a * exp(-w**2 / 2.0) / (1.0 + (vel / c))
 
         y = y + fvel 
         j = j + 1
@@ -120,7 +121,8 @@ subroutine gausshermitevel(x, rest_wl, p, y, n, np)
         hh3 = (2.0 * sq2 * w**3 - 3.0 * sq2*w) / sq6
         hh4 = (4.0 * w**4 - 12.0 * w**2 + 3.0) / sq24
 
-        fvel = a * alphag * (1.0 + h3*hh3 + h4*hh4)
+        ! The observed flux density equals the emitted flux density divided by (1 + z)
+        fvel = a * alphag * (1.0 + h3*hh3 + h4*hh4) / (1.0 + (vel / c))
 
         y = y + fvel
         j = j + 1
