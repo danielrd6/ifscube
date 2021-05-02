@@ -654,20 +654,24 @@ def spectrophotometry(spec: Callable, transmission: Callable, limits: Iterable, 
         return photometry
 
 
-def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, width: float = 80.0,
-                   smooth: float = None, clip_negative_flux: bool = True, sigma_factor: float = 5.0,
-                   fractional_pixels: bool = True, rest_wavelength: float = None):
+def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, rest_wavelength: units.Quantity,
+                   width: float = 80.0, smooth: float = None, clip_negative_flux: bool = True,
+                   sigma_factor: float = 5.0, fractional_pixels: bool = True, oversample: int = 1):
     """
     Evaluates the W80 parameter of a given emission feature.
 
     Parameters
     ----------
     wavelength : array-like
-      Wavelength vector.
+      Wavelength vector. Units for the wavelength are assumed to be
+      the same as the rest_wavelength.
     model : np.ndarray
       Modeled spectral feature.
     data : np.ndarray
       Observed spectrum.
+    rest_wavelength : astropy.units.Quantity
+      Rest wavelength of the desired spectral feature. Units for this
+      argument must match those of the wavelength vector.
     width : float
       Percentile velocity width. For instance width=80 for the W_80 index.
     smooth : float
@@ -682,9 +686,9 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
       Uses a linear interpolation between adjacent pixels to find the
       velocity which yields the desired width exactly. Otherwise take
       the value from the closest pixel.
-    rest_wavelength : astropy.units.Quantity
-      Rest wavelength of the desired spectral feature. This quantity
-      is only used to assess the centroid velocity.
+    oversample : int
+      Oversample data this number of times. Oversampling is achieved
+      via a cubic spline interpolation.
 
 
     Returns
@@ -719,14 +723,7 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
 
     cumulative /= cumulative.max(initial=0)
 
-    center_wavelength = wavelength[np.argsort(np.abs(cumulative - 0.5))[0]]
-    if rest_wavelength is not None:
-        coarse_center_velocity = (center_wavelength * units.angstrom).to(
-            units.km / units.s, equivalencies=units.doppler_relativistic(rest_wavelength)).value
-    else:
-        coarse_center_velocity = 0.0
-
-    cw = center_wavelength
+    cw = wavelength[np.argsort(np.abs(cumulative - 0.5))[0]]
     lower_lambda = cw - ((cw - wavelength[np.argsort(np.abs(cumulative - 0.16))[0]]) * sigma_factor)
     upper_lambda = cw + ((wavelength[np.argsort(np.abs(cumulative - 0.84))[0]] - cw) * sigma_factor)
 
@@ -738,8 +735,17 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
     model = model[window]
     data = data[window]
 
+    first_iteration = True
     for name, spec in zip(['model', 'direct'], [model, data]):
         y = ma.masked_invalid(spec)
+        if oversample > 1:
+            if first_iteration:
+                old_wavelength = copy.deepcopy(wavelength)
+                first_iteration = False
+            y2 = interp1d(old_wavelength[~y.mask], y[~y.mask], kind='cubic')
+            m2 = interp1d(old_wavelength, y.mask, kind='nearest')
+            wavelength = np.linspace(old_wavelength[0], old_wavelength[-1], oversample * old_wavelength.size)
+            y = ma.array(data=y2(wavelength), mask=m2(wavelength))
         if clip_negative_flux:
             y = np.clip(y, a_min=0.0, a_max=None)
         if smooth is not None:
@@ -752,8 +758,8 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
             raise ValueError(f'cumulative must have only one dimension, but it has {len(cumulative.shape)}.')
         cumulative /= cumulative.max()
 
-        velocity = (wavelength * units.angstrom).to(
-            units.km / units.s, equivalencies=units.doppler_relativistic(center_wavelength * units.angstrom))
+        velocity = units.Quantity(wavelength, rest_wavelength.unit).to(
+            units.km / units.s, equivalencies=units.doppler_relativistic(rest_wavelength))
 
         if fractional_pixels:
             r0 = find_intermediary_value(velocity.value, cumulative, (50 - (width / 2)) / 100)
@@ -765,7 +771,7 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
             centroid = velocity[np.abs(cumulative - 0.5).argsort()[0]].value
 
         res[f'{name}_velocity_width'] = r1 - r0
-        res[f'{name}_centroid_velocity'] = centroid + coarse_center_velocity
+        res[f'{name}_centroid_velocity'] = centroid
         res[f'{name}_lower_velocity'] = r0
         res[f'{name}_upper_velocity'] = r1
         res[f'{name}_velocities'] = velocity

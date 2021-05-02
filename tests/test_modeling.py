@@ -2,6 +2,7 @@ import pkg_resources
 import pytest
 
 from ifscube import onedspec, modeling, datacube
+from astropy import units
 
 
 def fit_select(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
@@ -230,7 +231,7 @@ def test_velocity_width():
     fit = simple_fit(fit_type='spectrum')
     fit.optimize_fit(width=5.0)
     fit.fit()
-    fit.velocity_width(feature='ha', width=80)
+    fit.velocity_width(feature='ha', width=80, rest_wavelength=units.Quantity(6562.8, 'angstrom'))
     assert True
 
 
@@ -238,7 +239,8 @@ def test_velocity_width_multiple_features():
     fit = simple_fit(fit_type='spectrum')
     fit.optimize_fit(width=5.0)
     fit.fit()
-    fit.velocity_width(feature=['n2_6548', 'ha', 'n2_6583'], width=80)
+    fit.velocity_width(feature=['n2_6548', 'ha', 'n2_6583'], width=80,
+                       rest_wavelength=units.Quantity(6562.8, 'angstrom'))
     assert True
 
 
