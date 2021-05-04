@@ -747,13 +747,13 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
             wavelength = np.linspace(old_wavelength[0], old_wavelength[-1], oversample * old_wavelength.size)
             y = ma.array(data=y2(wavelength), mask=m2(wavelength))
         if clip_negative_flux:
-            y = np.clip(y, a_min=0.0, a_max=None)
+            y = ma.array(data=np.clip(y.data, a_min=0.0, a_max=None), mask=y.mask)
         if smooth is not None:
             kernel = Gaussian1DKernel(smooth)
             y_mask = copy.deepcopy(y.mask)
             y = ma.array(data=convolve(y, kernel=kernel, boundary='extend'), mask=y_mask)
 
-        cumulative = cumtrapz(y[~y.mask], wavelength[~y.mask], initial=0)[0]
+        cumulative = cumtrapz(y[~y.mask], wavelength[~y.mask], initial=0)
         if len(cumulative.shape) > 1:
             raise ValueError(f'cumulative must have only one dimension, but it has {len(cumulative.shape)}.')
         cumulative /= cumulative.max()
