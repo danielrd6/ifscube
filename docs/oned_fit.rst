@@ -220,23 +220,24 @@ We will now discuss each these in more detail:
     known as the standard deviation. It should be given in units of km/s.
 
 * amplitude:
-    Amplitude of the Gaussian function or Gauss-Hermite polynomial in units
-    of the input spectrum.
+    Amplitude of the Gaussian function or Gauss-Hermite polynomial in units of the input spectrum.
 
 * fixed:
     If set to yes, this spectral feature will have all its parameters fixed, except for the amplitude, which will be
     fixed relative to all the other features that are set as fixed. This is specially useful for fitting broad emission
     lines in Seyfert 1's.
 
+* continuum_windows:
+    Specifies two windows for the pseudo continuum fitting used in the equivalent width evaluation, and are not used
+    anywhere else.
+    It should be given as four wavelength values separated by commas.
+
 All the above parameters are mandatory for every spectral feature, except if
 they are part of a kinematic group.
 The last two parameters that a spectral feature can take are optional,
 and deserve a somewhat more detailed explanation.
 
-Lastly, **continuum_windows** specifies the windows for the pseudo
-continuum fitting used in the equivalent width evaluation, and are not
-used anywhere else. It should be given as four wavelength values
-separated by commas.
+Lastly, **continuum_windows**
 
 
 Kinematic grouping
@@ -269,17 +270,17 @@ Bounds
 
 Bounds for each parameter are given in one of two ways: i) two values
 separated by a **:**, or ii) a single value preceded by **+-**. For
-instance, if you want to set the wavelength for a given feature
+instance, if you want to set the centroid velocity for a given feature
 
 ::
 
-    velocity: 300.0, 1000:500.0
+    velocity: 300.0, 100.0:500.0
 
 or
 
 ::
 
-    velocity: 300.0, +- 200
+    velocity: 300.0, +- 200.0
 
 **do not forget** the space between **+-** and the number that follows it.
 
@@ -287,7 +288,7 @@ Bounds can also be one-sided, as in
 
 ::
 
-    amplitude: 1e-15, 1e-19:
+    amplitude: 1.0e-15, 1.0e-19:
 
 which will be interpreted as having only the lower limit of 1e-19 and no
 upper limit.
@@ -306,17 +307,15 @@ physically connected, such as the [N II] lines at 6548A and 6583A.
 ::
 
     [n2_a]
-    rest_wavelength: 6548
-    velocity: 0
-    sigma: 60
-    amplitude: 1e-15,, n2_b.amplitude / 3
+    rest_wavelength: 6548.0
+    velocity: 0.0
+    sigma: 60.0
+    amplitude: 1.0e-15,, n2_b.amplitude / 3.0
     k_group: 0
 
     [n2_b]
-    rest_wavelength: 6583
-    velocity: 0
-    sigma: 60
-    amplitude: 1e-15
+    rest_wavelength: 6583.0
+    amplitude: 3.0e-15
     k_group: 0
 
 The double comma before the constraint is there because value, bounds
@@ -325,9 +324,9 @@ set any bounds, an extra comma is necessary for the parser to correctly
 identify the constraint.
 
 Now let us discuss the syntax of the constraint, which is the expression
-**n2_b.amplitude / 3**.
-The parser accepts simple arithmetic operations (\*, /,
-+, -), inequality relations (:math:`<`, :math:`>`), numbers and feature
+**n2_b.amplitude / 3.0**.
+The parser accepts simple arithmetic operations (\*, /, +, -),
+inequality relations (:math:`<`, :math:`>`), numbers and feature
 parameters.
 Feature parameters are given as **<feature_name>.<parameter_name>**.
 For that reason feature names **should not** include periods.
