@@ -71,8 +71,7 @@ class whan_diagram:
         self.x = ma.log10(self.flux_n2 / self.flux_ha)
         self.y = ma.log10(self.wha)
 
-    def plot(self, ax=None, fig=None, text_opts={}, xlim=None,
-             ylim=None, **kwargs):
+    def plot(self, ax=None, fig=None, text_opts={}, xlim=None, ylim=None, **kwargs):
 
         if fig is None and ax is None:
             fig = plt.figure(1, figsize=(6, 6))
@@ -90,25 +89,22 @@ class whan_diagram:
         inv = ax.transAxes.inverted()
 
         # wha < 3 ==> Retired and passive galaxies
-        ax.axhline(np.log10(3))
+        ax.axhline(np.log10(3), color='k')
 
         # 3 < wha < 6 ==> weak AGN
         xm = inv.transform(ax.transData.transform((-.4, 0)))[0]
         print(xm)
-        ax.axhline(np.log10(6), xmin=xm)
+        ax.axhline(np.log10(6), xmin=xm, color='k')
 
         # log10([N II] / Ha) < -0.4 ==> Star forming galaxies
         ym = inv.transform(ax.transData.transform((0, np.log10(3))))[1]
-        ax.axvline(-.4, ymin=ym)
+        # ax.axvline(-.4, ymin=ym)
+        ax.axvline(-.4, color='k')
 
         ax.text(.05, .95, 'SF', ha='left', transform=ax.transAxes, **text_opts)
-        ax.text(.95, .95, 'sAGN', ha='right', transform=ax.transAxes,
-            **text_opts)
-        trans = transforms.blended_transform_factory(
-            ax.transAxes, ax.transData)
-        ax.text(.95, np.log10(4), 'wAGN', ha='right', transform=trans,
-            **text_opts)
-        ax.text(.95, .1, 'Passive galaxies', ha='right',
-                transform=ax.transAxes, **text_opts)
+        ax.text(.95, .95, 'sAGN', ha='right', transform=ax.transAxes, **text_opts)
+        trans = transforms.blended_transform_factory(ax.transAxes, ax.transData)
+        ax.text(.95, np.log10(4), 'wAGN', ha='right', transform=trans, **text_opts)
+        ax.text(.95, .05, 'Passive galaxies', ha='right', transform=ax.transAxes, **text_opts)
 
         ax.scatter(self.x, self.y, **kwargs)
