@@ -1,6 +1,7 @@
 import argparse
 import os
 from typing import Union
+
 import matplotlib.pyplot as plt
 
 import ifscube.io.line_fit
@@ -56,7 +57,8 @@ def spectrum_fit(data: Union[Cube, onedspec.Spectrum], **line_fit_args):
     return fit
 
 
-def dofit(file_name, line_fit_args, overwrite, cube_type, loading, fit_type, config_file_name, plot=False, lock=False):
+def dofit(file_name, line_fit_args, overwrite, cube_type, loading, fit_type, config_file_name, plot=False, lock=False,
+          plot_all=True):
     galname = file_name.split('/')[-1]
 
     try:
@@ -132,7 +134,7 @@ def dofit(file_name, line_fit_args, overwrite, cube_type, loading, fit_type, con
             clear_lock(lock_name)
 
     if plot:
-        fit.plot()
+        fit.plot(plot_all=plot_all)
         plt.show()
 
     if lock:
@@ -143,13 +145,15 @@ def dofit(file_name, line_fit_args, overwrite, cube_type, loading, fit_type, con
 
 def main(fit_type):
     ap = argparse.ArgumentParser()
-    ap.add_argument('-o', '--overwrite', action='store_true', help='Overwrites previous fit with the same name.')
-    ap.add_argument('-p', '--plot', action='store_true', help='Plots the resulting fit.')
+    ap.add_argument('-b', '--cubetype', type=str, default=None, help='"gmos" or "manga".')
+    ap.add_argument('-c', '--config', type=str, help='Config file.')
+    ap.add_argument('-f', '--focused-plot', action='store_false',
+                    help='Plots just the fitting window, not the whole spectrum.')
     ap.add_argument('-l', '--lock', action='store_true', default=False,
                     help='Creates a lock file to prevent multiple instances from attempting to fit the same file at '
                          'the same time.')
-    ap.add_argument('-b', '--cubetype', type=str, default=None, help='"gmos" or "manga".')
-    ap.add_argument('-c', '--config', type=str, help='Config file.')
+    ap.add_argument('-o', '--overwrite', action='store_true', help='Overwrites previous fit with the same name.')
+    ap.add_argument('-p', '--plot', action='store_true', help='Plots the resulting fit.')
     ap.add_argument('datafile', help='FITS data file to be fit.', nargs='*')
 
     args = ap.parse_args()
@@ -158,4 +162,5 @@ def main(fit_type):
         c = parser.LineFitParser(args.config)
         line_fit_args = c.get_vars()
         dofit(i, line_fit_args, overwrite=args.overwrite, cube_type=args.cubetype, plot=args.plot,
-              loading=c.loading_opts, lock=args.lock, fit_type=fit_type, config_file_name=args.config)
+              loading=c.loading_opts, lock=args.lock, fit_type=fit_type, config_file_name=args.config,
+              plot_all=args.focused_plot)
