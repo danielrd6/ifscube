@@ -191,18 +191,25 @@ def cube_kinematics(cube, fitting_window, individual_spec=None, verbose=False, *
             kwargs['noise'] = noise[:, i, j]
             pop_it_later = True
 
-        if (mask is not None) and ((cube.flags is not None) and np.any(cube.flags[:, i, j])):
-            m = mask + spectools.flags_to_mask(wavelength, flags[:, i, j])
+        if mask is not None:
+            if cube.flags is not None:
+                if np.any(cube.flags[:, i, j]):
+                    m = mask + spectools.flags_to_mask(wavelength, flags[:, i, j])
+                else:
+                    m = mask
+            else:
+                m = mask
         elif cube.flags is not None:
-            m = spectools.flags_to_mask(wavelength, flags[:, i, j])
-            if not m:
+            if np.any(cube.flags[:, i, j]):
+                m = spectools.flags_to_mask(wavelength, flags[:, i, j])
+            else:
                 m = None
         else:
             m = None
 
         pp = fit.fit(wavelength, data[:, i, j], mask=m, **kwargs)
         if len(pp.sol) < 4:
-            pp.sol = np.concatenate([pp.sol, (4 - len(pp.sol)) * [0.,]])
+            pp.sol = np.concatenate([pp.sol, (4 - len(pp.sol)) * [0., ]])
 
         if pop_it_later:
             kwargs.pop('noise')
@@ -397,6 +404,7 @@ class Fit(object):
             mean_noise = np.mean(noise[~noise_mask])
             noise[noise_mask] = mean_noise
             return noise
+
         if isinstance(noise, float):
             noise = make_noise(galaxy, noise)
         elif isinstance(noise, np.ndarray):
@@ -411,7 +419,7 @@ class Fit(object):
         if len(gp.shape) > 1:
             gp = gp[0]
         pp = ppxf.ppxf(templates, galaxy, noise, velscale, start, goodpixels=gp, moments=moments, degree=deg, vsyst=dv,
-                       quiet=quiet, **kwargs)
+                       quiet=quiet, lam=lam1, **kwargs)
 
         self.solution = pp
 
