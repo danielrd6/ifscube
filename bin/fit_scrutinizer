@@ -90,6 +90,7 @@ class Scrutinizer:
         l_par.grid(row=8, column=1, rowspan=4)
         l_component.grid(row=8, column=2, rowspan=4)
         self.text.grid(row=8, column=7, rowspan=4)
+        self.text.insert("insert", "Select a fit parameter and a spectral feature.")
 
         self.l_par = l_par
         self.l_component = l_component
@@ -116,8 +117,19 @@ class Scrutinizer:
         self.connect_id = self.canvas.mpl_connect('motion_notify_event', self.onclick)
 
     def getim(self):
-        par = self.l_par.curselection()[0]
-        comp = self.l_component.curselection()[0]
+        try:
+            par = self.l_par.curselection()[0]
+        except IndexError:
+            self.text.delete('1.0', 'end')
+            self.text.insert('insert', "You must select a parameter for plotting!")
+            return None, None
+        try:
+            comp = self.l_component.curselection()[0]
+        except IndexError:
+            self.text.delete('1.0', 'end')
+            self.text.insert('insert', "You must select a spectral feature for plotting!")
+            return None, None
+
         parameter = (self.l_component.get(comp), self.l_par.get(par))
 
         if parameter[1] in ['eqw_model', 'eqw_direct', 'flux_model', 'flux_direct']:
@@ -147,20 +159,20 @@ class Scrutinizer:
         self.cax.cla()
 
         d, cm = self.getim()
+        if (d is not None) and (cm is not None):
+            z0 = np.percentile(d[~d.mask], contrast)
+            z1 = np.percentile(d[~d.mask], 100 - contrast)
 
-        z0 = np.percentile(d[~d.mask], contrast)
-        z1 = np.percentile(d[~d.mask], 100 - contrast)
+            if cm == 'Spectral_r':
+                im = a.pcolormesh(d, cmap=cm, vmin=z0, vmax=z1)
+            else:
+                im = a.pcolormesh(d, cmap=cm)
 
-        if cm == 'Spectral_r':
-            im = a.pcolormesh(d, cmap=cm, vmin=z0, vmax=z1)
-        else:
-            im = a.pcolormesh(d, cmap=cm)
+            matplotlib.colorbar.Colorbar(self.cax, im)
 
-        matplotlib.colorbar.Colorbar(self.cax, im)
+            a.set_aspect('equal', 'datalim')
 
-        a.set_aspect('equal', 'datalim')
-
-        self.canvas.draw()
+            self.canvas.draw()
 
     def onclick(self, event):
 
