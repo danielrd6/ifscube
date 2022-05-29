@@ -913,7 +913,7 @@ class LineFit3D(LineFit):
             try:
                 r[s[1:]] = function(*args, **kwargs)
             except Exception as err:
-                print(f'Execption ocurred in spaxel {s}.')
+                print(f'Exception occurred in spaxel {s}.')
                 print(err)
                 self.status = 1
 
