@@ -24,6 +24,20 @@ use other formats or perform some preliminary processing of your data, it is eno
 :class:`ifscube.datacube.Cube` or :class:`ifscube.onedspec.Spectrum` classes, substituting the :meth:`__init__`
 and :meth:`_load` methods.
 
+Acknowleging IFSCube
+====================
+
+If you use IFSCube in your research, and feel that it has contributed
+significantly to your work, please consider citing the following paper
+
+`Ruschel-Dutra et al. 2021, <https://ui.adsabs.harvard.edu/abs/2021MNRAS.507...74R/abstract>`_
+
+which has been the main driver for the development of the code,
+and the Zenodo DOI
+
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.4065550.svg
+   :target: https://doi.org/10.5281/zenodo.4065550
+
 Installation instructions
 ==================================================
 
