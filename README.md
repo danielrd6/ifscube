@@ -7,14 +7,17 @@ Author: Daniel Ruschel Dutra
 
 Website: https://github.com/danielrd6/ifscube/
 
-## Installation instructions
+# Acknowleding IFSCube
 
-I recommend installing the package via pip (https://pypi.python.org/pypi/pip).
+If you use IFSCube in your research, and feel that it has contributed
+significantly to your work, please consider citing the following paper
 
-To install IFSCUBE using pip, you must first intall git (https://git-scm.com/),
-and then just enter the following in a terminal:
+[Ruschel-Dutra el al. 2021](https://ui.adsabs.harvard.edu/abs/2021MNRAS.507...74R/abstract),
 
-        pip install git+https://github.com/danielrd6/ifscube.git
+which has been the main driver for the development of the code,
+and the Zenodo DOI
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4065550.svg)](https://doi.org/10.5281/zenodo.4065550).
 
 ## Documentation
 
