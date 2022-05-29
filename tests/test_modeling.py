@@ -250,6 +250,16 @@ def test_simple_cube_fit():
     assert True
 
 
+def test_simple_cube_warning():
+    """
+    Tests if the exception in spaxel warning is issued correctly.
+    """
+    fit = simple_fit(fit_type='cube')
+    fit.fit()
+    with pytest.warns(RuntimeWarning, match="Exception occurred in spaxel"):
+        fit.velocity_width(feature=['ha', 'n2_6583'], width=80)
+
+
 def test_full_cube_fit():
     fit = full_fit(fit_type='cube')
     fit.optimize_fit()
@@ -298,7 +308,7 @@ def test_cube_velocity_width_multiple_features():
     fit = simple_fit(fit_type='cube')
     fit.optimize_fit(width=5.0)
     fit.fit()
-    fit.velocity_width(feature=['ha', 'n2_6583'], width=80)
+    fit.velocity_width(feature=['ha', 'n2_6583'], width=80, rest_wavelength=units.Quantity(6572.9, 'Angstrom'))
     assert True
 
 
@@ -306,7 +316,8 @@ def test_cube_velocity_width_multiple_features_not_fractional():
     fit = simple_fit(fit_type='cube')
     fit.optimize_fit(width=5.0)
     fit.fit()
-    fit.velocity_width(feature=['ha', 'n2_6583'], width=80, fractional_pixels=False)
+    fit.velocity_width(feature=['ha', 'n2_6583'], width=80, rest_wavelength=units.Quantity(6572.9, 'Angstrom'),
+                       fractional_pixels=False)
     assert True
 
 
