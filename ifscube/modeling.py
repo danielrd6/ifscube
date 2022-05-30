@@ -172,6 +172,7 @@ class LineFit:
     def _evaluate_constraints(self, method):
         pn = ['.'.join(_) for _ in self._packed_parameter_names]
         constraints = []
+
         for parameter, expression in self.constraint_expressions:
             if parameter.split('.')[0] in self.fixed_features:
                 warnings.warn(
@@ -184,15 +185,19 @@ class LineFit:
                 else:
                     cp.evaluate(parameter, method=method)
                 constraints.append(cp.constraint)
+
         if method == 'differential_evolution':
-            c = {'A': np.array([_['matrix'] for _ in constraints]),
-                 'lb': np.array([_['lower_bounds'] for _ in constraints]),
-                 'ub': np.array([_['upper_bounds'] for _ in constraints])}
-            for key in c.keys():
-                assert np.max(c[key].astype(bool).sum(0)) <= 1.0, \
-                    f'Multiple constraints for the same parameter are not supported for the method "{method}".'
-                c[key] = c[key].sum(0)
-            constraints = (LinearConstraint(**c),)
+            if len(constraints) > 0:
+                c = {'A': np.array([_['matrix'] for _ in constraints]),
+                     'lb': np.array([_['lower_bounds'] for _ in constraints]),
+                     'ub': np.array([_['upper_bounds'] for _ in constraints])}
+                for key in c.keys():
+                    assert np.max(c[key].astype(bool).sum(0)) <= 1.0, \
+                        f'Multiple constraints for the same parameter are not supported for the method "{method}".'
+                    c[key] = c[key].sum(0)
+                constraints = (LinearConstraint(**c),)
+            else:
+                constraints = ()
         self.constraints = constraints
 
     def res(self, x, s):
