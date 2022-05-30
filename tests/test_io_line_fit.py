@@ -1,4 +1,5 @@
 import pkg_resources
+import warnings
 from astropy import table
 
 from ifscube.io import line_fit
@@ -16,7 +17,9 @@ def test_write_fit_1d():
     fit = simple_fit()
     fit.fit_pseudo_continuum()
     fit.fit(verbose=True)
-    line_fit.write_spectrum_fit(fit, out_image='tests/test_write_fit_1d.fits', function='gaussian', overwrite=True)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="tostring", category=DeprecationWarning)
+        line_fit.write_spectrum_fit(fit, out_image='tests/test_write_fit_1d.fits', function='gaussian', overwrite=True)
     assert 1
 
 
@@ -27,8 +30,10 @@ def test_load_fit_1d():
 
 def test_write_fit_3d():
     fit = simple_fit(function='gaussian', fit_type='cube', spiral_loop=True, spiral_center=(3, 4))
-    fit.fit(verbose=False, fit_continuum=True)
-    line_fit.write_spectrum_fit(fit, out_image='tests/test_write_fit_3d.fits', function='gaussian', overwrite=True)
+    fit.fit(verbose=False)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="tostring", category=DeprecationWarning)
+        line_fit.write_spectrum_fit(fit, out_image='tests/test_write_fit_3d.fits', function='gaussian', overwrite=True)
     assert 1
 
 
