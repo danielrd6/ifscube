@@ -28,7 +28,7 @@ class Scrutinizer:
 
         self.text = tk.Text(window, bg='white', height=10, width=80, font=('Fixedsys', 12))
 
-        l_par = tk.Listbox(window, selectmode='single', exportselection=0)
+        l_parameter = tk.Listbox(window, selectmode='single', exportselection=0)
         l_component = tk.Listbox(window, selectmode='single', exportselection=0)
 
         n_components = len(fit.feature_names)
@@ -36,11 +36,11 @@ class Scrutinizer:
 
         self.parameter_names = fit.parameter_names
         for i in [_[1] for _ in fit.parameter_names[:n_parameters]]:
-            l_par.insert('end', i)
+            l_parameter.insert('end', i)
 
         for i in ['flux_model', 'flux_direct', 'eqw_model', 'eqw_direct']:
             if hasattr(fit, i):
-                l_par.insert('end', i)
+                l_parameter.insert('end', i)
 
         self.n_components = n_components
         self.n_parameters = n_parameters
@@ -82,15 +82,23 @@ class Scrutinizer:
         other_toolbar = NavigationToolbar2Tk(canvas2, other_tb_frame)
         other_toolbar.update()
 
-        self.buttonPlot.grid(row=8, column=0, sticky='W')
-        self.buttonFollow.grid(row=9, column=0, sticky='W')
-        self.buttonSinglePlot.grid(row=10, column=0, sticky='W')
-        l_par.grid(row=8, column=1, rowspan=4)
-        l_component.grid(row=8, column=2, rowspan=4)
-        self.text.grid(row=8, column=7, rowspan=4)
+        # Labels
+        parameter_label = tk.Label(self.window, text="Fit parameter")
+        parameter_label.grid(row=8, column=1)
+
+        component_label = tk.Label(self.window, text="Spectral feature")
+        component_label.grid(row=8, column=2)
+
+        n = 9
+        self.buttonPlot.grid(row=n, column=0, sticky='W')
+        self.buttonFollow.grid(row=n + 1, column=0, sticky='W')
+        self.buttonSinglePlot.grid(row=n + 2, column=0, sticky='W')
+        l_parameter.grid(row=n, column=1, rowspan=4)
+        l_component.grid(row=n, column=2, rowspan=4)
+        self.text.grid(row=n, column=7, rowspan=4)
         self.text.insert("insert", "Select a fit parameter and a spectral feature.")
 
-        self.l_par = l_par
+        self.l_par = l_parameter
         self.l_component = l_component
 
         canvas.draw()
@@ -120,14 +128,14 @@ class Scrutinizer:
         try:
             par = self.l_par.curselection()[0]
         except IndexError:
-            self.text.delete('1.0', 'end')
-            self.text.insert('insert', "You must select a parameter for plotting!")
+            # noinspection PyUnresolvedReferences
+            tk.messagebox.showwarning("Warning!", "You must select a parameter for plotting!")
             return None, None
         try:
             comp = self.l_component.curselection()[0]
         except IndexError:
-            self.text.delete('1.0', 'end')
-            self.text.insert('insert', "You must select a spectral feature for plotting!")
+            # noinspection PyUnresolvedReferences
+            tk.messagebox.showwarning("Warning!", "You must select a spectral feature for plotting!")
             return None, None
 
         parameter = (self.l_component.get(comp), self.l_par.get(par))
