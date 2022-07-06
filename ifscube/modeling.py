@@ -172,6 +172,7 @@ class LineFit:
     def _evaluate_constraints(self, method):
         pn = ['.'.join(_) for _ in self._packed_parameter_names]
         constraints = []
+
         for parameter, expression in self.constraint_expressions:
             if parameter.split('.')[0] in self.fixed_features:
                 warnings.warn(
@@ -184,15 +185,19 @@ class LineFit:
                 else:
                     cp.evaluate(parameter, method=method)
                 constraints.append(cp.constraint)
+
         if method == 'differential_evolution':
-            c = {'A': np.array([_['matrix'] for _ in constraints]),
-                 'lb': np.array([_['lower_bounds'] for _ in constraints]),
-                 'ub': np.array([_['upper_bounds'] for _ in constraints])}
-            for key in c.keys():
-                assert np.max(c[key].astype(bool).sum(0)) <= 1.0, \
-                    f'Multiple constraints for the same parameter are not supported for the method "{method}".'
-                c[key] = c[key].sum(0)
-            constraints = (LinearConstraint(**c),)
+            if len(constraints) > 0:
+                c = {'A': np.array([_['matrix'] for _ in constraints]),
+                     'lb': np.array([_['lower_bounds'] for _ in constraints]),
+                     'ub': np.array([_['upper_bounds'] for _ in constraints])}
+                for key in c.keys():
+                    assert np.max(c[key].astype(bool).sum(0)) <= 1.0, \
+                        f'Multiple constraints for the same parameter are not supported for the method "{method}".'
+                    c[key] = c[key].sum(0)
+                constraints = (LinearConstraint(**c),)
+            else:
+                constraints = ()
         self.constraints = constraints
 
     def res(self, x, s):
@@ -335,6 +340,7 @@ class LineFit:
             weights = continuum_weights(spectools.sigma_lambda(sigma_velocities, self.feature_wavelengths))[fw]
         # noinspection PyCallingNonCallable
         pc = spectools.continuum(wl[fw], (self.data - self.stellar)[fw], output='polynomial', degree=degree,
+                                 n_iterate=n_iterate, lower_threshold=lower_threshold, upper_threshold=upper_threshold,
                                  weights=weights)(wl)
         pc[~fw] = np.nan
         self.pseudo_continuum = pc
@@ -913,8 +919,8 @@ class LineFit3D(LineFit):
             try:
                 r[s[1:]] = function(*args, **kwargs)
             except Exception as err:
-                print(f'Execption ocurred in spaxel {s}.')
-                print(err)
+                warnings.warn(f"Exception occurred in spaxel {s[1:]}.\n" + str(err), category=RuntimeWarning,
+                              stacklevel=2)
                 self.status = 1
 
             for i in modified_attributes:
