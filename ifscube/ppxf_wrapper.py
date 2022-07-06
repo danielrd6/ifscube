@@ -303,7 +303,8 @@ class Fit(object):
         self.base = self.base[:, base_cut]
         self.base_wavelength = self.base_wavelength[base_cut]
 
-    def fit(self, wavelength, data, mask=None, initial_velocity=0.0, initial_sigma=150.0, fwhm_gal=2, fwhm_model=1.8,
+    def fit(self, wavelength, data, mask=None, start=None, initial_velocity=0.0, initial_sigma=150.0, fwhm_gal=2,
+            fwhm_model=1.8,
             noise=0.05, plot_fit=False, quiet=False, deg=4, moments=4, **kwargs):
         """
         Performs the pPXF fit.
@@ -395,7 +396,11 @@ class Fit(object):
         # z = np.exp(vel/c) - 1
 
         # Here the actual fit starts.
-        start = [initial_velocity, initial_sigma]  # (km/s), starting guess for [V,sigma]
+        if start is None:
+            if moments == 2:
+                start = [initial_velocity, initial_sigma]  # (km/s), starting guess for [V,sigma]
+            elif moments == 4:
+                start = [initial_velocity, initial_sigma, 0, 0]  # (km/s), starting guess for [V,sigma]
 
         # Assumes uniform noise accross the spectrum
         def make_noise(galaxy, noise):
