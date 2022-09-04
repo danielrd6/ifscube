@@ -1,8 +1,9 @@
+import numpy as np
 import pkg_resources
 import pytest
+from astropy import units
 
 from ifscube import onedspec, modeling, datacube
-from astropy import units
 
 
 def fit_select(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):
@@ -180,8 +181,8 @@ def test_constraints_differential_evolution():
         fit.set_bounds(i, j, bounds[j])
     fit.fit(min_method='differential_evolution', verbose=True)
     constraint_a = (
-        fit._get_feature_parameter("n2_6583", "amplitude", "solution")
-        / fit._get_feature_parameter("n2_6548", "amplitude", "solution")) == 3.06
+                           fit._get_feature_parameter("n2_6583", "amplitude", "solution")
+                           / fit._get_feature_parameter("n2_6548", "amplitude", "solution")) == 3.06
     constraint_b = fit._get_feature_parameter("ha", "amplitude", "solution") < 1.5
     assert constraint_a and constraint_b
 
@@ -213,6 +214,46 @@ def test_fixed_features():
                         fixed='n2' in name, kinematic_group=k)
     fit.fit()
     assert 1
+
+
+def test_get_model():
+    fit = simple_fit()
+    fit.fit()
+    a = fit.get_model("ha")
+    index = fit.feature_names.index("ha")
+    solution = fit._get_feature_parameter("ha", "all", "solution")
+    b = fit.function(fit.wavelength, index, solution)
+    assert np.all(a - b) == 0
+
+
+def test_get_model_3d():
+    fit = simple_fit(fit_type="cube")
+    fit.fit()
+    fit.get_model("ha")
+    assert True
+
+
+def test_get_model_multiple():
+    fit = simple_fit()
+    fit.fit()
+    a = fit.get_model(["ha", "n2_6583"])
+
+    index = fit.feature_names.index("ha")
+    solution = fit._get_feature_parameter("ha", "all", "solution")
+    b = fit.function(fit.wavelength, index, solution)
+
+    index = fit.feature_names.index("n2_6583")
+    solution = fit._get_feature_parameter("n2_6583", "all", "solution")
+    b += fit.function(fit.wavelength, index, solution)
+
+    assert np.all(a - b) == 0
+
+
+def test_get_model_multiple_3d():
+    fit = simple_fit(fit_type="cube")
+    fit.fit()
+    fit.get_model(["ha", "n2_6583"])
+    assert True
 
 
 def test_monte_carlo():

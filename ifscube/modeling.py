@@ -518,19 +518,40 @@ class LineFit:
             self.flux_direct = flux_direct
 
     def velocity_width(self, feature: Union[str, list], sigma_factor: float = 5.0, plot: bool = False, **kwargs):
+        """
+        Evaluates the velocity width which encompasses a given percentile
+        of the spectral feature's flux.
 
-        if type(feature) == str:
-            index = self.feature_names.index(feature)
-            solution = self._get_feature_parameter(feature, 'all', 'solution')
-            fit = self.function(self.wavelength, self.feature_wavelengths[index], solution)
-        elif type(feature) == list:
-            fit = np.zeros_like(self.wavelength)
-            for component in feature:
-                solution = self._get_feature_parameter(component, 'all', 'solution')
-                index = self.feature_names.index(component)
-                fit += self.function(self.wavelength, self.feature_wavelengths[index], solution)
-        else:
-            raise TypeError('feature must be either string or list.')
+        Parameters
+        ----------
+        feature : str, list
+            Names of the features to be included in the modelled
+            spectrum. Can be either a string specifying a single
+            spectral feature, or a list of strings.
+        sigma_factor : float
+            Width, in units of the feature's sigma parameter, to
+            be considered when integrating the line flux.
+        plot : bool
+            Plots results.
+        **kwargs
+            To be passed to spectools.velocity_width
+
+        Returns
+        -------
+        res : dict
+            Dictionary containing the results from
+            spectools.velocity_width.
+        """
+        fit = LineFit.get_model(self, feature=feature)
+
+        if "rest_wavelength" not in kwargs:
+            if type(feature) == str:
+                rwl = self.feature_wavelengths[self.feature_names.index(feature)]
+            elif type(feature) == list:
+                rwl = np.average([self.feature_wavelengths[self.feature_names.index(_)] for _ in feature])
+            else:
+                raise TypeError('feature must be either string or list.')
+            kwargs["rest_wavelength"] = rwl
 
         obs_spec = (self.data - self.pseudo_continuum - self.stellar)
         res = spectools.velocity_width(wavelength=self.wavelength, model=fit, data=obs_spec, sigma_factor=sigma_factor,
@@ -543,6 +564,37 @@ class LineFit:
         self.velocity_width_direct = res['direct_velocity_width']
 
         return res
+
+    def get_model(self, feature: Union[str, list]):
+        """
+        Generates an array, equal in length to the original spectrum,
+        but having only the spectral features defined by *feature*.
+
+        Parameters
+        ----------
+        feature : str, list
+            Names of the features to be included in the modelled
+            spectrum. Can be either a string specifying a single
+            spectral feature, or a list of strings.
+
+        Returns
+        -------
+        fit : np.ndarray
+            Modelled spectrum.
+        """
+        if type(feature) == str:
+            index = self.feature_names.index(feature)
+            solution = self._get_feature_parameter(feature, 'all', 'solution')
+            fit = self.function(self.wavelength, self.feature_wavelengths[index], solution)
+        elif type(feature) == list:
+            fit = np.zeros_like(self.wavelength)
+            for component in feature:
+                solution = self._get_feature_parameter(component, 'all', 'solution')
+                index = self.feature_names.index(component)
+                fit += self.function(self.wavelength, self.feature_wavelengths[index], solution)
+        else:
+            raise TypeError('feature must be either string or list.')
+        return fit
 
     def _get_center_wavelength(self, feature):
         velocity = self._get_feature_parameter(feature, 'velocity', 'solution')
@@ -833,6 +885,16 @@ class LineFit3D(LineFit):
                                 modified_attributes=in_attr, args=(feature, sigma_factor), kwargs=kwargs,
                                 description='Evaluating velocity width')
         return r
+
+    def get_model(self, feature: Union[str, list]):
+        attributes = ['data', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'status', 'solution']
+        r = self._select_spaxel(function=super().get_model, used_attributes=attributes,
+                                modified_attributes=None, args=(feature,), description='Making modelled data cube.')
+        x = np.zeros_like(self.data)
+        for i in range(r.shape[0]):
+            for j in range(r.shape[1]):
+                x[:, i, j] = r[i, j]
+        return x
 
     @staticmethod
     def _change_bounds(value, change, original, fraction: bool = False):
