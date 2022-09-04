@@ -180,9 +180,9 @@ def test_constraints_differential_evolution():
     for i, j in fit.parameter_names:
         fit.set_bounds(i, j, bounds[j])
     fit.fit(min_method='differential_evolution', verbose=True)
-    constraint_a = (
-                           fit._get_feature_parameter("n2_6583", "amplitude", "solution")
-                           / fit._get_feature_parameter("n2_6548", "amplitude", "solution")) == 3.06
+    ratio = fit._get_feature_parameter("n2_6583", "amplitude", "solution") \
+        / fit._get_feature_parameter("n2_6548", "amplitude", "solution")
+    constraint_a = np.abs(1 - (ratio / 3.06)) < 0.01
     constraint_b = fit._get_feature_parameter("ha", "amplitude", "solution") < 1.5
     assert constraint_a and constraint_b
 
