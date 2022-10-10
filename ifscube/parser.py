@@ -351,14 +351,21 @@ class LineFitParser:
     def _minimization(self):
 
         if 'minimization' in self.cfg.sections():
-            self.minopts = self._parse_dict(
-                section='minimization',
-                float_args=['eps', 'ftol'],
-                int_args=['maxiter'],
-                bool_args=['disp'],
-            )
+            if self.fit_opts["method"] in ["slsqp", "trust-constr"]:
+                self.minimization_options = {
+                    "options": self._parse_dict(section='minimization', float_args=['eps', 'ftol'],
+                                                int_args=['maxiter'], bool_args=['disp'])}
+            elif self.fit_opts["method"]:
+                self.minimization_options = self._parse_dict(
+                    section="minimization",
+                    int_args=["maxiter", "popsize", "workers", "seed"],
+                    float_args=["tol", "recombination", "atol"],
+                    bool_args=["disp", "polish"]
+                )
+            else:
+                raise RuntimeError(f"Unkown minimization method {self.fit_opts['method']}")
         else:
-            self.minopts = {}
+            self.minimization_options = {}
 
     def _fit(self):
 
@@ -402,11 +409,12 @@ class LineFitParser:
         fit_opts['fixed'] = self.cfg.getboolean('fit', 'fixed', fallback=False)
 
         float_args = ['refit_radius', 'sig_threshold', 'instrument_dispersion', 'optimization_window',
-                      'good_minfraction', 'instrument_dispersion_angstrom']
+                      'instrument_dispersion_angstrom']
         for i in float_args:
             if i in fit_opts:
                 fit_opts[i] = self.cfg.getfloat('fit', i)
 
+        fit_opts['minimum_good_fraction'] = self.cfg.getfloat("fit", "minimum_good_fraction", fallback=0.8)
         fit_opts['monte_carlo'] = self.cfg.getint('fit', 'monte_carlo', fallback=0)
         fit_opts['method'] = self.cfg.get('fit', 'method', fallback='slsqp')
         fit_opts['suffix'] = self.cfg.get('fit', 'suffix', fallback='_linefit')
@@ -574,6 +582,7 @@ class LineFitParser:
 
         d = {**vars(self), **self.fit_opts}
         todel = ['cfg', 'par_names', 'fit_opts', 'copts', 'loading_opts', 'cwin']
+        d["minimum_good_fraction"] = self.fit_opts["minimum_good_fraction"]
         for i in todel:
             del d[i]
         d['copts'] = self.copts
