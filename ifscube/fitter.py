@@ -40,7 +40,8 @@ def spectrum_fit(data: Union[Cube, onedspec.Spectrum], **line_fit_args):
     else:
         if line_fit_args['monte_carlo']:
             print('\n' + (40 * '-') + '\n' + 'Initial fit.\n')
-        fit.fit(min_method=line_fit_args['method'], verbose=line_fit_args['verbose'])
+        fit.fit(min_method=line_fit_args['method'], minimum_good_fraction=line_fit_args["minimum_good_fraction"],
+                verbose=line_fit_args['verbose'], **line_fit_args["minimization_options"])
 
     fit.integrate_flux()
     fit.equivalent_width()
