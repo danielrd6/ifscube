@@ -133,10 +133,16 @@ minimization
 This section controls the minimization algorithm, and its parameters are
 directly passed on to the *scipy.optimize.minimize* function. A number
 of different solvers are accessible via the *minimize* function, but
-currently specfit only The reader is encouraged to read the
-documentation for the scipy function in order to gain a deeper
-understanding of the fitting process. In the parameter list below a few
-example values are offered as a suggestion.
+currently specfit only supports SLSQP and differential_evolution.
+The reader is encouraged to read the documentation for the scipy function
+in order to gain a deeper understanding of the fitting process.
+In the parameter list below a few example values are offered as a suggestion.
+
+It may be necessary to change the parameters for different minimization
+methods. Check the sections below to see which parameters apply for each method.
+
+SLSQP parameters
+................
 
 * eps: (1e-2) number
     Step size used for numerical approximation of the jacobian.
@@ -149,6 +155,41 @@ example values are offered as a suggestion.
 
 * maxiter: 100 number
     Maximum number of minimization iterations.
+
+Differential evolution parameters
+.................................
+
+* atol : float
+    Absolute tolerance for convergence, the solving stops when
+    ``np.std(pop) <= atol + tol * np.abs(np.mean(population_energies))``,
+    where and `atol` and `tol` are the absolute and relative tolerance
+
+* tol : float
+    Relative tolerance for convergence, the solving stops when
+    ``np.std(pop) <= atol + tol * np.abs(np.mean(population_energies))``,
+    where and `atol` and `tol` are the absolute and relative tolerance
+    respectively.
+
+* disp : bool
+    Prints the evaluated `func` at every iteration.
+
+* maxiter : int, optional
+    The maximum number of generations over which the entire population is
+    evolved. The maximum number of function evaluations (with no polishing)
+    is: ``(maxiter + 1) * popsize * len(x)``
+
+* popsize : int
+    A multiplier for setting the total population size. The population has
+    ``popsize * len(x)`` individuals.
+
+* seed : int
+    Specify `seed` for repeatable minimizations.
+
+* polish : bool
+    If True (default), then `scipy.optimize.minimize` with the `L-BFGS-B`
+    method is used to polish the best population member at the end, which
+    can improve the minimization slightly. If a constrained problem is
+    being studied then the `trust-constr` method is used instead.
 
 continuum
 ---------
