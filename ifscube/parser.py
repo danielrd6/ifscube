@@ -355,7 +355,7 @@ class LineFitParser:
                 self.minimization_options = {
                     "options": self._parse_dict(section='minimization', float_args=['eps', 'ftol'],
                                                 int_args=['maxiter'], bool_args=['disp'])}
-            elif self.fit_opts["method"]:
+            elif self.fit_opts["method"] in ["differential_evolution"]:
                 self.minimization_options = self._parse_dict(
                     section="minimization",
                     int_args=["maxiter", "popsize", "workers", "seed"],
