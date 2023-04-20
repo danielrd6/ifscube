@@ -692,18 +692,55 @@ class LineFit:
             self.eqw_model = eqw_model
             self.eqw_direct = eqw_direct
 
-    def plot(self, figure: plt.Figure = None, plot_all: bool = True, verbose: bool = False,
-             return_results: bool = False, spectrum_ax: plt.axes = None, residuals_ax: plt.axes = None):
+    def plot_data(self, plot_all: bool):
+        """
+
+        Parameters
+        ----------
+        plot_all : bool
+            If true returns the full length arrays, else just the unmasked data.
+
+        Returns
+        -------
+        pd : dict
+            Dictionary containing all arrays for direct use in a plotting function.
+        """
         if plot_all:
             m = Ellipsis
         else:
             m = ~self.mask
-        wavelength = self.wavelength[m]
-        observed = self.data[m]
-        pseudo_continuum = self.pseudo_continuum[m]
-        stellar = self.stellar[m]
-        model_lines = self.function(wavelength, self.feature_wavelengths, self.solution)
-        err = np.sqrt(self.variance[m])
+
+        basic_data = ["wavelength", "pseudo_continuum", "stellar", "variance"]
+        pd = {_: getattr(self, _)[m] for _ in basic_data}
+        if np.all(np.isnan(pd["pseudo_continuum"])):
+            pd["pseudo_continuum"] = np.zeros_like(pd["wavelength"])
+        pd["observed"] = getattr(self, "data")[m]
+        pd["err"] = np.sqrt(pd["variance"])
+        pd["model_lines"] = self.function(pd["wavelength"], self.feature_wavelengths, self.solution)
+        pd["residuals"] = (pd["observed"] - pd["model_lines"] - pd["stellar"] - pd["pseudo_continuum"]) / pd["err"]
+        pd["continuum"] = pd["pseudo_continuum"] + pd["stellar"]
+
+        if self.uncertainties is not None:
+            low = self.function(pd["wavelength"], self.feature_wavelengths, self.solution - self.uncertainties)
+            high = self.function(pd["wavelength"], self.feature_wavelengths, self.solution + self.uncertainties)
+            pd["lower_continuum"] = low + pd["stellar"] + pd["pseudo_continuum"]
+            pd["upper_continuum"] = high + pd["stellar"] + pd["pseudo_continuum"]
+
+        pd["full_model"] = pd["model_lines"] + pd["stellar"] + pd["pseudo_continuum"]
+
+        ppf = self.parameters_per_feature
+        for i in range(0, len(self.parameter_names), ppf):
+            feature_wl = self.feature_wavelengths[int(i / ppf)]
+            parameters = self.solution[i:i + ppf]
+            pd[f"feature_{self.feature_names[int(i / ppf)]}"] = pd["continuum"] + self.function(
+                pd["wavelength"], feature_wl, parameters)
+
+        return pd
+
+    def plot(self, figure: plt.Figure = None, plot_all: bool = True, verbose: bool = False,
+             return_results: bool = False, spectrum_ax: plt.axes = None, residuals_ax: plt.axes = None):
+
+        pd = self.plot_data(plot_all=plot_all)
 
         if figure is None:
             fig = plt.figure()
@@ -712,35 +749,29 @@ class LineFit:
 
         if (spectrum_ax is None) and (residuals_ax is None):
             fig.clf()
-            spectrum_ax, residuals_ax = fig.subplots(nrows=2, ncols=1, sharex='all',
-                                                     gridspec_kw={'height_ratios': [4, 1], 'hspace': 0.0})
+            spectrum_ax, residuals_ax = fig.subplots(
+                nrows=2, ncols=1, sharex='all', gridspec_kw={'height_ratios': [4, 1], 'hspace': 0.0})
 
-        residuals_ax.plot(wavelength, (observed - model_lines - stellar - pseudo_continuum) / err)
+        residuals_ax.plot(pd["wavelength"], pd["residuals"])
         residuals_ax.set_xlabel('Wavelength')
         residuals_ax.set_ylabel('Residuals / sigma')
         residuals_ax.grid()
 
         if self.uncertainties is not None:
-            low = self.function(wavelength, self.feature_wavelengths, self.solution - self.uncertainties)
-            high = self.function(wavelength, self.feature_wavelengths, self.solution + self.uncertainties)
-            low += stellar + pseudo_continuum
-            high += stellar + pseudo_continuum
-            spectrum_ax.fill_between(wavelength, low, high, color='C2', alpha=0.5)
+            spectrum_ax.fill_between(
+                pd["wavelength"], pd["lower_continuum"], pd["upper_continuum"], color='C2', alpha=0.5)
 
-        spectrum_ax.plot(wavelength, observed, color='C0')
-        spectrum_ax.plot(wavelength, model_lines + stellar + pseudo_continuum, color='C2')
+        spectrum_ax.plot(pd["wavelength"], pd["observed"], color='C0')
+        spectrum_ax.plot(pd["wavelength"], pd["full_model"], color='C2')
 
-        if np.any(pseudo_continuum):
-            spectrum_ax.plot(wavelength, pseudo_continuum + stellar)
-        if np.any(stellar):
-            spectrum_ax.plot(wavelength, stellar)
+        if np.any(pd["pseudo_continuum"]):
+            spectrum_ax.plot(pd["wavelength"], pd["continuum"])
 
-        ppf = self.parameters_per_feature
-        for i in range(0, len(self.parameter_names), ppf):
-            feature_wl = self.feature_wavelengths[int(i / ppf)]
-            parameters = self.solution[i:i + ppf]
-            line = self.function(wavelength, feature_wl, parameters)
-            spectrum_ax.plot(wavelength, pseudo_continuum + stellar + line, 'k--')
+        if np.any(pd["stellar"]):
+            spectrum_ax.plot(pd["wavelength"], pd["stellar"])
+
+        for key in [_ for _ in pd.keys() if "feature_" in _]:
+            spectrum_ax.plot(pd["wavelength"], pd[key], 'k--')
 
         spectrum_ax.set_ylabel('Spectral flux density')
         spectrum_ax.minorticks_on()
