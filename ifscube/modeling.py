@@ -729,10 +729,11 @@ class LineFit:
         pd["full_model"] = pd["model_lines"] + pd["stellar"] + pd["pseudo_continuum"]
 
         ppf = self.parameters_per_feature
+        pd["features"] = {}
         for i in range(0, len(self.parameter_names), ppf):
             feature_wl = self.feature_wavelengths[int(i / ppf)]
             parameters = self.solution[i:i + ppf]
-            pd[f"feature_{self.feature_names[int(i / ppf)]}"] = pd["continuum"] + self.function(
+            pd["features"][self.feature_names[int(i / ppf)]] = pd["continuum"] + self.function(
                 pd["wavelength"], feature_wl, parameters)
 
         return pd
@@ -770,8 +771,8 @@ class LineFit:
         if np.any(pd["stellar"]):
             spectrum_ax.plot(pd["wavelength"], pd["stellar"])
 
-        for key in [_ for _ in pd.keys() if "feature_" in _]:
-            spectrum_ax.plot(pd["wavelength"], pd[key], 'k--')
+        for key in pd["features"].keys():
+            spectrum_ax.plot(pd["wavelength"], pd["features"][key], 'k--')
 
         spectrum_ax.set_ylabel('Spectral flux density')
         spectrum_ax.minorticks_on()
