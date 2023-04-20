@@ -692,7 +692,7 @@ class LineFit:
             self.eqw_model = eqw_model
             self.eqw_direct = eqw_direct
 
-    def plot_data(self, plot_all: bool):
+    def plot_data(self, plot_all: bool = True):
         """
 
         Parameters
@@ -741,7 +741,7 @@ class LineFit:
     def plot(self, figure: plt.Figure = None, plot_all: bool = True, verbose: bool = False,
              return_results: bool = False, spectrum_ax: plt.axes = None, residuals_ax: plt.axes = None):
 
-        pd = self.plot_data(plot_all=plot_all)
+        pd = LineFit.plot_data(self, plot_all=plot_all)
 
         if figure is None:
             fig = plt.figure()
@@ -1026,6 +1026,19 @@ class LineFit3D(LineFit):
         for i in used_attributes:
             setattr(self, i, cube_data[i])
 
+        return r
+
+    def plot_data(self, plot_all: bool = True, x_0: int = None, y_0: int = None):
+        attributes = ['data', 'variance', 'flags', 'mask', 'pseudo_continuum', 'stellar', 'solution',
+                      'reduced_chi_squared']
+        if self.uncertainties is not None:
+            attributes.append('uncertainties')
+        if x_0 is None:
+            x_0 = self.x_0
+        if y_0 is None:
+            y_0 = self.y_0
+        r = self._select_spaxel(function=super().plot_data, x=x_0, y=y_0, used_attributes=attributes,
+                                args=(plot_all,))
         return r
 
     def plot(self, figure: plt.Figure = None, plot_all: bool = True, verbose: bool = False,
