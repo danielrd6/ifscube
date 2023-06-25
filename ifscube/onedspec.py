@@ -64,12 +64,15 @@ class Spectrum:
         for i, j, lab in zip(acc_data, ext_names, labels):
 
             if j is not None:
-                if isinstance(j, str):
+                if isinstance(j, str) or isinstance(j, int):
                     if j in hdu:
                         assert hdu[j].data.shape == self.data.shape, shape_error(lab)
                         i[:] = hdu[j].data
                 elif isinstance(j, np.ndarray):
                     i[:] = j
+                else:
+                    raise RuntimeError(f"Error reading {lab} data."
+                                       f" Parameter {j} is not a valid FITS extension nor an array object.")
 
         self.flags = self.flags.astype(bool)
         self._flags()
