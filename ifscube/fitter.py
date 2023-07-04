@@ -1,6 +1,7 @@
 import argparse
 import os
 from typing import Union
+import numpy as np
 
 import matplotlib.pyplot as plt
 
@@ -30,11 +31,11 @@ def clear_lock(lock_name):
 def spectrum_fit(data: Union[Cube, onedspec.Spectrum], **line_fit_args):
     fit = ifscube.io.line_fit.setup_fit(data, **line_fit_args)
 
-    assert fit.fitting_window[0] < fit.wavelength[-1], \
-        f"Lower limit of fitting window above maximum wavelength: {fit.fitting_window[0]} > {fit.wavelength[-1]}"
+    assert fit.fitting_window[0] < np.max(fit.wavelength), \
+        f"Lower limit of fitting window above maximum wavelength: {fit.fitting_window[0]} >= {np.max(fit.wavelength)}"
 
-    assert fit.fitting_window[1] > fit.wavelength[0], \
-        f"Upper limit of fitting window below minimum wavelength: {fit.fitting_window[1]} < {fit.wavelength[0]}"
+    assert fit.fitting_window[1] > np.min(fit.wavelength), \
+        f"Upper limit of fitting window below minimum wavelength: {fit.fitting_window[1]} <= {np.min(fit.wavelength)}"
 
     if line_fit_args['fit_continuum']:
         continuum_options = line_fit_args['copts'] if line_fit_args['copts'] is not None else {}
