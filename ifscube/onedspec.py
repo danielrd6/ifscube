@@ -109,12 +109,6 @@ class Spectrum:
 
             self._wavelength(hdu, wavelength)
 
-        try:
-            if self.header_data['cunit1'] == 'm':
-                self.wl *= 1.e+10
-        except KeyError:
-            pass
-
         # Redshift from arguments takes precedence over redshift
         # from the image header.
         if redshift is not None:
