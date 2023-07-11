@@ -86,6 +86,9 @@ class Spectrum:
         else:
             self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
 
+        if self.wcs.world_axis_units == ["m"]:
+            self.wl *= 1e+10
+
     def _flags(self):
 
         # Flag nan and inf values
