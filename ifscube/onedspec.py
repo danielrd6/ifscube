@@ -77,11 +77,16 @@ class Spectrum:
     def _wavelength(self, hdu, wave):
 
         if isinstance(wave, str) and (wave in hdu):
-            assert hdu[wave].data.shape == self.data.shape[-1:], \
-                'wavelength  must have the same shape of the data'
+            assert hdu[wave].data.shape[0] == self.data.shape[0], 'Wavelength must have the same shape of the data.'
             self.wl = hdu[wave].data
         else:
-            self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
+            self.wl = self.wcs.all_pix2world(np.arange(len(self.data)), 0)[0]
+
+        if self.wcs.world_axis_units == ["m"]:
+            print("Wavelength read in meters. Changing it to Angstroms.")
+            self.wl *= 1.0e+10
+        else:
+            print(f"Wavelength units are {self.wcs.world_axis_units}. No changes applied.")
 
     def _flags(self):
 
