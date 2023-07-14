@@ -88,6 +88,9 @@ class Spectrum:
         else:
             print(f"Wavelength units are {self.wcs.world_axis_units}. No changes applied.")
 
+        if self.wcs.world_axis_units == ["m"]:
+            self.wl *= 1e+10
+
     def _flags(self):
 
         # Flag nan and inf values
