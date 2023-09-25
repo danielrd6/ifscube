@@ -1,5 +1,6 @@
-from astropy.modeling import Fittable1DModel, Fittable2DModel, Parameter
 import numpy as np
+from astropy.convolution import convolve, Gaussian2DKernel
+from astropy.modeling import Fittable1DModel, Fittable2DModel, Parameter
 
 
 class GaussHermite1D(Fittable1DModel):
@@ -35,12 +36,11 @@ class GaussHermite1D(Fittable1DModel):
 
     @staticmethod
     def evaluate(x, amplitude, mean, stddev, h3, h4):
-
         w = (x - mean) / stddev
 
-        alphag = np.exp(-w**2. / 2.) / np.sqrt(2. * np.pi)
-        hh3 = h3 * np.sqrt(2.) / np.sqrt(6.) * (2. * w**3 - 3. * w)
-        hh4 = h4 / np.sqrt(24.) * (4. * w**4 - 12. * w**2 + 3.)
+        alphag = np.exp(-w ** 2. / 2.) / np.sqrt(2. * np.pi)
+        hh3 = h3 * np.sqrt(2.) / np.sqrt(6.) * (2. * w ** 3 - 3. * w)
+        hh4 = h4 / np.sqrt(24.) * (4. * w ** 4 - 12. * w ** 2 + 3.)
 
         return amplitude * alphag / stddev * (1. + hh3 + hh4)
 
@@ -87,8 +87,8 @@ class GaussHermite1D(Fittable1DModel):
 
     #     return [d_a, d_x0]
 
-class DiskRotation(Fittable2DModel):
 
+class DiskRotation(Fittable2DModel):
     """
     Observed radial velocity according to Bertola et al 1991.
 
@@ -114,9 +114,10 @@ class DiskRotation(Fittable2DModel):
     v_sys = Parameter(default=0.0)
     x_0 = Parameter(default=0.0)
     y_0 = Parameter(default=0.0)
+    fwhm = Parameter(default=2.0)
 
     @staticmethod
-    def evaluate(x, y, amplitude, c_0, p, phi_0, theta, v_sys, x_0, y_0):
+    def evaluate(x, y, amplitude, c_0, p, phi_0, theta, v_sys, x_0, y_0, fwhm):
         """
         Parameters
         ----------
@@ -144,9 +145,10 @@ class DiskRotation(Fittable2DModel):
         sip = np.sin(phi - phi_0)
         cot = np.cos(theta)
         sit = np.sin(theta)
-        
-        d = amplitude * r * cop * sit * cot**p
-        n = r**2 * (sip**2 + cot**2 * cop**2) + c_0**2 * cot**2
-        v = v_sys + d / n**(p / 2)
+
+        d = amplitude * r * cop * sit * cot ** p
+        n = r ** 2 * (sip ** 2 + cot ** 2 * cop ** 2) + c_0 ** 2 * cot ** 2
+        v = v_sys + d / n ** (p / 2)
+        v = convolve(v, Gaussian2DKernel(fwhm))
 
         return v
