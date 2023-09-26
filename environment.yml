@@ -2,7 +2,7 @@ name: ifscube
 channels:
   - conda-forge
 dependencies:
-  - python=3.7
+  - python=3.9
   - fortran-compiler
   - numpy=1.21.1
   - scipy
