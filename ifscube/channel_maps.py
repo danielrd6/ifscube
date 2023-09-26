@@ -1,3 +1,4 @@
+import pickle
 from typing import Iterable
 
 import matplotlib as mpl
@@ -27,12 +28,14 @@ class ChannelMaps:
             'trapezoidal' - trapezoidal integration, with boundaries dependent on wavelength sampling.
             'linear_interpolation' - quadrature integration of a linearly interpolated version of the observed spectra.
         """
+        self.maps = None
         self.center_velocities = None
         self.cube = cube
         self.continuum = None
         self.velocity_boundaries = None
         self.wavelength_boundaries = None
-        self.wavelength_units = cube.wcs.world_axis_units[0]
+        self.wavelength_units = units.Unit(cube.wcs.world_axis_units[0])
+        self.data_units = units.Unit(self.cube.header_data["BUNIT"])
 
         fw = fitting_window
         fw = [_.to(self.wavelength_units).value for _ in fw]
@@ -40,7 +43,7 @@ class ChannelMaps:
         self.wavelength = Quantity(value=cube.rest_wavelength[self.wavelength_mask], unit=self.wavelength_units)
         self.fitting_window = fw
 
-        self.data = self.cube.data[self.wavelength_mask]
+        self.data = Quantity(value=self.cube.data[self.wavelength_mask], unit=self.data_units)
 
         assert method in ["trapezoidal", "linear_interpolation"], f"Unsupported method: {method}."
         self.method = method
@@ -78,27 +81,38 @@ class ChannelMaps:
         cp = options
 
         fw = self.fitting_window
-        self.continuum = self.cube.continuum(fitting_window=fw, continuum_options=cp)
+        c = self.cube.continuum(fitting_window=fw, continuum_options=cp)
+        self.continuum = Quantity(value=c, unit=self.data_units)
 
     def evaluate_channel_maps(self, lambda0, vel_min, vel_max, channels, continuum_options=None):
-
         self.set_channel_boundaries(reference_wavelength=lambda0, vel_min=vel_min, vel_max=vel_max, channels=channels)
         self.set_continuum(options=continuum_options)
         self.integrate_maps()
 
-        pass
-
     def integrate_maps(self):
+        emission_flux = self.data - self.continuum
         if self.method == "trapezoidal":
             wl = self.wavelength
             wb = self.wavelength_boundaries
             masks = [(wl >= wb[_]) & (wl <= wb[_ + 1]) for _ in range(len(wb) - 1)]
-            cm = [trapz(self.data[_], wl[_], axis=0) for _ in masks]
-            print(cm)
-        if self.method == "linear_interpolation":
+            cm = [trapz(emission_flux[_], wl[_], axis=0) for _ in masks]
+            if "arcsec2" in self.data_units.to_string():
+                cm = Quantity(cm, unit="erg / (s cm2 arcsec2)")
+            else:
+                cm = Quantity(cm, unit="erg / (s cm2)")
+        elif self.method == "linear_interpolation":
+            cm = None
             pass
+        else:
+            raise RuntimeError
 
-    def plot_spectrum(self, x: int, y: int):
+        self.maps = cm
+
+    def write(self, name: str):
+        with open(name, "wb") as f:
+            pickle.dump(self, f)
+
+    def plot_spectrum(self, x: int, y: int, plot_channels: bool = True):
 
         data = self.cube.data[self.wavelength_mask, y, x]
         continuum = self.cube.cont[:, y, x]
@@ -106,6 +120,17 @@ class ChannelMaps:
         fig, ax = plt.subplots()
         ax.plot(wl, continuum)
         ax.plot(wl, data)
+
+        wl = self.wavelength
+        wb = self.wavelength_boundaries
+        masks = [(wl >= wb[_]) & (wl <= wb[_ + 1]) for _ in range(len(wb) - 1)]
+
+        if plot_channels:
+            for m in masks:
+                ax.fill_between(self.wavelength[m], self.continuum[m, y, x], self.data[m, y, x], alpha=0.7)
+
+        ax.set_xlabel(f"Wavelength ({self.wavelength_units.to_string()})")
+        ax.set_ylabel(f"Flux density ({self.data_units.to_string()})")
         plt.show()
 
 
