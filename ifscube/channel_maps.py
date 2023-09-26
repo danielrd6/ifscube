@@ -135,11 +135,15 @@ class ChannelMaps:
         wl = self.wavelength
         v = self.velocity
         fig, ax = plt.subplots()
+        ax.set_xlim(wl.min().value, wl.max().value)
         ax.plot(wl, continuum)
         ax.plot(wl, data)
+        ax.grid(axis="y", alpha=0.5)
+        plt.grid
         axv = ax.twiny()
         axv.set_xlim(v.min().value, v.max().value)
         axv.set_xlabel(f"Velocity ({v.unit.to_string()})")
+        axv.grid(axis="x", alpha=0.5)
 
         wl = self.wavelength
         wb = self.wavelength_boundaries
