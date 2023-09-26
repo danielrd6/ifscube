@@ -16,7 +16,8 @@ from . import cubetools
 
 
 class ChannelMaps:
-    def __init__(self, cube: Cube, fitting_window: Iterable, method: str = "trapezoidal"):
+    def __init__(self, cube: Cube, fitting_window: Iterable, method: str = "trapezoidal",
+                 wavelength_units: str = "Angstrom"):
         """
         Channel maps.
 
@@ -30,12 +31,22 @@ class ChannelMaps:
         """
         self.maps = None
         self.center_velocities = None
-        self.cube = cube
         self.continuum = None
         self.velocity_boundaries = None
         self.wavelength_boundaries = None
-        self.wavelength_units = units.Unit(cube.wcs.world_axis_units[0])
-        self.data_units = units.Unit(self.cube.header_data["BUNIT"])
+        self.velocity = None
+
+        self.cube = cube
+
+        if cube.wcs.world_axis_units[0] == "":
+            self.wavelength_units = units.Unit(wavelength_units)
+        else:
+            self.wavelength_units = units.Unit(cube.wcs.world_axis_units[0])
+
+        if units.ampere in units.Unit(cube.header_data["BUNIT"]).bases:
+            self.data_units = units.Unit(cube.header_data["BUNIT"].replace("A", "Angstrom"))
+        else:
+            self.data_units = units.Unit(cube.header_data["BUNIT"])
 
         fw = fitting_window
         fw = [_.to(self.wavelength_units).value for _ in fw]
@@ -43,7 +54,7 @@ class ChannelMaps:
         self.wavelength = Quantity(value=cube.rest_wavelength[self.wavelength_mask], unit=self.wavelength_units)
         self.fitting_window = fw
 
-        self.data = Quantity(value=self.cube.data[self.wavelength_mask], unit=self.data_units)
+        self.data = Quantity(value=cube.data[self.wavelength_mask], unit=self.data_units)
 
         assert method in ["trapezoidal", "linear_interpolation"], f"Unsupported method: {method}."
         self.method = method
@@ -56,10 +67,11 @@ class ChannelMaps:
         if self.method == "trapezoidal":
             closest_wavelengths = []
             for w in wavelengths:
-                cw = Quantity(value=self.cube.rest_wavelength, unit=self.cube.wcs.world_axis_units[0]) - w
-                closest_wavelengths.append(self.cube.rest_wavelength[np.abs(cw).argsort()][0])
+                cw = Quantity(value=self.wavelength, unit=self.wavelength_units) - w
+                closest_wavelengths.append(self.wavelength[np.abs(cw).argsort()][0])
 
-            wb = Quantity(np.array(closest_wavelengths), unit=reference_wavelength.unit)
+            closest_wavelengths = Quantity(value=closest_wavelengths, unit=self.wavelength.unit)
+            wb = Quantity(closest_wavelengths, unit=reference_wavelength.unit)
             vb = wb.to(unit="km / s", equivalencies=doppler_relativistic(reference_wavelength))
             cv = Quantity(value=[(vb[_] + vb[_ + 1]) / 2.0 for _ in range(len(vb) - 1)])
         elif self.method == "linear_interpolation":
@@ -85,6 +97,7 @@ class ChannelMaps:
         self.continuum = Quantity(value=c, unit=self.data_units)
 
     def evaluate_channel_maps(self, lambda0, vel_min, vel_max, channels, continuum_options=None):
+        self.velocity = Quantity(self.wavelength).to(unit="km / s", equivalencies=doppler_relativistic(rest=lambda0))
         self.set_channel_boundaries(reference_wavelength=lambda0, vel_min=vel_min, vel_max=vel_max, channels=channels)
         self.set_continuum(options=continuum_options)
         self.integrate_maps()
@@ -109,17 +122,24 @@ class ChannelMaps:
         self.maps = cm
 
     def write(self, name: str):
+        delattr(self, "cube")
         with open(name, "wb") as f:
             pickle.dump(self, f)
 
     def plot_spectrum(self, x: int, y: int, plot_channels: bool = True):
-
-        data = self.cube.data[self.wavelength_mask, y, x]
-        continuum = self.cube.cont[:, y, x]
-        wl = self.cube.rest_wavelength[self.wavelength_mask]
+        data = self.data[:, y, x]
+        power_of_ten = int(np.floor(np.log10(data.min().value)))
+        data /= 10.0 ** power_of_ten
+        continuum = self.continuum[:, y, x]
+        continuum /= 10.0 ** power_of_ten
+        wl = self.wavelength
+        v = self.velocity
         fig, ax = plt.subplots()
         ax.plot(wl, continuum)
         ax.plot(wl, data)
+        axv = ax.twiny()
+        axv.set_xlim(v.min().value, v.max().value)
+        axv.set_xlabel(f"Velocity ({v.unit.to_string()})")
 
         wl = self.wavelength
         wb = self.wavelength_boundaries
@@ -130,7 +150,7 @@ class ChannelMaps:
                 ax.fill_between(self.wavelength[m], self.continuum[m, y, x], self.data[m, y, x], alpha=0.7)
 
         ax.set_xlabel(f"Wavelength ({self.wavelength_units.to_string()})")
-        ax.set_ylabel(f"Flux density ({self.data_units.to_string()})")
+        ax.set_ylabel(f"$F_\\lambda \\times 10^{{{power_of_ten}}}$ ({self.data_units.to_string()})")
         plt.show()
 
 
