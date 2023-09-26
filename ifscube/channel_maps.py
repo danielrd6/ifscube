@@ -1,11 +1,160 @@
+import pickle
+from typing import Iterable
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy import constants, units
+from astropy.units import Quantity
+from astropy.units.equivalencies import doppler_relativistic
 from matplotlib import patheffects
 from numpy import ma
+from scipy.integrate import trapz
 
+from . import Cube
 from . import cubetools
+
+
+class ChannelMaps:
+    def __init__(self, cube: Cube, fitting_window: Iterable, method: str = "trapezoidal",
+                 wavelength_units: str = "Angstrom"):
+        """
+        Channel maps.
+
+        Parameters
+        ----------
+        cube : ifscube.Cube
+            Data cube with observations.
+        method : str
+            'trapezoidal' - trapezoidal integration, with boundaries dependent on wavelength sampling.
+            'linear_interpolation' - quadrature integration of a linearly interpolated version of the observed spectra.
+        """
+        self.maps = None
+        self.center_velocities = None
+        self.continuum = None
+        self.velocity_boundaries = None
+        self.wavelength_boundaries = None
+        self.velocity = None
+
+        self.cube = cube
+
+        if cube.wcs.world_axis_units[0] == "":
+            self.wavelength_units = units.Unit(wavelength_units)
+        else:
+            self.wavelength_units = units.Unit(cube.wcs.world_axis_units[0])
+
+        if units.ampere in units.Unit(cube.header_data["BUNIT"]).bases:
+            self.data_units = units.Unit(cube.header_data["BUNIT"].replace("A", "Angstrom"))
+        else:
+            self.data_units = units.Unit(cube.header_data["BUNIT"])
+
+        fw = fitting_window
+        fw = [_.to(self.wavelength_units).value for _ in fw]
+        self.wavelength_mask = (cube.rest_wavelength >= fw[0]) & (cube.rest_wavelength <= fw[1])
+        self.wavelength = Quantity(value=cube.rest_wavelength[self.wavelength_mask], unit=self.wavelength_units)
+        self.fitting_window = fw
+
+        self.data = Quantity(value=cube.data[self.wavelength_mask], unit=self.data_units)
+
+        assert method in ["trapezoidal", "linear_interpolation"], f"Unsupported method: {method}."
+        self.method = method
+
+    def set_channel_boundaries(self, reference_wavelength, vel_min, vel_max, channels):
+        velocities = np.linspace(vel_min, vel_max, channels)
+        wavelengths = Quantity(velocities).to(
+            unit=reference_wavelength.unit, equivalencies=doppler_relativistic(reference_wavelength))
+
+        if self.method == "trapezoidal":
+            closest_wavelengths = []
+            for w in wavelengths:
+                cw = Quantity(value=self.wavelength, unit=self.wavelength_units) - w
+                closest_wavelengths.append(self.wavelength[np.abs(cw).argsort()][0])
+
+            closest_wavelengths = Quantity(value=closest_wavelengths, unit=self.wavelength.unit)
+            wb = Quantity(closest_wavelengths, unit=reference_wavelength.unit)
+            vb = wb.to(unit="km / s", equivalencies=doppler_relativistic(reference_wavelength))
+            cv = Quantity(value=[(vb[_] + vb[_ + 1]) / 2.0 for _ in range(len(vb) - 1)])
+        elif self.method == "linear_interpolation":
+            wb = wavelengths
+            vb = velocities
+            cv = Quantity(value=[(vb[_] + vb[_ + 1]) / 2.0 for _ in range(len(vb) - 1)])
+        else:
+            raise RuntimeError
+
+        self.wavelength_boundaries = wb
+        self.velocity_boundaries = vb
+        self.center_velocities = cv
+
+    def set_continuum(self, options: dict = None):
+        if options is None:
+            options = {'n_iterate': 3, 'degree': 1, 'upper_threshold': 1, 'lower_threshold': 3,
+                       'output': 'function'}
+
+        cp = options
+
+        fw = self.fitting_window
+        c = self.cube.continuum(fitting_window=fw, continuum_options=cp)
+        self.continuum = Quantity(value=c, unit=self.data_units)
+
+    def evaluate_channel_maps(self, lambda0, vel_min, vel_max, channels, continuum_options=None):
+        self.velocity = Quantity(self.wavelength).to(unit="km / s", equivalencies=doppler_relativistic(rest=lambda0))
+        self.set_channel_boundaries(reference_wavelength=lambda0, vel_min=vel_min, vel_max=vel_max, channels=channels)
+        self.set_continuum(options=continuum_options)
+        self.integrate_maps()
+
+    def integrate_maps(self):
+        emission_flux = self.data - self.continuum
+        if self.method == "trapezoidal":
+            wl = self.wavelength
+            wb = self.wavelength_boundaries
+            masks = [(wl >= wb[_]) & (wl <= wb[_ + 1]) for _ in range(len(wb) - 1)]
+            cm = [trapz(emission_flux[_], wl[_], axis=0) for _ in masks]
+            if "arcsec2" in self.data_units.to_string():
+                cm = Quantity(cm, unit="erg / (s cm2 arcsec2)")
+            else:
+                cm = Quantity(cm, unit="erg / (s cm2)")
+        elif self.method == "linear_interpolation":
+            cm = None
+            pass
+        else:
+            raise RuntimeError
+
+        self.maps = cm
+
+    def write(self, name: str):
+        delattr(self, "cube")
+        with open(name, "wb") as f:
+            pickle.dump(self, f)
+
+    def plot_spectrum(self, x: int, y: int, plot_channels: bool = True):
+        data = self.data[:, y, x]
+        power_of_ten = int(np.floor(np.log10(data.min().value)))
+        data /= 10.0 ** power_of_ten
+        continuum = self.continuum[:, y, x]
+        continuum /= 10.0 ** power_of_ten
+        wl = self.wavelength
+        v = self.velocity
+        fig, ax = plt.subplots()
+        ax.set_xlim(wl.min().value, wl.max().value)
+        ax.plot(wl, continuum)
+        ax.plot(wl, data)
+        ax.grid(axis="y", alpha=0.5)
+        axv = ax.twiny()
+        axv.set_xlim(v.min().value, v.max().value)
+        axv.set_xlabel(f"Velocity ({v.unit.to_string()})")
+        axv.grid(axis="x", alpha=0.5)
+
+        wl = self.wavelength
+        wb = self.wavelength_boundaries
+        masks = [(wl >= wb[_]) & (wl <= wb[_ + 1]) for _ in range(len(wb) - 1)]
+
+        if plot_channels:
+            for m in masks:
+                ax.fill_between(self.wavelength[m], self.continuum[m, y, x], self.data[m, y, x], alpha=0.7)
+
+        ax.set_xlabel(f"Wavelength ({self.wavelength_units.to_string()})")
+        ax.set_ylabel(f"$F_\\lambda \\times 10^{{{power_of_ten}}}$ ({self.data_units.to_string()})")
+        plt.show()
 
 
 def channelmaps(cube, lambda0, vel_min, vel_max, channels=6, continuum_width=300, continuum_options=None,
