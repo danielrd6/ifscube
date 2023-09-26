@@ -19,6 +19,7 @@ def basic_1d_fit():
     return data, line_fit_args
 
 
+@pytest.mark.filterwarnings("ignore:Spectral feature", "ignore:Parameter")
 def test_wavelength_window_low():
     data, line_fit_args = basic_1d_fit()
     max_wl = np.max(data.rest_wavelength)
@@ -30,6 +31,7 @@ def test_wavelength_window_low():
         spectrum_fit(data, **line_fit_args)
 
 
+@pytest.mark.filterwarnings("ignore:Spectral feature", "ignore:Parameter")
 def test_wavelength_window_high():
     data, line_fit_args = basic_1d_fit()
     min_wl = np.min(data.rest_wavelength)
