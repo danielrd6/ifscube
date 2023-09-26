@@ -8,7 +8,6 @@ from numpy import ma
 from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter, center_of_mass
 
-from . import channel_maps
 from . import cubetools, spectools, onedspec
 
 
@@ -59,7 +58,7 @@ class Cube(onedspec.Spectrum):
 
         if isinstance(wave, str) and (wave in hdu):
             assert hdu[wave].data.shape[0] == self.data.shape[0], \
-                f'Data in wavelength extension "{wave}" must have the same shape of the data.'\
+                f'Data in wavelength extension "{wave}" must have the same shape of the data.' \
                 f'{wave}: {hdu[wave].data.shape}; Data: {self.data.shape}'
             self.wl = hdu[wave].data
         else:
@@ -83,7 +82,7 @@ class Cube(onedspec.Spectrum):
             self._spatial_mask = fits.getdata(self.fitsfile, value).astype('bool')
         else:
             self._spatial_mask = value.astype('bool')
-        assert self._spatial_mask.shape == self.data.shape[1:],\
+        assert self._spatial_mask.shape == self.data.shape[1:], \
             'Spatial mask must match the last two dimensions of the data cube.'
 
     def _set_spec_indices(self):
@@ -522,10 +521,6 @@ class Cube(onedspec.Spectrum):
             ax.scatter(self.rest_wavelength[sflags], s[sflags], marker='x', color='red')
 
         plt.show()
-
-    def channel_maps(self, *args, **kwargs):
-
-        channel_maps.channelmaps(self, *args, **kwargs)
 
     def peak_coords(self, wl_center, wl_width, center_type='peak_cen', spatial_center=None, spatial_width=10):
         """
