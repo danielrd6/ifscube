@@ -1,11 +1,112 @@
+from typing import Iterable
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy import constants, units
+from astropy.units import Quantity
+from astropy.units.equivalencies import doppler_relativistic
 from matplotlib import patheffects
 from numpy import ma
+from scipy.integrate import trapz
 
+from . import Cube
 from . import cubetools
+
+
+class ChannelMaps:
+    def __init__(self, cube: Cube, fitting_window: Iterable, method: str = "trapezoidal"):
+        """
+        Channel maps.
+
+        Parameters
+        ----------
+        cube : ifscube.Cube
+            Data cube with observations.
+        method : str
+            'trapezoidal' - trapezoidal integration, with boundaries dependent on wavelength sampling.
+            'linear_interpolation' - quadrature integration of a linearly interpolated version of the observed spectra.
+        """
+        self.center_velocities = None
+        self.cube = cube
+        self.continuum = None
+        self.velocity_boundaries = None
+        self.wavelength_boundaries = None
+        self.wavelength_units = cube.wcs.world_axis_units[0]
+
+        fw = fitting_window
+        fw = [_.to(self.wavelength_units).value for _ in fw]
+        self.wavelength_mask = (cube.rest_wavelength >= fw[0]) & (cube.rest_wavelength <= fw[1])
+        self.wavelength = Quantity(value=cube.rest_wavelength[self.wavelength_mask], unit=self.wavelength_units)
+        self.fitting_window = fw
+
+        self.data = self.cube.data[self.wavelength_mask]
+
+        assert method in ["trapezoidal", "linear_interpolation"], f"Unsupported method: {method}."
+        self.method = method
+
+    def set_channel_boundaries(self, reference_wavelength, vel_min, vel_max, channels):
+        velocities = np.linspace(vel_min, vel_max, channels)
+        wavelengths = Quantity(velocities).to(
+            unit=reference_wavelength.unit, equivalencies=doppler_relativistic(reference_wavelength))
+
+        if self.method == "trapezoidal":
+            closest_wavelengths = []
+            for w in wavelengths:
+                cw = Quantity(value=self.cube.rest_wavelength, unit=self.cube.wcs.world_axis_units[0]) - w
+                closest_wavelengths.append(self.cube.rest_wavelength[np.abs(cw).argsort()][0])
+
+            wb = Quantity(np.array(closest_wavelengths), unit=reference_wavelength.unit)
+            vb = wb.to(unit="km / s", equivalencies=doppler_relativistic(reference_wavelength))
+            cv = Quantity(value=[(vb[_] + vb[_ + 1]) / 2.0 for _ in range(len(vb) - 1)])
+        elif self.method == "linear_interpolation":
+            wb = wavelengths
+            vb = velocities
+            cv = Quantity(value=[(vb[_] + vb[_ + 1]) / 2.0 for _ in range(len(vb) - 1)])
+        else:
+            raise RuntimeError
+
+        self.wavelength_boundaries = wb
+        self.velocity_boundaries = vb
+        self.center_velocities = cv
+
+    def set_continuum(self, options: dict = None):
+        if options is None:
+            options = {'n_iterate': 3, 'degree': 1, 'upper_threshold': 1, 'lower_threshold': 3,
+                       'output': 'function'}
+
+        cp = options
+
+        fw = self.fitting_window
+        self.continuum = self.cube.continuum(fitting_window=fw, continuum_options=cp)
+
+    def evaluate_channel_maps(self, lambda0, vel_min, vel_max, channels, continuum_options=None):
+
+        self.set_channel_boundaries(reference_wavelength=lambda0, vel_min=vel_min, vel_max=vel_max, channels=channels)
+        self.set_continuum(options=continuum_options)
+        self.integrate_maps()
+
+        pass
+
+    def integrate_maps(self):
+        if self.method == "trapezoidal":
+            wl = self.wavelength
+            wb = self.wavelength_boundaries
+            masks = [(wl >= wb[_]) & (wl <= wb[_ + 1]) for _ in range(len(wb) - 1)]
+            cm = [trapz(self.data[_], wl[_], axis=0) for _ in masks]
+            print(cm)
+        if self.method == "linear_interpolation":
+            pass
+
+    def plot_spectrum(self, x: int, y: int):
+
+        data = self.cube.data[self.wavelength_mask, y, x]
+        continuum = self.cube.cont[:, y, x]
+        wl = self.cube.rest_wavelength[self.wavelength_mask]
+        fig, ax = plt.subplots()
+        ax.plot(wl, continuum)
+        ax.plot(wl, data)
+        plt.show()
 
 
 def channelmaps(cube, lambda0, vel_min, vel_max, channels=6, continuum_width=300, continuum_options=None,
