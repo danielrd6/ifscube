@@ -77,14 +77,37 @@ class Spectrum:
         self.flags = self.flags.astype(bool)
         self._flags()
 
-    def _wavelength(self, hdu, wave):
+    def _wavelength(self, hdu: fits.HDUList, wave: Union[str, int] = None):
+        """
+        Reads and sets the wavelength vector.
 
-        if isinstance(wave, str) and (wave in hdu):
-            assert hdu[wave].data.shape == self.data.shape[-1:], \
-                'wavelength  must have the same shape of the data'
+        Parameters
+        ----------
+        hdu : astropy.fits.HDUList
+            The HDUList object containing the data being read.
+        wave : None (default), str or int
+            If None, the wavelength will be read from the WCS information on the image header.
+            The wavelength can also be stored as an array in an ImageHDU extension, in which
+            case 'wave' can be either a string or an integer specifying that extension.
+
+        Notes
+        -----
+        This method relies on the astropy.wcs module to calculate the wavelength vector from
+        the image header. Therefore, it is possible that the wavelength units will be converted
+        to SI units during the transformation from pixel coordinates to world coordinates. If this
+        conversion occurs, and the transformation results in wavelength units of meters, a scaling
+        factor will be applied to return the wavelength back to Angstroms, and a warning will be
+        issued. Wavelengths read directly as an array from an image extension will not undergo this
+        transformation.
+        """
+        if isinstance(wave, str) or isinstance(wave, int):
+            assert hdu[wave].data.shape[0] == self.data.shape[0], 'Wavelength must have the same shape of the data.'
             self.wl = hdu[wave].data
         else:
-            self.wl = self.wcs.wcs_pix2world(np.arange(len(self.data)), 0)[0]
+            self.wl = self.wcs.all_pix2world(np.arange(len(self.data)), 0)[0]
+            if self.wcs.world_axis_units == ["m"]:
+                warnings.warn(message="Wavelength read in meters. Changing it to Angstroms.", category=RuntimeWarning)
+                self.wl *= 1.0e+10
 
     def _flags(self):
 
@@ -111,12 +134,6 @@ class Spectrum:
             self._accessory_data(hdu, variance, flags, stellar)
 
             self._wavelength(hdu, wavelength)
-
-        try:
-            if self.header_data['cunit1'] == 'm':
-                self.wl *= 1.e+10
-        except KeyError:
-            pass
 
         # Redshift from arguments takes precedence over redshift
         # from the image header.

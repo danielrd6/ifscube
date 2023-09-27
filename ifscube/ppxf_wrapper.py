@@ -1,6 +1,7 @@
 # This module is a wrapper for the ppxf package available in PyPI
 import copy
 import glob
+import importlib.resources
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,7 +9,6 @@ import tqdm
 from astropy import wcs, constants
 from astropy.io import fits
 from numpy import ma
-from pkg_resources import resource_filename
 from ppxf import ppxf, ppxf_util
 from scipy.ndimage import gaussian_filter
 
@@ -268,8 +268,8 @@ class Fit(object):
 
     def load_miles_models(self):
 
-        path = resource_filename('ppxf', 'miles_models')
-        base_files = glob.glob(path + '/*.fits')
+        path = str(importlib.resources.files('ppxf') / 'miles_models/*fits')
+        base_files = glob.glob(path)
         base_files.sort()
 
         w = wcs.WCS(base_files[0], naxis=1)

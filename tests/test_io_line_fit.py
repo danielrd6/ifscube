@@ -1,4 +1,4 @@
-import pkg_resources
+import importlib.resources
 import warnings
 from astropy import table
 
@@ -7,7 +7,7 @@ from .test_modeling import simple_fit
 
 
 def test_parse_config_table():
-    file_name = pkg_resources.resource_filename('ifscube', 'examples/example_onedspec_linefit.fits')
+    file_name = importlib.resources.files("ifscube") / "examples/example_onedspec_linefit.fits"
     t = table.Table.read(file_name, 'FITCONFIG')
     line_fit.table_to_config(t)
     assert True
