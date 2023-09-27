@@ -128,21 +128,23 @@ class ChannelMaps:
 
     def plot_spectrum(self, x: int, y: int, plot_channels: bool = True):
         data = self.data[:, y, x]
-        power_of_ten = int(np.floor(np.log10(data.min().value)))
+        power_of_ten = int(np.floor(np.log10(np.nanmin(np.abs(data)).value)))
         data /= 10.0 ** power_of_ten
         continuum = self.continuum[:, y, x]
         continuum /= 10.0 ** power_of_ten
         wl = self.wavelength
         v = self.velocity
         fig, ax = plt.subplots()
-        ax.set_xlim(wl.min().value, wl.max().value)
-        ax.plot(wl, continuum)
-        ax.plot(wl, data)
-        ax.grid(axis="y", alpha=0.5)
+        ax.set_xlim(v.min().value, v.max().value)
+        ax.plot(v, continuum)
+        ax.plot(v, data)
+        ax.grid(alpha=0.5)
+        ax.set_xlabel(f"Velocity ({self.velocity.unit.to_string()})")
+        ax.set_ylabel(f"$F_\\lambda \\times 10^{{{power_of_ten}}}$ ({self.data_units.to_string()})")
+
         axv = ax.twiny()
-        axv.set_xlim(v.min().value, v.max().value)
-        axv.set_xlabel(f"Velocity ({v.unit.to_string()})")
-        axv.grid(axis="x", alpha=0.5)
+        axv.set_xlim(wl.min().value, wl.max().value)
+        axv.set_xlabel(f"Wavelength ({wl.unit.to_string()})")
 
         wl = self.wavelength
         wb = self.wavelength_boundaries
@@ -150,10 +152,9 @@ class ChannelMaps:
 
         if plot_channels:
             for m in masks:
-                ax.fill_between(self.wavelength[m], self.continuum[m, y, x], self.data[m, y, x], alpha=0.7)
+                ax.fill_between(self.velocity[m].value, self.continuum[m, y, x].value, self.data[m, y, x].value,
+                alpha=0.7)
 
-        ax.set_xlabel(f"Wavelength ({self.wavelength_units.to_string()})")
-        ax.set_ylabel(f"$F_\\lambda \\times 10^{{{power_of_ten}}}$ ({self.data_units.to_string()})")
         plt.show()
 
 
