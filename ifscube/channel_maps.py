@@ -61,7 +61,7 @@ class ChannelMaps:
         self.method = method
 
     def set_channel_boundaries(self, reference_wavelength, vel_min, vel_max, channels):
-        velocities = np.linspace(vel_min, vel_max, channels)
+        velocities = np.linspace(vel_min, vel_max, channels + 1)
         wavelengths = Quantity(velocities).to(
             unit=reference_wavelength.unit, equivalencies=doppler_relativistic(reference_wavelength))
 
@@ -80,7 +80,7 @@ class ChannelMaps:
             vb = velocities
             cv = Quantity(value=[(vb[_] + vb[_ + 1]) / 2.0 for _ in range(len(vb) - 1)])
         else:
-            raise RuntimeError
+            raise RuntimeError(f"Method {self.method} is not supported.")
 
         self.wavelength_boundaries = wb
         self.velocity_boundaries = vb
