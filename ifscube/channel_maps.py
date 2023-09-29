@@ -9,7 +9,8 @@ from astropy.units import Quantity
 from astropy.units.equivalencies import doppler_relativistic
 from matplotlib import patheffects
 from numpy import ma
-from scipy.integrate import trapz
+from scipy.integrate import trapz, quad_vec
+from scipy.interpolate import interp1d
 
 from . import Cube
 from . import cubetools
@@ -104,21 +105,21 @@ class ChannelMaps:
 
     def integrate_maps(self):
         emission_flux = self.data - self.continuum
+        wl = self.wavelength
+        wb = self.wavelength_boundaries
         if self.method == "trapezoidal":
-            wl = self.wavelength
-            wb = self.wavelength_boundaries
             masks = [(wl >= wb[_]) & (wl <= wb[_ + 1]) for _ in range(len(wb) - 1)]
             cm = [trapz(emission_flux[_], wl[_], axis=0) for _ in masks]
-            if "arcsec2" in self.data_units.to_string():
-                cm = Quantity(cm, unit="erg / (s cm2 arcsec2)")
-            else:
-                cm = Quantity(cm, unit="erg / (s cm2)")
         elif self.method == "linear_interpolation":
-            cm = None
-            pass
+            f = interp1d(wl, emission_flux, axis=0, bounds_error=False, fill_value=0.0)
+            cm = [quad_vec(f, a=wb[_].value, b=wb[_ + 1].value)[0] for _ in range(len(wb) - 1)]
         else:
             raise RuntimeError
 
+        if "arcsec2" in self.data_units.to_string():
+            cm = Quantity(cm, unit="erg / (s cm2 arcsec2)")
+        else:
+            cm = Quantity(cm, unit="erg / (s cm2)")
         self.maps = cm
 
     def write(self, name: str):
