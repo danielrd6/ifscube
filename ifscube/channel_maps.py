@@ -158,6 +158,22 @@ class ChannelMaps:
 
         plt.show()
 
+    def plot_map(self, n: int, threshold: float = None):
+
+        if threshold is not None:
+            m = self.maps[n].value <= threshold
+        else:
+            m = False
+
+        a = ma.array(data=self.maps[n], mask=m)
+
+        fig, ax = plt.subplots()
+        im = ax.imshow(a, origin="lower", cmap="plasma")
+        cbar = plt.colorbar(mappable=im, ax=ax)
+        ax.set_title(f"Velocity = {self.center_velocities[n]}")
+        plt.show()
+
+
 
 def channelmaps(cube, lambda0, vel_min, vel_max, channels=6, continuum_width=300, continuum_options=None,
                 log_flux=False, angular_scale=None, scale_bar=None, north_arrow=None, lower_threshold=1e-16,
