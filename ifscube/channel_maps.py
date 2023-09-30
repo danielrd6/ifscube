@@ -88,8 +88,7 @@ class ChannelMaps:
 
     def set_continuum(self, options: dict = None):
         if options is None:
-            options = {'n_iterate': 3, 'degree': 1, 'upper_threshold': 1, 'lower_threshold': 3,
-                       'output': 'function'}
+            options = {'n_iterate': 3, 'degree': 1, 'upper_threshold': 3.0, 'lower_threshold': 3.0}
 
         cp = options
 
