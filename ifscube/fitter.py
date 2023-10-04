@@ -63,9 +63,9 @@ def spectrum_fit(data: Union[Cube, onedspec.Spectrum], **line_fit_args):
     return fit
 
 
-def dofit(file_name, line_fit_args, overwrite, loading, fit_type, config_file_name, plot=False, lock=False,
-          plot_all=True):
-    galname = file_name.split('/')[-1]
+def do_fit(file_name, line_fit_args, overwrite, loading, fit_type, config_file_name, plot=False, lock=False,
+           plot_all=True):
+    data_file = os.path.basename(file_name)
 
     try:
         suffix = line_fit_args['suffix']
@@ -80,7 +80,7 @@ def dofit(file_name, line_fit_args, overwrite, loading, fit_type, config_file_na
     if output_name is None:
         if suffix is None:
             suffix = '_linefit'
-        output_name = galname.replace('.fits', suffix + '.fits')
+        output_name = data_file.replace('.fits', suffix + '.fits')
 
     if not overwrite:
         if os.path.isfile(output_name):
@@ -150,5 +150,5 @@ def main(fit_type):
     for i in args.datafile:
         c = parser.LineFitParser(args.config)
         line_fit_args = c.get_vars()
-        dofit(i, line_fit_args, overwrite=args.overwrite, plot=args.plot, loading=c.loading_opts, lock=args.lock,
-              fit_type=fit_type, config_file_name=args.config, plot_all=args.focused_plot)
+        do_fit(i, line_fit_args, overwrite=args.overwrite, plot=args.plot, loading=c.loading_opts, lock=args.lock,
+               fit_type=fit_type, config_file_name=args.config, plot_all=args.focused_plot)
