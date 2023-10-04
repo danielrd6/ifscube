@@ -263,9 +263,7 @@ def aperture_spectrum(arr, x0=None, y0=None, radius=3, combine='sum'):
     if y0 is None:
         y0 = x.mean()
 
-    x -= x0
-    y -= y0
-    r = np.sqrt(x ** 2 + y ** 2)
+    r = np.sqrt((x - x0) ** 2 + (y - y0) ** 2)
 
     new_arr = ma.masked_invalid(arr)
     new_arr.mask |= (r > radius)

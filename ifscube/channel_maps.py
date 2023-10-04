@@ -1,4 +1,5 @@
 import pickle
+import warnings
 from typing import Iterable
 
 import matplotlib as mpl
@@ -9,7 +10,8 @@ from astropy.units import Quantity
 from astropy.units.equivalencies import doppler_relativistic
 from matplotlib import patheffects
 from numpy import ma
-from scipy.integrate import trapz
+from scipy.integrate import trapz, quad_vec
+from scipy.interpolate import interp1d
 
 from . import Cube
 from . import cubetools
@@ -60,7 +62,7 @@ class ChannelMaps:
         self.method = method
 
     def set_channel_boundaries(self, reference_wavelength, vel_min, vel_max, channels):
-        velocities = np.linspace(vel_min, vel_max, channels)
+        velocities = np.linspace(vel_min, vel_max, channels + 1)
         wavelengths = Quantity(velocities).to(
             unit=reference_wavelength.unit, equivalencies=doppler_relativistic(reference_wavelength))
 
@@ -79,7 +81,7 @@ class ChannelMaps:
             vb = velocities
             cv = Quantity(value=[(vb[_] + vb[_ + 1]) / 2.0 for _ in range(len(vb) - 1)])
         else:
-            raise RuntimeError
+            raise RuntimeError(f"Method {self.method} is not supported.")
 
         self.wavelength_boundaries = wb
         self.velocity_boundaries = vb
@@ -87,8 +89,7 @@ class ChannelMaps:
 
     def set_continuum(self, options: dict = None):
         if options is None:
-            options = {'n_iterate': 3, 'degree': 1, 'upper_threshold': 1, 'lower_threshold': 3,
-                       'output': 'function'}
+            options = {'n_iterate': 3, 'degree': 1, 'upper_threshold': 3.0, 'lower_threshold': 3.0}
 
         cp = options
 
@@ -104,21 +105,21 @@ class ChannelMaps:
 
     def integrate_maps(self):
         emission_flux = self.data - self.continuum
+        wl = self.wavelength
+        wb = self.wavelength_boundaries
         if self.method == "trapezoidal":
-            wl = self.wavelength
-            wb = self.wavelength_boundaries
             masks = [(wl >= wb[_]) & (wl <= wb[_ + 1]) for _ in range(len(wb) - 1)]
             cm = [trapz(emission_flux[_], wl[_], axis=0) for _ in masks]
-            if "arcsec2" in self.data_units.to_string():
-                cm = Quantity(cm, unit="erg / (s cm2 arcsec2)")
-            else:
-                cm = Quantity(cm, unit="erg / (s cm2)")
         elif self.method == "linear_interpolation":
-            cm = None
-            pass
+            f = interp1d(wl, emission_flux, axis=0, bounds_error=False, fill_value=0.0)
+            cm = [quad_vec(f, a=wb[_].value, b=wb[_ + 1].value)[0] for _ in range(len(wb) - 1)]
         else:
             raise RuntimeError
 
+        if "arcsec2" in self.data_units.to_string():
+            cm = Quantity(cm, unit="erg / (s cm2 arcsec2)")
+        else:
+            cm = Quantity(cm, unit="erg / (s cm2)")
         self.maps = cm
 
     def write(self, name: str):
@@ -128,21 +129,23 @@ class ChannelMaps:
 
     def plot_spectrum(self, x: int, y: int, plot_channels: bool = True):
         data = self.data[:, y, x]
-        power_of_ten = int(np.floor(np.log10(data.min().value)))
+        power_of_ten = int(np.floor(np.log10(np.nanmin(np.abs(data)).value)))
         data /= 10.0 ** power_of_ten
         continuum = self.continuum[:, y, x]
         continuum /= 10.0 ** power_of_ten
         wl = self.wavelength
         v = self.velocity
         fig, ax = plt.subplots()
-        ax.set_xlim(wl.min().value, wl.max().value)
-        ax.plot(wl, continuum)
-        ax.plot(wl, data)
-        ax.grid(axis="y", alpha=0.5)
+        ax.set_xlim(v.min().value, v.max().value)
+        ax.plot(v, continuum)
+        ax.plot(v, data)
+        ax.grid(alpha=0.5)
+        ax.set_xlabel(f"Velocity ({self.velocity.unit.to_string()})")
+        ax.set_ylabel(f"$F_\\lambda \\times 10^{{{power_of_ten}}}$ ({self.data_units.to_string()})")
+
         axv = ax.twiny()
-        axv.set_xlim(v.min().value, v.max().value)
-        axv.set_xlabel(f"Velocity ({v.unit.to_string()})")
-        axv.grid(axis="x", alpha=0.5)
+        axv.set_xlim(wl.min().value, wl.max().value)
+        axv.set_xlabel(f"Wavelength ({wl.unit.to_string()})")
 
         wl = self.wavelength
         wb = self.wavelength_boundaries
@@ -150,10 +153,24 @@ class ChannelMaps:
 
         if plot_channels:
             for m in masks:
-                ax.fill_between(self.wavelength[m], self.continuum[m, y, x], self.data[m, y, x], alpha=0.7)
+                ax.fill_between(self.velocity[m].value, self.continuum[m, y, x].value, self.data[m, y, x].value,
+                                alpha=0.7)
 
-        ax.set_xlabel(f"Wavelength ({self.wavelength_units.to_string()})")
-        ax.set_ylabel(f"$F_\\lambda \\times 10^{{{power_of_ten}}}$ ({self.data_units.to_string()})")
+        plt.show()
+
+    def plot_map(self, n: int, threshold: float = None):
+
+        if threshold is not None:
+            m = self.maps[n].value <= threshold
+        else:
+            m = False
+
+        a = ma.array(data=self.maps[n], mask=m)
+
+        fig, ax = plt.subplots()
+        im = ax.imshow(a, origin="lower", cmap="plasma")
+        cbar = plt.colorbar(mappable=im, ax=ax)
+        ax.set_title(f"Velocity = {self.center_velocities[n]}")
         plt.show()
 
 
@@ -229,6 +246,9 @@ def channelmaps(cube, lambda0, vel_min, vel_max, channels=6, continuum_width=300
     Returns
     -------
     """
+    warnings.warn(
+        message="The 'channelmaps' function will be deprecated in the next relase of IFSCube. "
+        "Please consider using the new ifscube.channel_maps.ChannelMaps class.", category=DeprecationWarning)
 
     sigma = lower_threshold
 

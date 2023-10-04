@@ -228,6 +228,9 @@ class Cube(onedspec.Spectrum):
         if continuum_options is None:
             continuum_options = {'degree': 3, 'upper_threshold': 2, 'lower_threshold': 2, 'n_iterate': 5}
 
+        if "weights" in continuum_options:
+            continuum_options["weights"] = continuum_options["weights"][fwidx]
+
         try:
             continuum_options['output']
         except KeyError:
