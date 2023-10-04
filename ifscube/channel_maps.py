@@ -1,4 +1,5 @@
 import pickle
+import warnings
 from typing import Iterable
 
 import matplotlib as mpl
@@ -153,7 +154,7 @@ class ChannelMaps:
         if plot_channels:
             for m in masks:
                 ax.fill_between(self.velocity[m].value, self.continuum[m, y, x].value, self.data[m, y, x].value,
-                alpha=0.7)
+                                alpha=0.7)
 
         plt.show()
 
@@ -171,7 +172,6 @@ class ChannelMaps:
         cbar = plt.colorbar(mappable=im, ax=ax)
         ax.set_title(f"Velocity = {self.center_velocities[n]}")
         plt.show()
-
 
 
 def channelmaps(cube, lambda0, vel_min, vel_max, channels=6, continuum_width=300, continuum_options=None,
@@ -246,6 +246,9 @@ def channelmaps(cube, lambda0, vel_min, vel_max, channels=6, continuum_width=300
     Returns
     -------
     """
+    warnings.warn(
+        message="The 'channelmaps' function will be deprecated in the next relase of IFSCube. "
+        "Please consider using the new ifscube.channel_maps.ChannelMaps class.", category=DeprecationWarning)
 
     sigma = lower_threshold
 
