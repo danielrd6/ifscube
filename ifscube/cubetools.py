@@ -284,16 +284,6 @@ def aperture_spectrum(arr, x0=None, y0=None, radius=3, combine='sum'):
     return s, npix
 
 
-# This is only here for backwards compatibility.
-class gmosdc:
-
-    def __init__(self, *args, **kwargs):
-        raise DeprecationWarning(
-            'The gmosdc class has been moved to the ifscube.gmos '
-            'module. Please change the instance initialization line from '
-            'cubetools.gmosdc() to gmos.cube()')
-
-
 def append_config(config_file: str, fit_file: str) -> None:
     """
     Appends the configuration parameters as FITS table to the fit output file.
@@ -319,10 +309,10 @@ def append_config(config_file: str, fit_file: str) -> None:
         for j in c[i]:
             t.add_row(('{:s}.{:s}'.format(i, j), c[i][j]))
 
-    with fits.open(fit_file) as outfits:
+    with fits.open(fit_file, mode="update") as outfits:
         outfits.append(fits.BinTableHDU(data=t))
         outfits[-1].name = 'FITCONFIG'
-        outfits.writeto(fit_file, overwrite=True)
+        outfits.flush()
 
     return
 

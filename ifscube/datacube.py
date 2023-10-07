@@ -266,7 +266,7 @@ class Cube(onedspec.Spectrum):
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
-                hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
+                hdr['REDSHIFT'] = (self.redshift, 'Redshift.')
 
             hdr['CRVAL3'] = wl[0]
             hdr['CONTDEGR'] = (continuum_options['degree'], 'Degree of continuum polynomial')
@@ -377,7 +377,7 @@ class Cube(onedspec.Spectrum):
             try:
                 hdr['REDSHIFT'] = self.redshift
             except KeyError:
-                hdr['REDSHIFT'] = (self.redshift, 'Redshift used in GMOSDC')
+                hdr['REDSHIFT'] = (self.redshift, 'Redshift.')
 
             hdr['WLPROJ'] = (True, 'Processed by WLPROJECTION?')
             hdr['WLPRTYPE'] = (filtertype,
