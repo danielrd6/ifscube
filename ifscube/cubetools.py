@@ -319,10 +319,10 @@ def append_config(config_file: str, fit_file: str) -> None:
         for j in c[i]:
             t.add_row(('{:s}.{:s}'.format(i, j), c[i][j]))
 
-    with fits.open(fit_file) as outfits:
+    with fits.open(fit_file, mode="update") as outfits:
         outfits.append(fits.BinTableHDU(data=t))
         outfits[-1].name = 'FITCONFIG'
-        outfits.writeto(fit_file, overwrite=True)
+        outfits.flush()
 
     return
 
