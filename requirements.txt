@@ -1,6 +1,7 @@
-numpy==1.22.0
-scipy>1.4.1
-matplotlib>3
-astropy>=4
-tqdm>=4
-pytest>5.4.2
+astropy==5.3.4
+matplotlib==3.8.0
+ppxf==8.2.6
+pytest==7.4.2
+scipy==1.11.3
+tqdm==4.66.1
+vorbin==3.1.5
