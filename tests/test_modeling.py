@@ -260,7 +260,7 @@ def test_monte_carlo():
     fit = full_fit()
     fit.optimize_fit(width=5.0)
     fit.fit()
-    fit.monte_carlo(3)
+    fit.monte_carlo(20)
     assert 1
 
 
