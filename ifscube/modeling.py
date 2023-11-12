@@ -439,8 +439,8 @@ class LineFit:
             self.data = np.random.normal(old_data, np.sqrt(self.variance))
             self.fit(**self.fit_arguments)
             solution_matrix[c] = copy.deepcopy(self.solution)
-        self.solution = solution_matrix.mean(axis=0)
-        self.uncertainties = solution_matrix.std(axis=0)
+        self.solution = np.nanmedian(solution_matrix, axis=0)
+        self.uncertainties = solution_matrix
         self.data = old_data
 
     def _get_feature_parameter(self, feature: str, parameter: str, attribute: str):
