@@ -1,3 +1,4 @@
+import copy
 import warnings
 from typing import Union, Iterable, Callable
 
@@ -430,14 +431,14 @@ class LineFit:
         assert self.solution is not None, 'Monte carlo uncertainties can only be evaluated after a successful fit.'
         assert not np.all(self.variance == 1.0), \
             'Cannot estimate uncertainties via Monte Carlo. The variance was not given.'
-        old_data = np.copy(self.data)
+        old_data = copy.deepcopy(self.data)
         solution_matrix = np.zeros((n_iterations,) + self.solution.shape)
         self.uncertainties = np.zeros_like(self.solution)
 
         for c in range(n_iterations):
             self.data = np.random.normal(old_data, np.sqrt(self.variance))
             self.fit(**self.fit_arguments)
-            solution_matrix[c] = np.copy(self.solution)
+            solution_matrix[c] = copy.deepcopy(self.solution)
         self.solution = solution_matrix.mean(axis=0)
         self.uncertainties = solution_matrix.std(axis=0)
         self.data = old_data
