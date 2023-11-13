@@ -23,6 +23,7 @@ class FixedSolution:
 class LineFit:
     def __init__(self, data: Union[Spectrum, Cube], function: str = 'gaussian', fitting_window: tuple = None,
                  instrument_dispersion: float = 1.0):
+        self.monte_carlo_solutions = None
         self.input_data = data
         self.data = np.copy(data.data)
         self.stellar = np.copy(data.stellar)
@@ -439,8 +440,9 @@ class LineFit:
             self.data = np.random.normal(old_data, np.sqrt(self.variance))
             self.fit(**self.fit_arguments)
             solution_matrix[c] = copy.deepcopy(self.solution)
-        self.solution = np.nanmedian(solution_matrix, axis=0)
-        self.uncertainties = solution_matrix
+        self.solution = np.nanmean(solution_matrix, axis=0)
+        self.uncertainties = np.nanstd(solution_matrix, axis=0)
+        self.monte_carlo_solutions = solution_matrix
         self.data = old_data
 
     def _get_feature_parameter(self, feature: str, parameter: str, attribute: str):
