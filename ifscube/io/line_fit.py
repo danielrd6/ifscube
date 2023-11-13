@@ -186,6 +186,12 @@ def write_spectrum_fit(fit: Union[modeling.LineFit, modeling.LineFit3D], suffix:
         hdu.name = 'DISP'
         h.append(hdu)
 
+    if fit.monte_carlo_solutions is not None:
+        hdr['object'] = 'Monte Carlo Solutions'
+        hdu = fits.ImageHDU(data=fit.monte_carlo_solutions, header=hdr)
+        hdu.name = 'MC_RUNS'
+        h.append(hdu)
+
     # Creates the initial guess extension.
     hdr['object'] = 'Initial guess'
     hdu = fits.ImageHDU(data=fit.initial_guess, header=hdr)
