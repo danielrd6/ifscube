@@ -56,6 +56,14 @@ def test_gauss_hermite_asymmetry():
 def test_gauss_vel():
     x = np.linspace(start=6552.8, stop=6572.80, num=11)
     p = np.array([1.0, 0.0, 100.0])
-    rest_wavelength = np.array([6562.80, 6562.80])
+    rest_wavelength = np.array([6562.80])
     y = elprofile.gauss_vel(x=x, rest_wl=rest_wavelength, p=p)
     assert y[4] > y[6]
+
+
+def test_gauss_hermite_vel():
+    x = np.linspace(start=6552.80, stop=6572.80, num=11)
+    p = np.array([1.0, 0.0, 100.0, 0.1, 0.1])
+    rest_wavelength = np.array([6562.80])
+    elprofile.gauss_hermite_vel(x=x, rest_wl=rest_wavelength, p=p)
+    assert True
