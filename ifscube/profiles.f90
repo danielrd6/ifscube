@@ -119,24 +119,46 @@ subroutine gauss_vel(x, rest_wl, p, y, n, np, nwl)
 
 end
 
-subroutine gauss_hermite_vel(x, rest_wl, p, y, n, np)
+subroutine gauss_hermite_vel(x, rest_wl, p, y, n, np, nwl)
 
-    real, parameter :: pi = 3.1415927, c = 299792.458, sq2 = sqrt(2.0), sq6 = sqrt(6.0)
-    real, parameter :: sq24 = sqrt(24.0), sq2pi = sqrt(2.0 * pi)
-    integer :: n, np, i, j
-    real, dimension(0:(np - 1) / 5), intent(in) :: rest_wl
-    real, dimension(0:np - 1), intent(in) :: p
-    real, dimension(0:n - 1), intent(in) :: x
-    real, dimension(0:n - 1) :: w, hh3, hh4, alphag, vel, fvel, lam_ratio
-    real, dimension(0:n - 1), intent(out) :: y
-    real :: h3, h4
-    real :: a, l0, s
+    implicit none
+    integer, parameter :: dp = selected_real_kind(15, 307)
+    integer :: n=len(x)
+    integer :: np
+    integer :: nwl
+    integer :: j
+    integer :: i
+    !f2py intent(hide), depend(x) :: n=len(x)
+    !f2py integer intent(hide), depend(p) :: np=len(p)
+    !f2py integer intent(hide), depend(rest_wl) :: np=len(rest_wl)
+    real(dp), parameter :: pi = 3.1415927
+    real(dp), parameter :: sq2 = sqrt(2.0)
+    real(dp), parameter :: sq6 = sqrt(6.0)
+    real(dp), parameter :: sq24 = sqrt(24.0)
+    real(dp), parameter :: sq2pi = sqrt(2.0 * pi)
+    real(dp), parameter :: c = 299792.458
+    real(dp), dimension(nwl), intent(in) :: rest_wl
+    real(dp), dimension(np), intent(in) :: p
+    real(dp), dimension(n), intent(in) :: x
+    real(dp), dimension(n), intent(out) :: y
+    real(dp), dimension(n) :: w
+    real(dp), dimension(n) :: hh3
+    real(dp), dimension(n) :: hh4
+    real(dp), dimension(n) :: alphag
+    real(dp), dimension(n) :: vel
+    real(dp), dimension(n) :: fvel
+    real(dp), dimension(n) :: lam_ratio
+    real(dp) :: a
+    real(dp) :: v0
+    real(dp) :: s
+    real(dp) :: h3
+    real(dp) :: h4
 
     vel(:) = 0.0
     y(:) = 0.0
 
-    j = 0
-    do i = 0, (np - 1), 5
+    j = 1
+    do i = 1, np, 5
         ! Always use integer exponents, as it increases performance
         ! and has no impact on precision
         lam_ratio = (x / rest_wl(j))**2
