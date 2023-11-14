@@ -77,31 +77,40 @@ subroutine gauss_hermite(x, p, y, n, np)
 
 end
 
-subroutine gaussvel(x, rest_wl, p, y, n, np)
+subroutine gauss_vel(x, rest_wl, p, y, n, np, nwl)
 
-    real, parameter :: pi = 3.1415927, c = 299792.458
-    integer :: n, np, j, i
-    real, dimension(0:np - 1), intent(in) :: p
-    real, dimension(0:(np - 1) / 3), intent(in) :: rest_wl
-    real, dimension(0:n - 1), intent(in) :: x
-    real, dimension(0:n - 1), intent(out) :: y
-    real, dimension(0:n - 1) :: w, vel, fvel, lam_ratio
+    implicit none
+    integer, parameter :: dp = selected_real_kind(15, 307)
+    integer :: n
+    integer :: np
+    integer :: nwl
+    integer :: j
+    integer :: i
+    !f2py intent(hide), depend(x) :: n=len(x)
+    !f2py integer intent(hide), depend(p) :: np=len(p)
+    !f2py integer intent(hide), depend(rest_wl) :: np=len(rest_wl)
+    real(dp), parameter :: pi = 3.1415927
+    real(dp), parameter :: c = 299792.458
+    real(dp), dimension(np), intent(in) :: p
+    real(dp), dimension(nwl), intent(in) :: rest_wl
+    real(dp), dimension(n), intent(in) :: x
+    real(dp), dimension(n), intent(out) :: y
+    real(dp), dimension(n) :: w
+    real(dp), dimension(n) :: vel
+    real(dp), dimension(n) :: fvel
+    real(dp), dimension(n) :: lam_ratio
 
     vel(:) = 0.0
     y(:) = 0.0
 
-    j = 0
-    do i = 0, (np - 1), 3
+    j = 1
+    do i = 1, np, 3
         lam_ratio = (x / rest_wl(j)) ** 2
         vel = c * (lam_ratio - 1.0) / (lam_ratio + 1.0)
 
-        a = p(i)
-        v0 = p(i + 1)
-        s = p(i + 2)
-
-        w = (vel - v0) / s
+        w = -((vel - p(i + 1)) / p(i + 2))**2 / 2.0
         ! The observed flux density equals the emitted flux density divided by (1 + z)
-        fvel = a * exp(-w**2 / 2.0) / (1.0 + (vel / c))
+        fvel = p(i) * exp(w) / (1.0 + (vel / c))
 
         y = y + fvel
         j = j + 1
@@ -110,7 +119,7 @@ subroutine gaussvel(x, rest_wl, p, y, n, np)
 
 end
 
-subroutine gausshermitevel(x, rest_wl, p, y, n, np)
+subroutine gauss_hermite_vel(x, rest_wl, p, y, n, np)
 
     real, parameter :: pi = 3.1415927, c = 299792.458, sq2 = sqrt(2.0), sq6 = sqrt(6.0)
     real, parameter :: sq24 = sqrt(24.0), sq2pi = sqrt(2.0 * pi)
