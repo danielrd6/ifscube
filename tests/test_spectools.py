@@ -1,6 +1,6 @@
 import numpy as np
 from astropy import units
-from ifscube.elprofile import gaussvel
+from ifscube.elprofile import gauss_vel
 
 from ifscube import spectools
 
@@ -17,7 +17,7 @@ def test_velocity_width_oversample():
     p = np.array([1, -5000, 2000])
 
     wavelength = np.linspace(5000, 8000, 15000)
-    g = gaussvel(wavelength, rest_wavelength.value, p)
+    g = gauss_vel(wavelength, rest_wavelength.value, p)
     obs = np.random.normal(g, .05)
 
     vw_natural = spectools.velocity_width(
@@ -25,7 +25,7 @@ def test_velocity_width_oversample():
         fractional_pixels=True)
 
     wavelength = np.linspace(5000, 8000, 100)
-    g = gaussvel(wavelength, rest_wavelength.value, p)
+    g = gauss_vel(wavelength, rest_wavelength.value, p)
     obs = np.random.normal(g, .05)
     vw_oversampled = spectools.velocity_width(
         wavelength=wavelength, model=g, data=obs, rest_wavelength=rest_wavelength, oversample=15,
