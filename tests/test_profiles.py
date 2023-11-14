@@ -29,3 +29,11 @@ def test_flux_conservation_gaussvel():
 
 def test_flux_conservation_gausshermitevel():
     flux_conservation(fun=elprofile.gausshermitevel)
+
+
+def test_gauss():
+    x = np.linspace(start=-10, stop=10, num=11)
+    p = np.array([1.0, 0.0, 3.0, 2.0, 2.0, 1.0])
+    y = elprofile.gauss(x=x, p=p)
+    expected = 1.0 + (2.0 * np.exp(-(2.0 ** 2) / 2.0))
+    assert y[5] == expected
