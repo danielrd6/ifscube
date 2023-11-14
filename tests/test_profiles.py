@@ -37,3 +37,17 @@ def test_gauss():
     y = elprofile.gauss(x=x, p=p)
     expected = 1.0 + (2.0 * np.exp(-(2.0 ** 2) / 2.0))
     assert y[5] == expected
+
+
+def test_gauss_hermite_symmetry():
+    x = np.linspace(start=-10, stop=10, num=11)
+    p = np.array([1.0, 0.0, 3.0, 0.0, 0.2])
+    y = elprofile.gauss_hermite(x=x, p=p)
+    assert y[4] == y[6]
+
+
+def test_gauss_hermite_asymmetry():
+    x = np.linspace(start=-10, stop=10, num=11)
+    p = np.array([1.0, 0.0, 3.0, 0.2, 0.0])
+    y = elprofile.gauss_hermite(x=x, p=p)
+    assert y[4] > y[6]
