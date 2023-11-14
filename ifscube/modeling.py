@@ -50,7 +50,7 @@ class LineFit:
             self.function = elprofile.gauss_vel
             self.parameters_per_feature = 3
         elif function == 'gauss_hermite':
-            self.function = elprofile.gausshermitevel
+            self.function = elprofile.gauss_hermite_vel
             self.parameters_per_feature = 5
 
         self.solution = None

@@ -10,7 +10,7 @@ def flux_conservation(fun):
     v = 10000
     p_blue = [1, -v, 3000]
     p_red = [1, v, 3000]
-    if fun == elprofile.gausshermitevel:
+    if fun == elprofile.gauss_hermite_vel:
         p_blue += [.2, .2]
         p_red += [.2, .2]
 
