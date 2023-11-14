@@ -1,7 +1,8 @@
 astropy==5.3.4
-matplotlib==3.8.0
-ppxf==8.2.6
-pytest==7.4.2
+matplotlib~=3.8.1
+ppxf~=9.0.1
+pytest~=7.4.3
 scipy==1.11.3
 tqdm==4.66.1
 vorbin==3.1.5
+numpy~=1.26.0
