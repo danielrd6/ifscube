@@ -25,23 +25,37 @@ subroutine gauss(x, p, y, n, np)
 end
 
 
-subroutine gausshermite(x, p, y, n, np)
+subroutine gauss_hermite(x, p, y, n, np)
 
+    implicit none
     integer, parameter :: dp = selected_real_kind(15, 307)
-    real, parameter :: pi = 3.1415927, sq2 = sqrt(2.0), sq6 = sqrt(6.0)
-    real, parameter :: sq24 = sqrt(24.0), sq2pi = sqrt(2.0 * pi)
-    integer :: n, np
+    !f2py intent(hide), depend(x) :: n=len(x)
+    !f2py integer intent(hide), depend(p) :: np=len(p)
+    integer :: n
+    integer :: np
     integer :: i
-    real, dimension(0:np - 1), intent(in) :: p
-    real, dimension(0:n - 1), intent(in) :: x
-    real, dimension(0:n - 1) :: w, hh3, hh4, alphag, gh
-    real, dimension(0:n - 1), intent(out) :: y
-    real :: h3, h4
-    real :: a, l0, s
+    real(dp), parameter :: pi = 3.1415927
+    real(dp), parameter :: sq2 = sqrt(2.0)
+    real(dp), parameter :: sq6 = sqrt(6.0)
+    real(dp), parameter :: sq24 = sqrt(24.0)
+    real(dp), parameter :: sq2pi = sqrt(2.0 * pi)
+    real(dp), dimension(np), intent(in) :: p
+    real(dp), dimension(n), intent(in) :: x
+    real(dp), dimension(n), intent(out) :: y
+    real(dp), dimension(n) :: w
+    real(dp), dimension(n) :: h3
+    real(dp), dimension(n) :: hh3
+    real(dp), dimension(n) :: h4
+    real(dp), dimension(n) :: hh4
+    real(dp), dimension(n) :: alphag
+    real(dp), dimension(n) :: gh
+    real(dp) :: a
+    real(dp) :: l0
+    real(dp) :: s
 
     y(:) = 0.0
 
-    do i = 0, (np - 1), 5
+    do i = 1, np, 5
 
         a = p(i)
         l0 = p(i + 1)
