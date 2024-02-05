@@ -123,7 +123,7 @@ subroutine gauss_hermite_vel(x, rest_wl, p, y, n, np, nwl)
 
     implicit none
     integer, parameter :: dp = selected_real_kind(15, 307)
-    integer :: n=len(x)
+    integer :: n
     integer :: np
     integer :: nwl
     integer :: j
