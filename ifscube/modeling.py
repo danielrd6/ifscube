@@ -9,7 +9,12 @@ from astropy import constants, units
 from scipy import integrate
 from scipy.optimize import minimize, differential_evolution, LinearConstraint
 
-from ifscube import elprofile, parser, spectools
+try:
+    from ifscube import elprofile
+except ImportError:
+    from ifscube import profiles as elprofile
+
+from ifscube import parser, spectools
 from ifscube import plots as ifs_plots
 from .datacube import Cube
 from .onedspec import Spectrum
