@@ -3,12 +3,12 @@ import argparse
 import tkinter as tk
 
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 from matplotlib.figure import Figure
-import numpy as np
-from numpy import ma
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from numpy import ma
 
 from ifscube.io import line_fit
 
@@ -209,8 +209,7 @@ class OneDFit:
         return
 
 
-if __name__ == '__main__':
-
+def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('fitfile', type=str, help='Result of the fit')

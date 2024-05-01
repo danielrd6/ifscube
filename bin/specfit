@@ -1,7 +1,0 @@
-#!/usr/bin/env python
-# local
-from ifscube import fitter
-
-if __name__ == '__main__':
-
-    fitter.main(fit_type='spec')
