@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ifscube"
+authors = [
+    {name="Daniel Ruschel Dutra", email="daniel.ruschel@ufsc.br"}
+]
+version = "1.2"
+requires-python = "~=3.12"
+
+[tool.setuptools]
+include-package-data = true
+
+[project.scripts]
+specfit = "ifscube.fitter:specfit"
+cubefit = "ifscube.fitter:cubefit"
+fit_rotation = "ifscube.rotation:main"
+fit_scrutinizer = "ifscube.fit_scrutinizer:main"

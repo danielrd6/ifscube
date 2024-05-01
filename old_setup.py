@@ -18,7 +18,7 @@ setup(
     version="1.2",
     packages=['ifscube', 'ifscube.io'],
     package_data=package_data,
-    scripts=['bin/fit_scrutinizer', 'bin/cubefit', 'bin/specfit', 'bin/fit_rotation'],
+    scripts=['bin/fit_scrutinizer.py', 'bin/cubefit', 'bin/specfit', 'bin/fit_rotation'],
     description="Fits emssision lines",
     author="Daniel Ruschel Dutra",
     author_email="daniel.ruschel@.ufsc.br",
