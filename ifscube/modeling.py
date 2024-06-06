@@ -568,7 +568,68 @@ class LineFit:
 
         return res
 
-    def get_model(self, feature: Union[str, list]):
+    def full_width(self, feature: Union[str, list], initial_width: float = 3.0, search_radius: float = 10.0,
+                   plot: bool = False,
+    **kwargs):
+        """
+        Determines the Full Width at Half Maximum for the specified features.
+
+        Parameters
+        ----------
+        feature : str, list
+            Names of the features to be included in the modelled
+            spectrum. Can be either a string specifying a single
+            spectral feature, or a list of strings.
+        initial_width : float
+            Initial guess for the half width of the spectral feature, in
+            wavelength units.
+        search_radius : float
+            Maximum distance in wavelength from the spectral feature's
+            peak flux in which to search for the half flux point.
+        plot : bool
+            Outputs a plot of the model with markings at the extremes
+            used to measure the full width at half maximum.
+        kwargs
+
+        Returns
+        -------
+
+        """
+        if type(feature) == str:
+            feature = [feature]
+
+        fit = LineFit.get_model(self, feature=feature, returns="function")
+        x0 = self.feature_wavelengths[self.feature_names.index(feature[0])]
+
+        peak_wavelength = minimize(lambda x: -fit(x), x0=x0).x[0]
+        peak_flux = fit(peak_wavelength)
+
+        def fun(x):
+            return np.square((fit(x) / peak_flux) - 0.5)
+
+        lb = peak_wavelength - search_radius
+        ub = peak_wavelength + search_radius
+
+        low = minimize(fun, x0=peak_wavelength - initial_width, bounds=[[lb, peak_wavelength]])
+        high = minimize(fun, x0=peak_wavelength + initial_width, bounds=[[peak_wavelength, ub]])
+
+        fwhm_wavelength = high.x[0] - low.x[0]
+        fwhm_velocity = constants.c.to("km / s").value * fwhm_wavelength / peak_wavelength
+
+        if plot:
+            wl = np.linspace(lb, ub, num=1000)
+            fig, ax = plt.subplots()
+            mask = (self.wavelength >= np.min(wl)) & (self.wavelength <= np.max(wl))
+            ax.plot(self.wavelength[mask], self.data[mask] - self.pseudo_continuum[mask] - self.stellar[mask])
+            ax.plot(wl, fit(wl))
+            ax.axvline(low.x[0])
+            ax.axvline(high.x[0])
+            ax.set_ylim(0, peak_flux * 1.1)
+            plt.show()
+
+        return fwhm_wavelength, fwhm_velocity
+
+    def get_model(self, feature: Union[str, list], returns: str = "spectrum"):
         """
         Generates an array, equal in length to the original spectrum,
         but having only the spectral features defined by *feature*.
@@ -579,25 +640,38 @@ class LineFit:
             Names of the features to be included in the modelled
             spectrum. Can be either a string specifying a single
             spectral feature, or a list of strings.
+        returns : str
+            'spectrum' - The feature models evaluated at the wavelength values.
+            'function' - A function that takes the wavelength and returns the
+               modeled value at that wavelength.
+
 
         Returns
         -------
-        fit : np.ndarray
+        fit : np.ndarray, callable
             Modelled spectrum.
         """
+        fwl = []
+        sol = []
+
         if type(feature) == str:
-            index = self.feature_names.index(feature)
-            solution = self._get_feature_parameter(feature, 'all', 'solution')
-            fit = self.function(self.wavelength, self.feature_wavelengths[index], solution)
+            feature = [feature]
         elif type(feature) == list:
-            fit = np.zeros_like(self.wavelength)
-            for component in feature:
-                solution = self._get_feature_parameter(component, 'all', 'solution')
-                index = self.feature_names.index(component)
-                fit += self.function(self.wavelength, self.feature_wavelengths[index], solution)
+            pass
         else:
             raise TypeError('feature must be either string or list.')
-        return fit
+
+        for component in feature:
+            sol += list(self._get_feature_parameter(component, 'all', 'solution'))
+            fwl.append(self.feature_wavelengths[self.feature_names.index(component)])
+
+        def fun(x):
+            return self.function(x, fwl, sol)
+
+        if returns == "spectrum":
+            return fun(self.wavelength)
+        elif returns == "function":
+            return fun
 
     def _get_center_wavelength(self, feature):
         velocity = self._get_feature_parameter(feature, 'velocity', 'solution')
