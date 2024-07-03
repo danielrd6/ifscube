@@ -569,8 +569,7 @@ class LineFit:
         return res
 
     def full_width(self, feature: Union[str, list], initial_width: float = 3.0, search_radius: float = 10.0,
-                   plot: bool = False,
-    **kwargs):
+                   plot: bool = False):
         """
         Determines the Full Width at Half Maximum for the specified features.
 

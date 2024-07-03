@@ -1,7 +1,9 @@
-import numpy as np
 import importlib.resources
+
+import numpy as np
 import pytest
 from astropy import units
+from astropy.units import equivalencies
 
 from ifscube import onedspec, modeling, datacube
 
@@ -181,7 +183,7 @@ def test_constraints_differential_evolution():
         fit.set_bounds(i, j, bounds[j])
     fit.fit(min_method='differential_evolution', verbose=True)
     ratio = fit._get_feature_parameter("n2_6583", "amplitude", "solution") \
-        / fit._get_feature_parameter("n2_6548", "amplitude", "solution")
+            / fit._get_feature_parameter("n2_6548", "amplitude", "solution")
     constraint_a = np.abs(1 - (ratio / 3.06)) < 0.01
     constraint_b = fit._get_feature_parameter("ha", "amplitude", "solution") < 1.5
     assert constraint_a and constraint_b
@@ -400,3 +402,25 @@ def test_missing_k_group():
     fit.add_feature(name='line_b', rest_wavelength=6563, amplitude=1, velocity=0.0, sigma=100.0, kinematic_group=1)
     fit.pack_groups()
     assert True
+
+
+def test_full_width():
+    spec = onedspec.Spectrum()
+
+    wl = units.Quantity(np.linspace(start=4700.0, stop=5000.0, num=300), unit="Angstrom")
+    v = wl.to("km / s", equivalencies=equivalencies.doppler_relativistic(4861.35 * units.Angstrom))
+    sigma = units.Quantity(value=150.0, unit="km / s")
+
+    def gauss(x):
+        return np.exp(-x**2 / (2.0 * sigma ** 2))
+
+    spec.data = gauss(v)
+    spec.rest_wavelength = wl
+    spec.stellar = None
+    spec.variance = None
+    spec.flags = np.zeros_like(spec.data, dtype=bool)
+
+    fit = modeling.LineFit(spec)
+    #TODO: make this test more testier.
+
+    print("ok")
