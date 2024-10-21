@@ -221,8 +221,9 @@ def test_get_model():
     fit.fit()
     a = fit.get_model("ha")
     index = fit.feature_names.index("ha")
+    rest_wl = np.array([fit.feature_wavelengths[index]])
     solution = fit._get_feature_parameter("ha", "all", "solution")
-    b = fit.function(fit.wavelength, index, solution)
+    b = fit.function(fit.wavelength, rest_wl, solution)
     assert np.all(a - b) == 0
 
 
@@ -239,12 +240,14 @@ def test_get_model_multiple():
     a = fit.get_model(["ha", "n2_6583"])
 
     index = fit.feature_names.index("ha")
+    rest_wl = np.array([fit.feature_wavelengths[index]])
     solution = fit._get_feature_parameter("ha", "all", "solution")
-    b = fit.function(fit.wavelength, index, solution)
+    b = fit.function(fit.wavelength, rest_wl, solution)
 
     index = fit.feature_names.index("n2_6583")
+    rest_wl = np.array([fit.feature_wavelengths[index]])
     solution = fit._get_feature_parameter("n2_6583", "all", "solution")
-    b += fit.function(fit.wavelength, index, solution)
+    b += fit.function(fit.wavelength, rest_wl, solution)
 
     assert np.all(a - b) == 0
 

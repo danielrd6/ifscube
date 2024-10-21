@@ -9,13 +9,9 @@ from astropy import constants, units
 from scipy import integrate
 from scipy.optimize import minimize, differential_evolution, LinearConstraint
 
-try:
-    from ifscube import elprofile
-except ImportError:
-    from ifscube import profiles as elprofile
-
 from ifscube import parser, spectools
 from ifscube import plots as ifs_plots
+from ifscube import profiles
 from .datacube import Cube
 from .onedspec import Spectrum
 
@@ -52,10 +48,10 @@ class LineFit:
         self.constraints = []
 
         if function == 'gaussian':
-            self.function = elprofile.gauss_vel
+            self.function = profiles.gauss_vel
             self.parameters_per_feature = 3
         elif function == 'gauss_hermite':
-            self.function = elprofile.gauss_hermite_vel
+            self.function = profiles.gauss_hermite_vel
             self.parameters_per_feature = 5
 
         self.solution = None
@@ -511,12 +507,12 @@ class LineFit:
                                               sigma=sigma_lam, width=sigma_factor)
 
                 observed_feature = self.data[~mask] - self.pseudo_continuum[~mask] - self.stellar[~mask]
-                fit = self.function(self.wavelength[~mask], self.feature_wavelengths[idx],
+                fit = self.function(self.wavelength[~mask], np.array([self.feature_wavelengths[idx]]),
                                     self._get_feature_parameter(feature, 'all', 'solution'))
                 for i, j in enumerate(self.feature_names):
                     if j != feature:
                         observed_feature -= self.function(
-                            self.wavelength[~mask], self.feature_wavelengths[i],
+                            self.wavelength[~mask], np.array([self.feature_wavelengths[i]]),
                             self._get_feature_parameter(j, 'all', 'solution'))
 
                 flux_model[idx] = integrate.trapz(fit, x=self.wavelength[~mask])
@@ -593,13 +589,13 @@ class LineFit:
         if type(feature) == str:
             index = self.feature_names.index(feature)
             solution = self._get_feature_parameter(feature, 'all', 'solution')
-            fit = self.function(self.wavelength, self.feature_wavelengths[index], solution)
+            fit = self.function(self.wavelength, np.array([self.feature_wavelengths[index]]), solution)
         elif type(feature) == list:
             fit = np.zeros_like(self.wavelength)
             for component in feature:
                 solution = self._get_feature_parameter(component, 'all', 'solution')
                 index = self.feature_names.index(component)
-                fit += self.function(self.wavelength, self.feature_wavelengths[index], solution)
+                fit += self.function(self.wavelength, np.array([self.feature_wavelengths[index]]), solution)
         else:
             raise TypeError('feature must be either string or list.')
         return fit
@@ -618,7 +614,7 @@ class LineFit:
         sig = spectools.sigma_lambda(sigma, wavelength)
         low_wl, up_wl = [self._get_center_wavelength(feature) + (_ * sigma_factor * sig) for _ in [-1.0, 1.0]]
         cond = (self.wavelength > low_wl) & (self.wavelength < up_wl)
-        fit = self.function(self.wavelength[cond], wavelength, solution)
+        fit = self.function(self.wavelength[cond], np.array([wavelength]), solution)
 
         return cond, fit, self.stellar, self.pseudo_continuum, self.data
 
