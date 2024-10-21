@@ -1,8 +1,8 @@
-astropy==5.3.4
+astropy~=6.0.1
 matplotlib~=3.8.1
-ppxf~=9.0.1
-pytest~=7.4.3
-scipy==1.11.3
-tqdm==4.66.1
-vorbin==3.1.5
+pytest~=8.3.3
+scipy~=1.13.0
+tqdm~=4.66.2
 numpy~=1.26.0
+numba~=0.60.0
+setuptools~=69.1.1
