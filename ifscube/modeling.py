@@ -329,7 +329,7 @@ class LineFit:
                              n_iterate: int = 5, lower_threshold: float = 2.0, upper_threshold: float = 3):
         wl = self.wavelength
         fw = (wl >= self.fitting_window[0]) & (wl <= self.fitting_window[1])
-        if 'weights' is None:
+        if weights is None:
             cw = np.ones_like(self.data)
 
             def continuum_weights(sigmas):
@@ -706,7 +706,12 @@ class LineFit:
         observed = self.data[m]
         pseudo_continuum = self.pseudo_continuum[m]
         stellar = self.stellar[m]
-        model_lines = self.function(wavelength, self.feature_wavelengths, self.solution)
+        model_lines = self.function(
+            np.array(wavelength, dtype="float64"),
+            np.array(self.feature_wavelengths, dtype="float64"),
+            self.solution
+        )
+        print("passed")
         err = np.sqrt(self.variance[m])
 
         if figure is None:
