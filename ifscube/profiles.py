@@ -51,11 +51,11 @@ def gauss_vel(x, rest_wl, p):
     for j in prange(n):
         i = int(j * 3)
         amplitude, v_center, sigma = p[i:i + 3]
-        lam_ratio = (x / rest_wl[j])
-        vel = c * (lam_ratio - 1.0) / (lam_ratio + 1.0)
+        lambda_ratio_squared = (x / rest_wl[j]) ** 2
+        vel = c * (lambda_ratio_squared - 1.0) / (lambda_ratio_squared + 1.0)
 
-        w = -((vel - v_center) / sigma) ** 2 / 2.0
-        f_vel = amplitude * np.exp(w) / (1.0 + (vel / c))
+        w = (vel - v_center) / sigma
+        f_vel = amplitude * np.exp(- w * w / 2.0) / (1.0 + (vel / c))
 
         y += f_vel
 
@@ -73,8 +73,8 @@ def gauss_hermite_vel(x, rest_wl, p):
     n = rest_wl.size
     for j in prange(n):
         i = int(j * 5)
-        lam_ratio = (x / rest_wl[j]) ** 2
-        vel = c * (lam_ratio - 1.0) / (lam_ratio + 1.0)
+        lambda_ratio_squared = (x / rest_wl[j]) ** 2
+        vel = c * (lambda_ratio_squared - 1.0) / (lambda_ratio_squared + 1.0)
 
         a, v0, s, h3, h4 = p[i:i + 5]
         w = (vel - v0) / s
