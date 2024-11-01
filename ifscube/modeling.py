@@ -706,12 +706,8 @@ class LineFit:
         observed = self.data[m]
         pseudo_continuum = self.pseudo_continuum[m]
         stellar = self.stellar[m]
-        model_lines = self.function(
-            np.array(wavelength, dtype="float64"),
-            np.array(self.feature_wavelengths, dtype="float64"),
-            self.solution
-        )
-        print("passed")
+        solution = np.array(self.solution, dtype="float64")
+        model_lines = self.function(wavelength, self.feature_wavelengths, solution)
         err = np.sqrt(self.variance[m])
 
         if figure is None:
@@ -730,8 +726,8 @@ class LineFit:
         residuals_ax.grid()
 
         if self.uncertainties is not None:
-            low = self.function(wavelength, self.feature_wavelengths, self.solution - self.uncertainties)
-            high = self.function(wavelength, self.feature_wavelengths, self.solution + self.uncertainties)
+            low = self.function(wavelength, self.feature_wavelengths, solution - self.uncertainties)
+            high = self.function(wavelength, self.feature_wavelengths, solution + self.uncertainties)
             low += stellar + pseudo_continuum
             high += stellar + pseudo_continuum
             spectrum_ax.fill_between(wavelength, low, high, color='C2', alpha=0.5)
@@ -746,8 +742,8 @@ class LineFit:
 
         ppf = self.parameters_per_feature
         for i in range(0, len(self.parameter_names), ppf):
-            feature_wl = self.feature_wavelengths[int(i / ppf)]
-            parameters = self.solution[i:i + ppf]
+            feature_wl = np.array([self.feature_wavelengths[int(i / ppf)]])
+            parameters = solution[i:i + ppf]
             line = self.function(wavelength, feature_wl, parameters)
             spectrum_ax.plot(wavelength, pseudo_continuum + stellar + line, 'k--')
 
