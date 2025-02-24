@@ -1,8 +1,8 @@
 import numpy as np
 from astropy import units
-from ifscube.elprofile import gauss_vel
 
 from ifscube import spectools
+from ifscube.profiles import gauss_vel
 
 
 def test_find_intermediary_value():
