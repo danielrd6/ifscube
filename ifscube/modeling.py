@@ -343,7 +343,7 @@ class LineFit:
         # noinspection PyCallingNonCallable
         pc = spectools.continuum(wl[fw], (self.data - self.stellar)[fw], output='polynomial', degree=degree,
                                  n_iterate=n_iterate, lower_threshold=lower_threshold, upper_threshold=upper_threshold,
-                                 weights=weights)(wl)
+                                 weights=weights[fw])(wl)
         pc[~fw] = np.nan
         self.pseudo_continuum = pc
 
