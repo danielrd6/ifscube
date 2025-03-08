@@ -9,6 +9,14 @@ authors = [
 ]
 version = "1.2"
 requires-python = "~=3.12"
+dependencies = [
+    "numpy",
+    "astropy",
+    "matplotlib",
+    "numba",
+    "tqdm",
+    "scipy",
+]
 
 [tool.setuptools]
 include-package-data = true
