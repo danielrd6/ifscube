@@ -717,7 +717,7 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
     if np.all(model == 0.0) and np.all(np.isnan(data)):
         return res
 
-    cumulative = cumtrapezoid(model, wavelength, initial=0)
+    cumulative = cumulative_trapezoid(model, wavelength, initial=0)
     if cumulative.max(initial=0) <= 0:
         return res
 
@@ -753,7 +753,7 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
             y_mask = copy.deepcopy(y.mask)
             y = ma.array(data=convolve(y, kernel=kernel, boundary='extend'), mask=y_mask)
 
-        cumulative = cumtrapezoid(y[~y.mask], wavelength[~y.mask], initial=0)
+        cumulative = cumulative_trapezoid(y[~y.mask], wavelength[~y.mask], initial=0)
         if len(cumulative.shape) > 1:
             raise ValueError(f'cumulative must have only one dimension, but it has {len(cumulative.shape)}.')
         cumulative /= cumulative.max()
