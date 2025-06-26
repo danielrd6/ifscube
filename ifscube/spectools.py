@@ -19,7 +19,7 @@ from astropy import units, constants
 from astropy.convolution import convolve, Gaussian1DKernel
 from astropy.modeling import fitting, models
 from numpy import ma
-from scipy.integrate import trapz, quad, cumtrapz
+from scipy.integrate import trapezoid, quad, cumulative_trapezoid
 from scipy.interpolate import interp1d, UnivariateSpline
 from scipy.optimize import curve_fit, minimize
 
@@ -447,11 +447,11 @@ def eqw(wl, flux, limits, continuum_iterate=5):
     f_continuum, continuum_wavelength = continuum(wl, flux, limits[2:], n_iterate=continuum_iterate)
 
     # area under continuum
-    continuum_integral = trapz(np.polyval(f_continuum, np.linspace(limits[0], limits[1])),
+    continuum_integral = trapezoid(np.polyval(f_continuum, np.linspace(limits[0], limits[1])),
                                x=np.linspace(limits[0], limits[1]))
 
     # area under spectrum
-    spectrum_integral = trapz(f_spectrum(np.linspace(limits[0], limits[1])), np.linspace(limits[0], limits[1]))
+    spectrum_integral = tra(f_spectrum(np.linspace(limits[0], limits[1])), np.linspace(limits[0], limits[1]))
 
     w = ((continuum_integral - spectrum_integral) / continuum_integral) * (limits[1] - limits[0])
 
@@ -717,7 +717,7 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
     if np.all(model == 0.0) and np.all(np.isnan(data)):
         return res
 
-    cumulative = cumtrapz(model, wavelength, initial=0)
+    cumulative = cumulative_trapezoid(model, wavelength, initial=0)
     if cumulative.max(initial=0) <= 0:
         return res
 
@@ -753,7 +753,7 @@ def velocity_width(wavelength: np.ndarray, model: np.ndarray, data: np.ndarray, 
             y_mask = copy.deepcopy(y.mask)
             y = ma.array(data=convolve(y, kernel=kernel, boundary='extend'), mask=y_mask)
 
-        cumulative = cumtrapz(y[~y.mask], wavelength[~y.mask], initial=0)
+        cumulative = cumulative_trapezoid(y[~y.mask], wavelength[~y.mask], initial=0)
         if len(cumulative.shape) > 1:
             raise ValueError(f'cumulative must have only one dimension, but it has {len(cumulative.shape)}.')
         cumulative /= cumulative.max()
