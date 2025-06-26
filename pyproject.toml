@@ -16,6 +16,7 @@ dependencies = [
     "numba",
     "tqdm",
     "scipy",
+    "ppxf>=9.4.2",
 ]
 
 [tool.setuptools]
