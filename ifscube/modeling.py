@@ -340,7 +340,7 @@ class LineFit:
                 return cw
 
             sigma_velocities = self._get_feature_parameter(feature='all', parameter='sigma', attribute='initial_guess')
-            weights = continuum_weights(spectools.sigma_lambda(sigma_velocities, self.feature_wavelengths))[fw]
+            weights = continuum_weights(spectools.sigma_lambda(sigma_velocities, self.feature_wavelengths))
         # noinspection PyCallingNonCallable
         pc = spectools.continuum(wl[fw], (self.data - self.stellar)[fw], output='polynomial', degree=degree,
                                  n_iterate=n_iterate, lower_threshold=lower_threshold, upper_threshold=upper_threshold,
