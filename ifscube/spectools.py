@@ -451,7 +451,7 @@ def eqw(wl, flux, limits, continuum_iterate=5):
                                x=np.linspace(limits[0], limits[1]))
 
     # area under spectrum
-    spectrum_integral = tra(f_spectrum(np.linspace(limits[0], limits[1])), np.linspace(limits[0], limits[1]))
+    spectrum_integral = trapezoid(f_spectrum(np.linspace(limits[0], limits[1])), np.linspace(limits[0], limits[1]))
 
     w = ((continuum_integral - spectrum_integral) / continuum_integral) * (limits[1] - limits[0])
 

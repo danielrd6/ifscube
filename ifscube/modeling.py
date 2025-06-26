@@ -9,8 +9,9 @@ from astropy import constants, units
 from scipy import integrate
 from scipy.optimize import minimize, differential_evolution, LinearConstraint
 
-from ifscube import elprofile, parser, spectools
+from ifscube import parser, spectools
 from ifscube import plots as ifs_plots
+from ifscube import profiles
 from .datacube import Cube
 from .onedspec import Spectrum
 
@@ -47,10 +48,10 @@ class LineFit:
         self.constraints = []
 
         if function == 'gaussian':
-            self.function = elprofile.gauss_vel
+            self.function = profiles.gauss_vel
             self.parameters_per_feature = 3
         elif function == 'gauss_hermite':
-            self.function = elprofile.gauss_hermite_vel
+            self.function = profiles.gauss_hermite_vel
             self.parameters_per_feature = 5
 
         self.solution = None
@@ -328,7 +329,7 @@ class LineFit:
                              n_iterate: int = 5, lower_threshold: float = 2.0, upper_threshold: float = 3):
         wl = self.wavelength
         fw = (wl >= self.fitting_window[0]) & (wl <= self.fitting_window[1])
-        if 'weights' is None:
+        if weights is None:
             cw = np.ones_like(self.data)
 
             def continuum_weights(sigmas):
@@ -339,7 +340,7 @@ class LineFit:
                 return cw
 
             sigma_velocities = self._get_feature_parameter(feature='all', parameter='sigma', attribute='initial_guess')
-            weights = continuum_weights(spectools.sigma_lambda(sigma_velocities, self.feature_wavelengths))[fw]
+            weights = continuum_weights(spectools.sigma_lambda(sigma_velocities, self.feature_wavelengths))
         # noinspection PyCallingNonCallable
         pc = spectools.continuum(wl[fw], (self.data - self.stellar)[fw], output='polynomial', degree=degree,
                                  n_iterate=n_iterate, lower_threshold=lower_threshold, upper_threshold=upper_threshold,
@@ -506,16 +507,16 @@ class LineFit:
                                               sigma=sigma_lam, width=sigma_factor)
 
                 observed_feature = self.data[~mask] - self.pseudo_continuum[~mask] - self.stellar[~mask]
-                fit = self.function(self.wavelength[~mask], self.feature_wavelengths[idx],
+                fit = self.function(self.wavelength[~mask], np.array([self.feature_wavelengths[idx]]),
                                     self._get_feature_parameter(feature, 'all', 'solution'))
                 for i, j in enumerate(self.feature_names):
                     if j != feature:
                         observed_feature -= self.function(
-                            self.wavelength[~mask], self.feature_wavelengths[i],
+                            self.wavelength[~mask], np.array([self.feature_wavelengths[i]]),
                             self._get_feature_parameter(j, 'all', 'solution'))
 
-                flux_model[idx] = integrate.trapz(fit, x=self.wavelength[~mask])
-                flux_direct[idx] = integrate.trapz(observed_feature, x=self.wavelength[~mask])
+                flux_model[idx] = integrate.trapezoid(fit, x=self.wavelength[~mask])
+                flux_direct[idx] = integrate.trapezoid(observed_feature, x=self.wavelength[~mask])
 
             self.flux_model = flux_model
             self.flux_direct = flux_direct
@@ -588,13 +589,13 @@ class LineFit:
         if type(feature) == str:
             index = self.feature_names.index(feature)
             solution = self._get_feature_parameter(feature, 'all', 'solution')
-            fit = self.function(self.wavelength, self.feature_wavelengths[index], solution)
+            fit = self.function(self.wavelength, np.array([self.feature_wavelengths[index]]), solution)
         elif type(feature) == list:
             fit = np.zeros_like(self.wavelength)
             for component in feature:
                 solution = self._get_feature_parameter(component, 'all', 'solution')
                 index = self.feature_names.index(component)
-                fit += self.function(self.wavelength, self.feature_wavelengths[index], solution)
+                fit += self.function(self.wavelength, np.array([self.feature_wavelengths[index]]), solution)
         else:
             raise TypeError('feature must be either string or list.')
         return fit
@@ -613,7 +614,7 @@ class LineFit:
         sig = spectools.sigma_lambda(sigma, wavelength)
         low_wl, up_wl = [self._get_center_wavelength(feature) + (_ * sigma_factor * sig) for _ in [-1.0, 1.0]]
         cond = (self.wavelength > low_wl) & (self.wavelength < up_wl)
-        fit = self.function(self.wavelength[cond], wavelength, solution)
+        fit = self.function(self.wavelength[cond], np.array([wavelength]), solution)
 
         return cond, fit, self.stellar, self.pseudo_continuum, self.data
 
@@ -689,8 +690,8 @@ class LineFit:
                     eqw_model[ci] = np.nan
                     eqw_direct[ci] = np.nan
                 else:
-                    eqw_model[ci] = integrate.trapz(- fit / cont, x=self.wavelength[cond])
-                    eqw_direct[ci] = integrate.trapz(1. - (data[cond] / cont), x=self.wavelength[cond])
+                    eqw_model[ci] = integrate.trapezoid(- fit / cont, x=self.wavelength[cond])
+                    eqw_direct[ci] = integrate.trapezoid(1. - (data[cond] / cont), x=self.wavelength[cond])
 
             self.eqw_model = eqw_model
             self.eqw_direct = eqw_direct
@@ -705,7 +706,8 @@ class LineFit:
         observed = self.data[m]
         pseudo_continuum = self.pseudo_continuum[m]
         stellar = self.stellar[m]
-        model_lines = self.function(wavelength, self.feature_wavelengths, self.solution)
+        solution = np.array(self.solution, dtype="float64")
+        model_lines = self.function(wavelength, self.feature_wavelengths, solution)
         err = np.sqrt(self.variance[m])
 
         if figure is None:
@@ -724,8 +726,8 @@ class LineFit:
         residuals_ax.grid()
 
         if self.uncertainties is not None:
-            low = self.function(wavelength, self.feature_wavelengths, self.solution - self.uncertainties)
-            high = self.function(wavelength, self.feature_wavelengths, self.solution + self.uncertainties)
+            low = self.function(wavelength, self.feature_wavelengths, solution - self.uncertainties)
+            high = self.function(wavelength, self.feature_wavelengths, solution + self.uncertainties)
             low += stellar + pseudo_continuum
             high += stellar + pseudo_continuum
             spectrum_ax.fill_between(wavelength, low, high, color='C2', alpha=0.5)
@@ -740,8 +742,8 @@ class LineFit:
 
         ppf = self.parameters_per_feature
         for i in range(0, len(self.parameter_names), ppf):
-            feature_wl = self.feature_wavelengths[int(i / ppf)]
-            parameters = self.solution[i:i + ppf]
+            feature_wl = np.array([self.feature_wavelengths[int(i / ppf)]])
+            parameters = solution[i:i + ppf]
             line = self.function(wavelength, feature_wl, parameters)
             spectrum_ax.plot(wavelength, pseudo_continuum + stellar + line, 'k--')
 

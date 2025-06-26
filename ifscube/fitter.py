@@ -152,3 +152,11 @@ def main(fit_type):
         line_fit_args = c.get_vars()
         do_fit(i, line_fit_args, overwrite=args.overwrite, plot=args.plot, loading=c.loading_opts, lock=args.lock,
                fit_type=fit_type, config_file_name=args.config, plot_all=args.focused_plot)
+
+
+def specfit():
+    main(fit_type="spec")
+
+
+def cubefit():
+    main(fit_type="cube")

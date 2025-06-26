@@ -1,8 +1,8 @@
 import numpy as np
 from astropy import units
-from ifscube.elprofile import gauss_vel
 
 from ifscube import spectools
+from ifscube.profiles import gauss_vel
 
 
 def test_find_intermediary_value():
@@ -13,20 +13,21 @@ def test_find_intermediary_value():
 
 
 def test_velocity_width_oversample():
-    rest_wavelength = units.Quantity(6500, 'angstrom')
-    p = np.array([1, -5000, 2000])
+    rest_wavelength = units.Quantity(value=6500, unit='angstrom')
+    rwl = np.array([rest_wavelength.value])
+    p = np.array([1.0, -5000.0, 2000.0])
 
-    wavelength = np.linspace(5000, 8000, 15000)
-    g = gauss_vel(wavelength, rest_wavelength.value, p)
-    obs = np.random.normal(g, .05)
+    wavelength = np.linspace(start=5000, stop=8000, num=15000)
+    g = gauss_vel(x=wavelength, rest_wl=rwl, p=p)
+    obs = np.random.normal(g, scale=.05)
 
     vw_natural = spectools.velocity_width(
         wavelength=wavelength, model=g, data=obs, rest_wavelength=rest_wavelength, oversample=1,
         fractional_pixels=True)
 
-    wavelength = np.linspace(5000, 8000, 100)
-    g = gauss_vel(wavelength, rest_wavelength.value, p)
-    obs = np.random.normal(g, .05)
+    wavelength = np.linspace(start=5000, stop=8000, num=100)
+    g = gauss_vel(x=wavelength, rest_wl=rwl, p=p)
+    obs = np.random.normal(g, scale=.05)
     vw_oversampled = spectools.velocity_width(
         wavelength=wavelength, model=g, data=obs, rest_wavelength=rest_wavelength, oversample=15,
         fractional_pixels=True)
