@@ -10,7 +10,7 @@ from astropy.units import Quantity
 from astropy.units.equivalencies import doppler_relativistic
 from matplotlib import patheffects
 from numpy import ma
-from scipy.integrate import trapz, quad_vec
+from scipy.integrate import trapezoid, quad_vec
 from scipy.interpolate import interp1d
 
 from . import Cube
@@ -109,7 +109,7 @@ class ChannelMaps:
         wb = self.wavelength_boundaries
         if self.method == "trapezoidal":
             masks = [(wl >= wb[_]) & (wl <= wb[_ + 1]) for _ in range(len(wb) - 1)]
-            cm = [trapz(emission_flux[_], wl[_], axis=0) for _ in masks]
+            cm = [trapezoid(emission_flux[_], wl[_], axis=0) for _ in masks]
         elif self.method == "linear_interpolation":
             f = interp1d(wl, emission_flux, axis=0, bounds_error=False, fill_value=0.0)
             cm = [quad_vec(f, a=wb[_].value, b=wb[_ + 1].value)[0] for _ in range(len(wb) - 1)]

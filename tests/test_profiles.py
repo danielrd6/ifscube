@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.integrate import trapz
+from scipy.integrate import trapezoid
 
 from ifscube import profiles
 
@@ -17,8 +17,8 @@ def flux_conservation(fun):
     flux_density_blue = fun(x, rest_wl, p_blue)
     flux_density_red = fun(x, rest_wl, p_red)
 
-    flux_blue = trapz(flux_density_blue, x)
-    flux_red = trapz(flux_density_red, x)
+    flux_blue = trapezoid(flux_density_blue, x)
+    flux_red = trapezoid(flux_density_red, x)
 
     assert ((flux_blue / flux_red) - 1.0) < 1e-8
 

@@ -11,7 +11,7 @@ import numpy as np
 from astropy import table
 from astropy.io import fits
 from numpy import interp, ma
-from scipy.integrate import trapz
+from scipy.integrate import trapezoid
 
 
 def peak_spaxel(cube):
@@ -131,7 +131,7 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
         wl[-1] = upper_wl
         arrfilt[0, :, :] += lower_frac * (arr[1, :, :] - arr[0, :, :]) / arr[0, :, :]
         arrfilt[-1, :, :] -= upper_frac * (arr[-1, :, :] - arr[-2, :, :]) / arr[-1, :, :]
-        arrfilt /= trapz(arrfilt, wl, axis=0)
+        arrfilt /= trapezoid(arrfilt, wl, axis=0)
         # FIXME: Is this still needed? I can't remember why I put it here.
     elif filtertype == 'gaussian':
         s = fwhm / (2. * np.sqrt(2. * np.log(2.)))
@@ -141,7 +141,7 @@ def wlprojection(arr, wl, wl0, fwhm=10, filtertype='box'):
     else:
         raise ValueError('ERROR! Parameter filtertype "{:s}" not understood.'.format(filtertype))
 
-    outim = trapz(arr * arrfilt, wl, axis=0)
+    outim = trapezoid(arr * arrfilt, wl, axis=0)
 
     return outim
 

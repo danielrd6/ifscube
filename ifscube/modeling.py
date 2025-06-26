@@ -515,8 +515,8 @@ class LineFit:
                             self.wavelength[~mask], np.array([self.feature_wavelengths[i]]),
                             self._get_feature_parameter(j, 'all', 'solution'))
 
-                flux_model[idx] = integrate.trapz(fit, x=self.wavelength[~mask])
-                flux_direct[idx] = integrate.trapz(observed_feature, x=self.wavelength[~mask])
+                flux_model[idx] = integrate.trapezoid(fit, x=self.wavelength[~mask])
+                flux_direct[idx] = integrate.trapezoid(observed_feature, x=self.wavelength[~mask])
 
             self.flux_model = flux_model
             self.flux_direct = flux_direct
@@ -690,8 +690,8 @@ class LineFit:
                     eqw_model[ci] = np.nan
                     eqw_direct[ci] = np.nan
                 else:
-                    eqw_model[ci] = integrate.trapz(- fit / cont, x=self.wavelength[cond])
-                    eqw_direct[ci] = integrate.trapz(1. - (data[cond] / cont), x=self.wavelength[cond])
+                    eqw_model[ci] = integrate.trapezoid(- fit / cont, x=self.wavelength[cond])
+                    eqw_direct[ci] = integrate.trapezoid(1. - (data[cond] / cont), x=self.wavelength[cond])
 
             self.eqw_model = eqw_model
             self.eqw_direct = eqw_direct
