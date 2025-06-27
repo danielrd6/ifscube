@@ -1,13 +1,15 @@
-from configparser import ConfigParser
 import argparse
+from configparser import ConfigParser
 
-from astropy.io import fits
-from astropy.modeling.fitting import LevMarLSQFitter
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.io import fits
+from astropy.modeling.fitting import LevMarLSQFitter
+from matplotlib.widgets import Slider, TextBox, Button
 from numpy import ma
+import json
 
-from .models import DiskRotation
+from ifscube.models import DiskRotation
 
 
 class Rotation(object):
@@ -130,6 +132,136 @@ class Rotation(object):
         fig.colorbar(im, ax=axes[1], orientation='horizontal')
         plt.show()
 
+    def interactive_guess(self, contrast=1.0):
+        v_min = np.percentile(self.obs[~self.obs.mask], contrast)
+        v_max = np.percentile(self.obs[~self.obs.mask], 100.0 - contrast)
+        kwargs = dict(cmap='Spectral_r', vmin=v_min, vmax=v_max)
+
+        m = np.max(np.abs([v_min, v_max]))
+        v_min = -m
+        v_max = m
+
+        velocity_map = self.obs
+
+        # -- Initial parameter values --
+        params_init = {
+            'amplitude': 200.0,
+            'x_0': 0.0,
+            'y_0': 0.0,
+            'phi_0': 0.0,
+            'c_0': 1.0,
+            'p': 1.2,
+            'theta': 45.0,
+        }
+
+        # -- Parameter ranges for sliders --
+        param_ranges = {
+            'amplitude': (100, 500),
+            'x_0': (-300, 300),
+            'y_0': (-300, 300),
+            'phi_0': (0, 180),
+            'c_0': (1.0, 10.0),
+            'p': (1.0, 1.5),
+            'theta': (0.0, 90.0),
+        }
+
+        # -- Create figure layout --
+        fig = plt.figure(figsize=(10, 8))
+        gs = fig.add_gridspec(4, 3)
+
+        ax_obs = fig.add_subplot(gs[0:2, 0])
+        ax_model = fig.add_subplot(gs[0:2, 1])
+        ax_resid = fig.add_subplot(gs[0:2, 2])
+
+        # -- Display observed image --
+        im_obs = ax_obs.imshow(velocity_map, origin='lower', **kwargs)
+        ax_obs.set_title("Observed")
+
+        # -- Call external model --
+        def get_model(params):
+            for key in params:
+                if key in ['phi_0', 'theta']:
+                    params[key] = np.deg2rad(params[key])
+
+            return DiskRotation(**params)(self.x, self.y)
+
+        model = get_model(params_init)
+        im_model = ax_model.imshow(model, origin='lower', **kwargs)
+        ax_model.set_title("Model")
+
+        residuals = velocity_map - model
+        im_resid = ax_resid.imshow(residuals, origin='lower', **kwargs)
+        ax_resid.set_title("Residuals")
+
+        # Sliders + TextBoxes
+        sliders = {}
+        textboxes = {}
+
+        slider_height = 0.025
+        spacing = 0.035
+        bottom_start = 0.28
+
+        for i, (param, val) in enumerate(params_init.items()):
+            y_pos = bottom_start - i * spacing
+
+            # Slider (left 70% of the width)
+            ax_slider = plt.axes([0.15, y_pos, 0.6, slider_height])
+            slider = Slider(ax_slider, param, *param_ranges[param], valinit=val)
+            sliders[param] = slider
+
+            # TextBox (right 10%)
+            ax_box = plt.axes([0.85, y_pos, 0.08, slider_height])
+            textbox = TextBox(ax_box, '', initial=str(val))
+            textboxes[param] = textbox
+
+            # Link: slider → textbox
+            def make_slider_callback(p):
+                return lambda val: textboxes[p].set_val(f"{val:.3f}")
+
+            slider.on_changed(make_slider_callback(param))
+
+            # Link: textbox → slider
+            def make_textbox_submit(p):
+                def submit(text):
+                    try:
+                        num = float(text)
+                        min_val, max_val = param_ranges[p]
+                        if min_val <= num <= max_val:
+                            sliders[p].set_val(num)
+                        else:
+                            print(f"{p}: Value out of range")
+                    except ValueError:
+                        print(f"{p}: Invalid input")
+
+                return submit
+
+            textbox.on_submit(make_textbox_submit(param))
+        # -- Update on slider change --
+        def update(val):
+            current = {k: s.val for k, s in sliders.items()}
+            new_model = get_model(current)
+            im_model.set_data(new_model)
+            im_resid.set_data(velocity_map - new_model)
+            fig.canvas.draw_idle()
+
+        for slider in sliders.values():
+            slider.on_changed(update)
+
+        # Save button
+        ax_button = plt.axes([0.40, 0.01, 0.2, 0.04])
+        save_button = Button(ax_button, 'Save')
+
+        def save_params(event):
+            current = {k: s.val for k, s in sliders.items()}
+            with open('parameters.json', 'w') as f:
+                json.dump(current, f, indent=2)
+            print("Parameters saved to parameters.json")
+
+        save_button.on_clicked(save_params)
+
+        plt.tight_layout()
+        plt.show()
+
 
 class Config(ConfigParser):
 
@@ -199,6 +331,8 @@ def main():
 
     ap = argparse.ArgumentParser()
     ap.add_argument('config', help='Configuration file.')
+    ap.add_argument("-i", "--interactive", action='store_true',
+                    help="Interactive mode for setting initial guess.")
 
     args = ap.parse_args()
 
@@ -207,13 +341,19 @@ def main():
     r = Rotation(**config.loading)
     r.update_model(config.model)
 
-    if config.getboolean('general', 'fit'):
-        r.update_bounds(config.bounds)
-        r.update_fixed(config.fixed)
-        r.fit_model(maxiter=1000)
-    else:
-        r.solution = r.model
-        r.best_fit = r.model(r.x, r.y)
+    if args.interactive:
+        r.interactive_guess()
 
-    r.print_solution()
-    r.plot_results(contours=False)
+    # if config.getboolean('general', 'fit'):
+    #     r.update_bounds(config.bounds)
+    #     r.update_fixed(config.fixed)
+    #     r.fit_model(maxiter=1000)
+    # else:
+    #     r.solution = r.model
+    #     r.best_fit = r.model(r.x, r.y)
+
+    # r.print_solution()
+    # r.plot_results(contours=False)
+
+if __name__ == '__main__':
+    main()
