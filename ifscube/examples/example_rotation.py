@@ -24,15 +24,13 @@ def main():
     data = create_fake_data(plot=False)
     data[0, 0] = np.nan
 
-    config = rotation.Config('rotation.ini')
+    config = rotation.Config('rotation_fakedata.ini')
+    config.loading["input_data"] = data
 
-    r = rotation.Rotation(input_data=data)
-
-    config.model['x_0'] = 55
-    config.model['y_0'] = 45
-    config.model['theta'] = np.deg2rad(30)
-    config.model['phi_0'] = np.deg2rad(60)
+    r = rotation.Rotation(**config.loading)
     r.update_model(config.model)
+
+    # r.interactive_guess(params_init=config.model)
 
     r.update_bounds(config.bounds)
     r.update_fixed(config.fixed)
