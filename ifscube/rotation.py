@@ -6,7 +6,7 @@ from configparser import ConfigParser
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
-from astropy.modeling.fitting import LevMarLSQFitter
+from astropy.modeling.fitting import SLSQPLSQFitter
 from matplotlib.widgets import Slider, TextBox, Button, RadioButtons
 from numpy import ma
 
@@ -101,9 +101,10 @@ class Rotation(object):
         """
         Fits a rotation model to the data.
         """
-        fit = LevMarLSQFitter()
+        fit = SLSQPLSQFitter()
         self.solution = fit(self.model, self.x, self.y, self.obs, maxiter=maxiter)
         self.best_fit = self.solution(self.x, self.y)
+        print(fit.fit_info)
 
     def print_solution(self):
         for key in self.solution.param_names:
@@ -359,6 +360,9 @@ def main():
     ap.add_argument('config', help='Configuration file.')
     ap.add_argument("-i", "--interactive", action='store_true',
                     help="Interactive mode for setting initial guess.")
+    ap.add_argument("-o", "--output", help="Output file name for the best fit model.", type=str,
+                    default=None)
+    ap.add_argument("-z", "--overwrite", help="Overwrite output file.", action='store_true')
 
     args = ap.parse_args()
 
@@ -380,3 +384,6 @@ def main():
 
     r.print_solution()
     r.plot_results(contours=False)
+
+    if args.output is not None:
+        fits.writeto(args.output, r.best_fit, overwrite=args.overwrite)
