@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.integrate import trapezoid
 
-from ifscube import profiles
+from src.ifscube import profiles
 
 
 def flux_conservation(fun):

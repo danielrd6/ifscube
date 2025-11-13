@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from ifscube.io import line_fit
+from src.ifscube.io import line_fit
 import numpy as np
 
 from astropy.units import Quantity

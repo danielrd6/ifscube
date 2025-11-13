@@ -2,7 +2,7 @@ import importlib.resources
 import warnings
 from astropy import table
 
-from ifscube.io import line_fit
+from src.ifscube.io import line_fit
 from .test_modeling import simple_fit
 
 

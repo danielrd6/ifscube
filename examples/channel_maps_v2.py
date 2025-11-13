@@ -2,8 +2,8 @@ import pickle
 
 from astropy.units import Quantity
 
-from ifscube import Cube
-from ifscube import channel_maps
+from src.ifscube import Cube
+from src.ifscube import channel_maps
 
 
 def main():

@@ -10,7 +10,7 @@ from matplotlib.figure import Figure
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from numpy import ma
 
-from ifscube.io import line_fit
+from src.ifscube.io import line_fit
 
 
 class Scrutinizer:

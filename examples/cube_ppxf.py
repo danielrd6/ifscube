@@ -1,4 +1,4 @@
-from ifscube import Cube
+from src.ifscube import Cube
 
 
 if __name__ == '__main__':

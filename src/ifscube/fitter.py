@@ -5,7 +5,7 @@ from typing import Union
 import matplotlib.pyplot as plt
 import numpy as np
 
-import ifscube.io.line_fit
+import src.ifscube.io.line_fit
 from . import Cube
 from . import cubetools
 from . import onedspec
@@ -27,7 +27,7 @@ def clear_lock(lock_name):
 
 
 def spectrum_fit(data: Union[Cube, onedspec.Spectrum], **line_fit_args):
-    fit = ifscube.io.line_fit.setup_fit(data, **line_fit_args)
+    fit = src.ifscube.io.line_fit.setup_fit(data, **line_fit_args)
 
     assert fit.fitting_window[0] < np.max(fit.wavelength), \
         f"Lower limit of fitting window above maximum wavelength: {fit.fitting_window[0]} >= {np.max(fit.wavelength)}"
@@ -58,7 +58,7 @@ def spectrum_fit(data: Union[Cube, onedspec.Spectrum], **line_fit_args):
 
     if line_fit_args['write_fits']:
         kwargs = {_: line_fit_args[_] for _ in ['out_image', 'suffix', 'function', 'overwrite']}
-        ifscube.io.line_fit.write_spectrum_fit(fit, **kwargs)
+        src.ifscube.io.line_fit.write_spectrum_fit(fit, **kwargs)
 
     return fit
 

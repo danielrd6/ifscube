@@ -1,7 +1,7 @@
 import importlib.resources
 import pytest
 
-from ifscube import onedspec
+from src.ifscube import onedspec
 
 
 def test_read_spec():

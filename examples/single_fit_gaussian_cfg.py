@@ -3,7 +3,7 @@
 from astropy.io import fits
 
 # LOCAL
-from ifscube import onedspec, parser
+from src.ifscube import onedspec, parser
 
 
 if __name__ == '__main__':

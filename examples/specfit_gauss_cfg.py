@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # local
-from ifscube import parser
-from ifscube.gmos import Cube
+from src.ifscube import parser
+from src.ifscube import Cube
 
 if __name__ == '__main__':
     z = 0.0081

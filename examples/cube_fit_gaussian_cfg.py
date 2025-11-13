@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-from ifscube import Cube, parser
-from ifscube.cubetools import append_config
+from src.ifscube import Cube, parser
+from src.ifscube.cubetools import append_config
 
 if __name__ == '__main__':
 

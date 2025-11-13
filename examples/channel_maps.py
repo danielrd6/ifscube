@@ -1,5 +1,5 @@
-from ifscube import Cube
-from ifscube.channel_maps import channelmaps
+from src.ifscube import Cube
+from src.ifscube.channel_maps import channelmaps
 
 if __name__ == '__main__':
     a = Cube('ngc3081_cube.fits')

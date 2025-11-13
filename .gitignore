@@ -2,7 +2,7 @@
 *.py[cod]
 
 # jupyter checkpoints
-ifscube/examples/.ipynb_checkpoints
+examples/.ipynb_checkpoints
 
 # pycharm
 .idea
@@ -26,19 +26,19 @@ docs/_build/
 docs/_static/
 
 # Example outputs
-ifscube/examples/CircinusNir.txt
-ifscube/examples/example_onedspec_linefit.fits
-ifscube/examples/ifscube_guiCFG.cfg
-ifscube/examples/ngc1566_HyperCube.fits
-ifscube/examples/ngc1566_HyperCube_linefit.fits
-ifscube/examples/ngc3081_cube_linefit.fits
-ifscube/examples/ngc3081_fit.fits
-ifscube/examples/ngc3081_cube.bin.ppxf.fits
-ifscube/examples/ngc3081_cube.bin.fits
-ifscube/examples/ngc3081_cube.bin_ppxf.fits
-ifscube/examples/ngc3081_cube_vor.fitsbin.fits
-ifscube/examples/ngc6300_nuc_linefit.fits
-ifscube/examples/plot_profile.py
+examples/CircinusNir.txt
+examples/example_onedspec_linefit.fits
+examples/ifscube_guiCFG.cfg
+examples/ngc1566_HyperCube.fits
+examples/ngc1566_HyperCube_linefit.fits
+examples/ngc3081_cube_linefit.fits
+examples/ngc3081_fit.fits
+examples/ngc3081_cube.bin.ppxf.fits
+examples/ngc3081_cube.bin.fits
+examples/ngc3081_cube.bin_ppxf.fits
+examples/ngc3081_cube_vor.fitsbin.fits
+examples/ngc6300_nuc_linefit.fits
+examples/plot_profile.py
 
 # Unfinished work
-ifscube/flux_calibration.py
+src/ifscube/flux_calibration.py

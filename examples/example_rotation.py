@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from ifscube import models, rotation
+from src.ifscube import models
+from src.ifscube import rotation
 
 
 def create_fake_data(plot: bool = False):

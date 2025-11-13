@@ -3,7 +3,8 @@ import importlib.resources
 import pytest
 from astropy import units
 
-from ifscube import onedspec, modeling, datacube
+from src.ifscube import onedspec, modeling
+from src.ifscube import datacube
 
 
 def fit_select(function: str = 'gaussian', fit_type: str = 'spectrum', **kwargs):

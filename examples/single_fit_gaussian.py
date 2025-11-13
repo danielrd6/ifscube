@@ -4,8 +4,7 @@ import numpy as np
 from astropy.io import fits
 
 # LOCAL
-import ifscube.onedspec as ds
-
+from src import ifscube as ds
 
 if __name__ == '__main__':
 
