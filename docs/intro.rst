@@ -104,6 +104,6 @@ Similarly, upgrades can also be done directly from the online repository with
 
 .. [#anaconda] https://www.anaconda.com/
 
-.. [#anaconda] https://docs.astral.sh/uv/
+.. [#uv] https://docs.astral.sh/uv/
 
 .. _git: https://git-scm.com/
