@@ -4,7 +4,7 @@ import numpy as np
 from astropy.io import fits
 
 # LOCAL
-from src import ifscube as ds
+import ifscube as ds
 
 if __name__ == '__main__':
 

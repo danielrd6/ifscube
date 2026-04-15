@@ -4,7 +4,7 @@ import glob
 import numpy as np
 from astropy.io import fits
 
-from src.ifscube import Cube, spectools, ppxf_wrapper
+from ifscube import Cube, spectools, ppxf_wrapper
 
 
 def load_models(searchPattern):

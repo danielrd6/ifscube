@@ -7,7 +7,7 @@ name = "ifscube"
 authors = [
     {name="Daniel Ruschel Dutra", email="daniel.ruschel@ufsc.br"}
 ]
-version = "1.2"
+version = "1.3"
 requires-python = "~=3.12.0"
 dependencies = [
     "numpy",
@@ -16,15 +16,25 @@ dependencies = [
     "numba",
     "tqdm",
     "scipy",
-    "pytest>=8.4.1",
     "h5py>=3.15.1",
 ]
 
 [tool.setuptools]
 include-package-data = true
 
+[dependency-groups]
+dev = [
+    "pytest>=9.0.1",
+]
+
 [project.scripts]
 specfit = "ifscube.fitter:specfit"
 cubefit = "ifscube.fitter:cubefit"
 fit_rotation = "ifscube.rotation:main"
 fit_scrutinizer = "ifscube.fit_scrutinizer:main"
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=9.1.0",
+    "sphinx-rtd-theme>=3.1.0",
+]

@@ -1,4 +1,4 @@
-from src import ifscube as ds
+import ifscube as ds
 import numpy as np
 
 # Definition of line centers

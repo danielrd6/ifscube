@@ -1,8 +1,8 @@
 import pytest
 import importlib.resources
 
-from src.ifscube import channel_maps
-from src.ifscube import Cube
+from ifscube import channel_maps
+from ifscube import Cube
 
 
 def test_deprecation_warning():
