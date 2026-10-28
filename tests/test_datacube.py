@@ -1,21 +1,21 @@
 from importlib import resources
-import ifscube
-
-
-def test_plotspec():
-    cube_file = str(resources.files("ifscube") / "../../examples/ngc3081_cube.fits")
-    cube = ifscube.Cube(cube_file)
-    cube.plotspec(x=(2, 3), y=(4, 5), show=False)
-
 
 import numpy as np
 import pytest
 from astropy.io import fits
 from astropy.wcs import WCS
 
+import ifscube
 from ifscube import Cube
 
+# Parameters for the split tests.
 N_LAMBDA, N_Y, N_X = 30, 47, 53  # spatial sizes are deliberately uneven
+
+
+def test_plotspec():
+    cube_file = str(resources.files("ifscube") / "../../examples/ngc3081_cube.fits")
+    cube = ifscube.Cube(cube_file)
+    cube.plotspec(x=(2, 3), y=(4, 5), show=False)
 
 
 @pytest.fixture
