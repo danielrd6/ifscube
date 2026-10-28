@@ -444,6 +444,19 @@ class Cube(onedspec.Spectrum):
 
         return s
 
+    def _average_over_existing_dimensions(self, x, y, data):
+        d = getattr(self, data)
+        if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
+            s = np.average(np.average(d[:, y[0]:y[1], x[0]:x[1]], axis=1), axis=1)
+        elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
+            s = np.average(d[:, y, x[0]:x[1]], axis=1)
+        elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
+            s = np.average(d[:, y[0]:y[1], x], axis=1)
+        else:
+            s = d[:, y, x]
+        return s
+
+
     def plotspec(self, x, y, show_noise: bool = False, noise_smooth: float = 0.0, ax: plt.Axes = None):
         """
         Plots the spectrum at coordinates x,y.
@@ -467,51 +480,29 @@ class Cube(onedspec.Spectrum):
         Nothing.
         """
 
-        # fig = plt.figure(1)
         if ax is None:
             fig = plt.figure(1)
             ax = fig.add_subplot(111)
 
-        if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-            s = np.average(np.average(self.data[:, y[0]:y[1], x[0]:x[1]], 1), 1)
-        elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
-            s = np.average(self.data[:, y, x[0]:x[1]], 1)
-        elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-            s = np.average(self.data[:, y[0]:y[1], x], 1)
-        else:
-            s = self.data[:, y, x]
-
-        if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-            syn = np.average(np.average(self.stellar[:, y[0]:y[1], x[0]:x[1]], 1), 1)
-        elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
-            syn = np.average(self.stellar[:, y, x[0]:x[1]], 1)
-        elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-            syn = np.average(self.stellar[:, y[0]:y[1], x], 1)
-        else:
-            syn = self.stellar[:, y, x]
+        s = self._average_over_existing_dimensions(x, y, data='data')
+        syn = self._average_over_existing_dimensions(x, y, data='stellar')
 
         ax.plot(self.rest_wavelength, s)
         ax.plot(self.rest_wavelength, syn)
 
         if show_noise and (self.noise_cube is not None):
-
-            if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-                n = np.average(np.average(self.noise_cube[:, y[0]:y[1], x[0]:x[1]], 1), 1)
-            elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
-                n = np.average(self.noise_cube[:, y, x[0]:x[1]], 1)
-            elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-                n = np.average(self.noise_cube[:, y[0]:y[1], x], 1)
-            else:
-                n = self.noise_cube[:, y, x]
-
+            n = self._average_over_existing_dimensions(x, y, data='noise_cube')
             n = gaussian_filter(n, noise_smooth)
             sg = gaussian_filter(s, noise_smooth)
 
             ax.fill_between(self.rest_wavelength, sg - n, sg + n, edgecolor='', alpha=0.2, color='green')
 
         if hasattr(self, 'flags') and not hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
-            sflags = self.flags[:, y, x].astype('bool')
-            ax.scatter(self.rest_wavelength[sflags], s[sflags], marker='x', color='red')
+            s_flags = self.flags[:, y, x].astype('bool')
+            ax.scatter(self.rest_wavelength[s_flags], s[s_flags], marker='x', color='red')
+
+        ax.set_xlabel(f'Wavelength')
+        ax.set_ylabel(f'Spectral flux density')
 
         plt.show()
 
