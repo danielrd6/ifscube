@@ -456,8 +456,8 @@ class Cube(onedspec.Spectrum):
             s = d[:, y, x]
         return s
 
-
-    def plotspec(self, x, y, show_noise: bool = False, noise_smooth: float = 0.0, ax: plt.Axes = None):
+    def plotspec(self, x, y, show_noise: bool = False, noise_smooth: float = 0.0, ax: plt.Axes = None,
+                 show: bool = True):
         """
         Plots the spectrum at coordinates x,y.
 
@@ -474,6 +474,8 @@ class Cube(onedspec.Spectrum):
         ax: matplotlib.pyplot.Axes, optional
             Axes instance in which to plot the spectrum. If *None* a new
             instance will be created.
+        show: bool
+            Whether to show the plotted spectrum or not.
 
         Returns
         -------
@@ -504,7 +506,8 @@ class Cube(onedspec.Spectrum):
         ax.set_xlabel(f'Wavelength')
         ax.set_ylabel(f'Spectral flux density')
 
-        plt.show()
+        if show:
+            plt.show()
 
     def peak_coords(self, wl_center, wl_width, center_type='peak_cen', spatial_center=None, spatial_width=10):
         """
@@ -545,10 +548,10 @@ class Cube(onedspec.Spectrum):
             arr=self.data, wl=self.wl, wl0=wl_center, fwhm=wl_width,
             filtertype='box')
         projection_crop = projection[
-                          int(spatial_center[0] - spatial_width / 2):
-                          int(spatial_center[0] + spatial_width / 2) + 1,
-                          int(spatial_center[1] - spatial_width / 2):
-                          int(spatial_center[1] + spatial_width / 2) + 1]
+            int(spatial_center[0] - spatial_width / 2):
+            int(spatial_center[0] + spatial_width / 2) + 1,
+            int(spatial_center[1] - spatial_width / 2):
+            int(spatial_center[1] + spatial_width / 2) + 1]
         if center_type == 'peak_cen':
             idx = np.nanargmax(projection_crop, axis=None)
             coords = np.unravel_index(idx, projection_crop.shape)
@@ -557,11 +560,11 @@ class Cube(onedspec.Spectrum):
             spatial_center[1] = int(
                 spatial_center[1] - spatial_width / 2 + coords[1])
             projection_crop = projection[
-                              int(spatial_center[0] - spatial_width / 2):
-                              int(spatial_center[0] + spatial_width / 2) + 1,
-                              int(spatial_center[1] - spatial_width / 2):
-                              int(spatial_center[1] + spatial_width / 2) + 1
-                              ]
+                int(spatial_center[0] - spatial_width / 2):
+                int(spatial_center[0] + spatial_width / 2) + 1,
+                int(spatial_center[1] - spatial_width / 2):
+                int(spatial_center[1] + spatial_width / 2) + 1
+            ]
             coords = center_of_mass(ma.masked_invalid(projection_crop))
         elif center_type == 'peak':
             idx = np.nanargmax(projection_crop, axis=None)
