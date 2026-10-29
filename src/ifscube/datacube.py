@@ -1,4 +1,5 @@
 from copy import deepcopy
+from pathlib import Path
 from typing import Union
 
 import matplotlib.pyplot as plt
@@ -190,6 +191,101 @@ class Cube(onedspec.Spectrum):
                     h.append(original_cube[ext_name])
 
             h.writeto(file_name, overwrite=overwrite)
+
+    @classmethod
+    def split(cls, fname: Union[str, Path], ny: int = 1, nx: int = 1, scidata: Union[str, int] = 'SCI',
+              output_dir: Union[str, Path] = None, prefix: str = None, overwrite: bool = False) -> list[Path]:
+        """
+        Splits a data cube file into ny * nx spatial sub-cubes, each one
+        written to its own FITS file, without loading the whole cube
+        into memory.
+
+        This is a classmethod because instantiating a Cube already loads
+        all of its data. Once split, each tile can be opened normally,
+        e.g. ``Cube(path, scidata='SCI', ...)``.
+
+        Parameters
+        ----------
+        fname : str or Path
+            Input FITS file.
+        ny, nx : int
+            Number of divisions along the y and x spatial axes.
+        scidata : str or int
+            Science data extension. Its shape defines the spatial grid.
+        output_dir : str or Path
+            Where to write the tiles. Defaults to the input file's directory.
+        prefix : str
+            Output file name prefix. Defaults to the input file's name.
+        overwrite : bool
+            Overwrite existing tile files.
+
+        Returns
+        -------
+        list of Path
+            The tile files, in row-major order (y varies slowest).
+
+        Notes
+        -----
+        Every image extension whose last two axes match the spatial shape
+        of the science data (variance, flags, masks, stellar, ...) is
+        sliced the same way. Other image extensions (e.g. a wavelength
+        vector) are copied whole. Table extensions, such as the Voronoi
+        binning tables, refer to the full cube and are not copied.
+        CRPIX1 and CRPIX2 are shifted so that the WCS of each tile stays
+        valid, and TILEY0/TILEX0 record the offset of the tile in the
+        original cube.
+        """
+        fname = Path(fname)
+        output_dir = Path(output_dir) if output_dir is not None else fname.parent
+        output_dir.mkdir(parents=True, exist_ok=True)
+        if prefix is None:
+            prefix = fname.name
+            for suffix in ('.fits.gz', '.fits.fz', '.fits'):
+                prefix = prefix.removesuffix(suffix)
+
+        def edges(n, parts):
+            return np.linspace(0, n, parts + 1).astype(int)
+
+        paths = []
+        with fits.open(fname, memmap=True) as hdul:
+            ny_tot, nx_tot = hdul[scidata].shape[-2:]
+            if not (1 <= ny <= ny_tot and 1 <= nx <= nx_tot):
+                raise ValueError(f'Cannot split a {ny_tot}x{nx_tot} spatial grid into {ny}x{nx} tiles.')
+
+            y_edges, x_edges = edges(ny_tot, ny), edges(nx_tot, nx)
+            for iy, (y0, y1) in enumerate(zip(y_edges[:-1], y_edges[1:])):
+                for ix, (x0, x1) in enumerate(zip(x_edges[:-1], x_edges[1:])):
+                    out = fits.HDUList()
+                    for hdu in hdul:
+                        if isinstance(hdu, fits.PrimaryHDU):
+                            out.append(fits.PrimaryHDU(header=hdu.header.copy()))
+                            continue
+                        if not isinstance(hdu, (fits.ImageHDU, fits.CompImageHDU)):
+                            continue
+
+                        hdr = hdu.header.copy()
+                        if len(hdu.shape) >= 2 and hdu.shape[-2:] == (ny_tot, nx_tot):
+                            # .section reads only the requested region from disk.
+                            data = np.array(hdu.section[..., y0:y1, x0:x1])
+                            for key in ('BSCALE', 'BZERO', 'BLANK'):
+                                hdr.remove(key, ignore_missing=True)
+                            if 'CRPIX1' in hdr:
+                                hdr['CRPIX1'] -= x0
+                            if 'CRPIX2' in hdr:
+                                hdr['CRPIX2'] -= y0
+                            hdr['TILEY0'] = (int(y0), 'y offset of tile in original cube')
+                            hdr['TILEX0'] = (int(x0), 'x offset of tile in original cube')
+                        else:
+                            data = hdu.data
+
+                        out.append(fits.ImageHDU(data=data, header=hdr, name=hdu.name))
+
+                    path = output_dir / f'{prefix}_y{iy:02d}_x{ix:02d}.fits'
+                    out.writeto(path, overwrite=overwrite)
+                    paths.append(path)
+                    del out
+
+        return paths
 
     def continuum(self, write_fits=False, output_image=None, fitting_window=None, continuum_options=None):
         """
@@ -444,7 +540,20 @@ class Cube(onedspec.Spectrum):
 
         return s
 
-    def plotspec(self, x, y, show_noise: bool = False, noise_smooth: float = 0.0, ax: plt.Axes = None):
+    def _average_over_existing_dimensions(self, x, y, data):
+        d = getattr(self, data)
+        if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
+            s = np.average(np.average(d[:, y[0]:y[1], x[0]:x[1]], axis=1), axis=1)
+        elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
+            s = np.average(d[:, y, x[0]:x[1]], axis=1)
+        elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
+            s = np.average(d[:, y[0]:y[1], x], axis=1)
+        else:
+            s = d[:, y, x]
+        return s
+
+    def plotspec(self, x, y, show_noise: bool = False, noise_smooth: float = 0.0, ax: plt.Axes = None,
+                 show: bool = True):
         """
         Plots the spectrum at coordinates x,y.
 
@@ -461,59 +570,40 @@ class Cube(onedspec.Spectrum):
         ax: matplotlib.pyplot.Axes, optional
             Axes instance in which to plot the spectrum. If *None* a new
             instance will be created.
+        show: bool
+            Whether to show the plotted spectrum or not.
 
         Returns
         -------
         Nothing.
         """
 
-        # fig = plt.figure(1)
         if ax is None:
             fig = plt.figure(1)
             ax = fig.add_subplot(111)
 
-        if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-            s = np.average(np.average(self.data[:, y[0]:y[1], x[0]:x[1]], 1), 1)
-        elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
-            s = np.average(self.data[:, y, x[0]:x[1]], 1)
-        elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-            s = np.average(self.data[:, y[0]:y[1], x], 1)
-        else:
-            s = self.data[:, y, x]
-
-        if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-            syn = np.average(np.average(self.stellar[:, y[0]:y[1], x[0]:x[1]], 1), 1)
-        elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
-            syn = np.average(self.stellar[:, y, x[0]:x[1]], 1)
-        elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-            syn = np.average(self.stellar[:, y[0]:y[1], x], 1)
-        else:
-            syn = self.stellar[:, y, x]
+        s = self._average_over_existing_dimensions(x, y, data='data')
+        syn = self._average_over_existing_dimensions(x, y, data='stellar')
 
         ax.plot(self.rest_wavelength, s)
         ax.plot(self.rest_wavelength, syn)
 
         if show_noise and (self.noise_cube is not None):
-
-            if hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-                n = np.average(np.average(self.noise_cube[:, y[0]:y[1], x[0]:x[1]], 1), 1)
-            elif hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
-                n = np.average(self.noise_cube[:, y, x[0]:x[1]], 1)
-            elif not hasattr(x, '__iter__') and hasattr(y, '__iter__'):
-                n = np.average(self.noise_cube[:, y[0]:y[1], x], 1)
-            else:
-                n = self.noise_cube[:, y, x]
-
+            n = self._average_over_existing_dimensions(x, y, data='noise_cube')
             n = gaussian_filter(n, noise_smooth)
             sg = gaussian_filter(s, noise_smooth)
 
             ax.fill_between(self.rest_wavelength, sg - n, sg + n, edgecolor='', alpha=0.2, color='green')
 
         if hasattr(self, 'flags') and not hasattr(x, '__iter__') and not hasattr(y, '__iter__'):
-            sflags = self.flags[:, y, x].astype('bool')
-            ax.scatter(self.rest_wavelength[sflags], s[sflags], marker='x', color='red')
+            s_flags = self.flags[:, y, x].astype('bool')
+            ax.scatter(self.rest_wavelength[s_flags], s[s_flags], marker='x', color='red')
 
-        plt.show()
+        ax.set_xlabel(f'Wavelength')
+        ax.set_ylabel(f'Spectral flux density')
+
+        if show:
+            plt.show()
 
     def peak_coords(self, wl_center, wl_width, center_type='peak_cen', spatial_center=None, spatial_width=10):
         """
@@ -554,10 +644,10 @@ class Cube(onedspec.Spectrum):
             arr=self.data, wl=self.wl, wl0=wl_center, fwhm=wl_width,
             filtertype='box')
         projection_crop = projection[
-                          int(spatial_center[0] - spatial_width / 2):
-                          int(spatial_center[0] + spatial_width / 2) + 1,
-                          int(spatial_center[1] - spatial_width / 2):
-                          int(spatial_center[1] + spatial_width / 2) + 1]
+            int(spatial_center[0] - spatial_width / 2):
+            int(spatial_center[0] + spatial_width / 2) + 1,
+            int(spatial_center[1] - spatial_width / 2):
+            int(spatial_center[1] + spatial_width / 2) + 1]
         if center_type == 'peak_cen':
             idx = np.nanargmax(projection_crop, axis=None)
             coords = np.unravel_index(idx, projection_crop.shape)
@@ -566,11 +656,11 @@ class Cube(onedspec.Spectrum):
             spatial_center[1] = int(
                 spatial_center[1] - spatial_width / 2 + coords[1])
             projection_crop = projection[
-                              int(spatial_center[0] - spatial_width / 2):
-                              int(spatial_center[0] + spatial_width / 2) + 1,
-                              int(spatial_center[1] - spatial_width / 2):
-                              int(spatial_center[1] + spatial_width / 2) + 1
-                              ]
+                int(spatial_center[0] - spatial_width / 2):
+                int(spatial_center[0] + spatial_width / 2) + 1,
+                int(spatial_center[1] - spatial_width / 2):
+                int(spatial_center[1] + spatial_width / 2) + 1
+            ]
             coords = center_of_mass(ma.masked_invalid(projection_crop))
         elif center_type == 'peak':
             idx = np.nanargmax(projection_crop, axis=None)

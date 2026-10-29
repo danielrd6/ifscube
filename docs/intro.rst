@@ -42,68 +42,98 @@ and the Zenodo DOI
 Installation instructions
 ==================================================
 
-If you are familiar with UV [#uv]_, Anaconda [#anaconda]_, or other 
-contained environments, I recommend you install IFSCube within its
-own environment, in order to avoid conflicts with other packages and 
-package versions.
+IFSCube is a pure Python package, so it needs no compiler. The recommended
+way to install it is with ``pip`` (or ``uv``) inside a virtual environment.
+Conda is no longer required.
 
-The following commands will copy IFSCube's git repository to your computer, and then move to the newly created directory containing the code. 
+Installing from git
+~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: bash
-
-    git clone https://github.com/danielrd6/ifscube.git
-    cd ifscube
-
-From here you can install it directly with `pip`.
-If you are using an environment manager, remember to change to the appropriate environment before using `pip`.
+Create and activate a virtual environment, then install directly from the
+repository:
 
 .. code-block:: bash
 
-    pip install .
-
-If you want to be able to modify the code to better suit your needs, or to contribute
-your own code to the project, or just to be able to check different branches of the
-source code, I recommend using the editable flag of pip's install.
-Just substitute the line in the previous block by
-
-.. code-block:: bash
-
-    pip install -e .
-
-This editable installation will allow you to update the code with a simple
-
-.. code-block:: bash
-
-    git pull
-
-issued from within the `ifscube` directory, and avoid the need to run `pip 
-install` every time there is an update.
-Additionally, you can checkout different branches with
-
-.. code-block:: bash
-
-    git checkout <branch_name>
-
-Experimental features are always first available in dedicated branches before being incorporated into the main version.
-
-Alternatively, one can also install `ifscube` directly from the git repository with
-
-.. code-block:: bash
-
+    python -m venv ifscube-env
+    source ifscube-env/bin/activate
     pip install git+https://github.com/danielrd6/ifscube.git
 
-Similarly, upgrades can also be done directly from the online repository with
+If you use `uv <https://docs.astral.sh/uv/>`_, the equivalent is:
+
+.. code-block:: bash
+
+    uv venv
+    uv pip install git+https://github.com/danielrd6/ifscube.git
+
+To upgrade an existing installation:
 
 .. code-block:: bash
 
     pip install --upgrade git+https://github.com/danielrd6/ifscube.git
 
-.. rubric:: Footnotes
+Installing for development
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. [#astroconda] https://astroconda.readthedocs.io/en/latest/
+To work on the code, clone the repository and install it in editable mode,
+so that changes take effect without reinstalling:
 
-.. [#anaconda] https://www.anaconda.com/
+.. code-block:: bash
 
-.. [#uv] https://docs.astral.sh/uv/
+    git clone https://github.com/danielrd6/ifscube.git
+    cd ifscube
+    python -m venv .venv
+    source .venv/bin/activate
+    pip install -e .
 
-.. _git: https://git-scm.com/
+With uv, ``uv sync`` creates the environment and installs the project and
+its dependencies in one step.
+
+You can check out other branches with ``git checkout <branch_name>``.
+
+Third party software
+~~~~~~~~~~~~~~~~~~~~
+
+IFSCube uses third party programs that are not distributed with the package,
+namely `pPXF <https://pypi.org/project/ppxf/>`_ and `PowerBin <https://pypi.org/project/powerbin/>`_.
+See their documentation for installation instructions.
+
+Free-threaded Python (experimental)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+IFSCube can be installed on free-threaded builds of Python (for example
+3.14t), but support is experimental. This requires numba 0.65 or later,
+which is the first release to support free-threaded Python.
+
+At the time of writing, h5py does not publish free-threaded wheels, so
+pip and uv will try to build it from source. This needs the HDF5 libraries
+and ``pkg-config``. Check whether newer h5py releases provide ``cp314t``
+wheels first, in which case none of the steps below are needed.
+
+On macOS (with Homebrew):
+
+.. code-block:: bash
+
+    brew install hdf5 pkg-config
+    export HDF5_DIR="$(brew --prefix hdf5)"
+
+On Debian or Ubuntu:
+
+.. code-block:: bash
+
+    sudo apt install libhdf5-dev pkg-config
+
+Then install IFSCube as usual. To confirm that the GIL is actually disabled
+after importing it, run:
+
+.. code-block:: bash
+
+    python -c "import ifscube, sys; print(sys._is_gil_enabled())"
+
+This should print ``False``. If it prints ``True``, one of the compiled
+dependencies has re-enabled the GIL.
+
+.. note::
+
+    h5py serializes its own calls with a global lock, even without the GIL,
+    so reading data files will not speed up with threads. Parallel speedups
+    come from the numerical code.
