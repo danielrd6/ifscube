@@ -26,7 +26,7 @@ the :class:`ifscube.datacube.Cube` or :class:`ifscube.onedspec.Spectrum`
 classes, substituting the :meth:`__init__` and :meth:`_load` methods.
 
 Acknowledging IFSCube
-====================
+=====================
 
 If you use IFSCube in your research, and feel that it has contributed
 significantly to your work, please consider citing the following paper
